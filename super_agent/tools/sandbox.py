@@ -1,8 +1,8 @@
 """Sandbox configuration and the command runner that consumes it.
 
-Ported from ``tools/sandbox.go``. The platform-specific construction lives in
-``sandbox_linux.py`` and ``sandbox_other.py``; ``sys.platform`` selects between
-them the way Go's build tags do.
+The platform-specific construction lives in ``sandbox_linux.py`` and
+``sandbox_other.py``; ``sys.platform`` selects between them the way platform
+dispatch does.
 
 Strict mode fails closed on purpose: an unsupported platform must refuse to run
 a command rather than silently running it unsandboxed.
@@ -24,7 +24,7 @@ else:
 
 
 class SandboxMode(str):
-    """How commands run. Mirrors Go's string-backed ``SandboxMode``."""
+    """How commands run. A ``str`` subclass so it serialises as its value."""
 
     __slots__ = ()
 
@@ -35,7 +35,7 @@ class SandboxMode(str):
 SandboxModeOff: Final[SandboxMode] = SandboxMode("off")
 SandboxModeStrict: Final[SandboxMode] = SandboxMode("strict")
 
-#: Go's zero value for the type; an empty mode means strict, not off.
+#: The zero value for the type; an empty mode means strict, not off.
 ZeroSandboxMode: Final[SandboxMode] = SandboxMode("")
 
 
@@ -112,9 +112,8 @@ def new_command_runner(config: SandboxConfig, workspace_context: WorkspaceContex
         raise RuntimeError("strict sandbox requires a workspace")
     config.Workspace = os.path.realpath(os.path.abspath(config.Workspace), strict=True)
     if config.CPUSeconds <= 0:
-        # The command limits live in ``commands.py`` (Go keeps both in the tools
-        # package). The import stays local to keep ``sandbox`` and ``commands``
-        # acyclic.
+        # The command limits live in ``commands.py``. The import stays local to
+        # keep ``sandbox`` and ``commands`` acyclic.
         from super_agent.tools.commands import max_command_timeout
 
         config.CPUSeconds = int(max_command_timeout)

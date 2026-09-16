@@ -12,7 +12,7 @@ from typing import Final
 
 
 class CommandClass(str):
-    """How a shell command is classified. Mirrors Go's string-backed type."""
+    """How a shell command is classified, as a string-backed type."""
 
     __slots__ = ()
 
@@ -26,7 +26,7 @@ CommandClassNetwork: Final[CommandClass] = CommandClass("network")
 CommandClassDestructive: Final[CommandClass] = CommandClass("destructive")
 CommandClassUnknown: Final[CommandClass] = CommandClass("unknown")
 
-#: Go's zero value for the type. A request nobody classified is not the same as
+#: The zero value for the type. A request nobody classified is not the same as
 #: one classified ``unknown``: ``unknown`` means the command was examined and
 #: found opaque, while the zero value means nothing looked at it. The TUI keeps
 #: the distinction — ``tui/approval`` only prints the class line when it is set.
@@ -38,8 +38,8 @@ class Request:
     """Why a tool call needs a decision.
 
     ``runtime/permission`` declares no JSON tags, so serialising this with
-    :mod:`super_agent.jsonutil` falls back to the field names — which is exactly
-    what Go's encoder does with a tagless struct. Nothing persists it either way.
+    :mod:`super_agent.jsonutil` falls back to the field names, which is the
+    documented fallback for a type with no tags. Nothing persists it either way.
     """
 
     ToolName: str = ""

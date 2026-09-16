@@ -1,9 +1,9 @@
 """The single filesystem access policy for one agent session.
 
-Ported from ``workspace/context.go``. A :class:`Context` holds a canonical
-primary root, a canonical cwd, and the roots the session may reach with their
-access modes, and it answers the only three questions tools need: where a path
-resolves to, whether it may be read, and whether it may be written.
+A :class:`Context` holds a canonical primary root, a canonical cwd, and the roots
+the session may reach with their access modes, and it answers the only three
+questions tools need: where a path resolves to, whether it may be read, and
+whether it may be written.
 
 Access roots deliberately do not imply trust for configuration discovery: the
 roots here grant file access only, and project instructions are still loaded from
@@ -19,7 +19,7 @@ from typing import Final
 
 
 class Access(str):
-    """Whether a workspace root may be written to. Mirrors Go's string-backed ``Access``."""
+    """Whether a workspace root may be written to. A ``str`` subclass so it serialises as its value."""
 
     __slots__ = ()
 
@@ -89,7 +89,7 @@ class Context:
         return self.canAccess(resolved, write=True)
 
     def canAccess(self, path: str, write: bool) -> bool:
-        """Go's containment check: a lexically relative path that never escapes."""
+        """The containment check: a lexically relative path that never escapes."""
         for root in self._roots:
             if write and root.Access != AccessReadWrite:
                 continue

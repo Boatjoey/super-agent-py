@@ -41,7 +41,7 @@ class ToolDecision(IntEnum):
 
 
 class PermissionMode(str):
-    """How much the policy trusts tool calls. Mirrors Go's string-backed type."""
+    """How much the policy trusts tool calls, as a string-backed type."""
 
     __slots__ = ()
 
@@ -54,7 +54,7 @@ PermissionModeAcceptEdits: Final[PermissionMode] = PermissionMode("accept-edits"
 PermissionModePlan: Final[PermissionMode] = PermissionMode("plan")
 PermissionModeBypass: Final[PermissionMode] = PermissionMode("bypass")
 
-#: Go's zero value for the type. :func:`NewPolicy` reads it as "use the default".
+#: The zero value for the type. :func:`NewPolicy` reads it as "use the default".
 ZeroPermissionMode: Final[PermissionMode] = PermissionMode("")
 
 
@@ -307,10 +307,10 @@ def _cleanSlash(path: str) -> str:
 
 
 def _rel(basepath: str, targpath: str) -> str | None:
-    """``filepath.Rel``, including its refusal to mix absolute and relative paths.
+    """A relative path, refusing to mix absolute and relative inputs.
 
     ``os.path.relpath`` would silently consult the process working directory,
-    which is exactly what Go's ``Rel`` refuses to do.
+    which this refuses to do.
     """
     if os.path.isabs(basepath) != os.path.isabs(targpath):
         return None

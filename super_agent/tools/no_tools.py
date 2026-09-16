@@ -1,7 +1,7 @@
 """The tool runner used when tools are switched off.
 
-Ported from ``tools/no_tools.go``. It advertises nothing and refuses every
-call, which is what the engine needs to keep a run alive without a tool set.
+It advertises nothing and refuses every call, which is what the engine needs to
+keep a run alive without a tool set.
 """
 
 from __future__ import annotations

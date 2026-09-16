@@ -1,4 +1,4 @@
-"""Port of ``tests/tools/web_test.go``, plus the offline fetch cases.
+"""The network tools, plus the offline fetch cases.
 
 No test here reaches the network: the fetch cases drive the tool through an
 :class:`httpx.MockTransport`, and the rejection cases never get as far as a

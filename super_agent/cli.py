@@ -1,7 +1,6 @@
-"""The command-line surface: Go's ``flag`` package, hand-written.
+"""The command-line surface: a hand-written flag parser.
 
-The Go implementation uses the standard ``flag`` package, and that package's
-awkward corners are the contract, so this parser reproduces them deliberately
+The parsing rules are the contract, so this parser reproduces them deliberately
 rather than reaching for ``argparse``:
 
 * ``-x`` and ``--x`` are the same flag, and ``--`` alone ends the flags;
@@ -13,7 +12,7 @@ rather than reaching for ``argparse``:
 
 :func:`Parse` reports by raising :class:`FlagError` rather than exiting, so the
 entry point owns the exit status: 2 for a flag error, 0 for ``-h``. Printing and
-exiting is the only thing Go's ``ExitOnError`` does that this does not.
+exiting are deliberately left to the caller.
 """
 
 from __future__ import annotations
@@ -27,22 +26,21 @@ from super_agent.app.config import Flags
 
 __all__ = ["FLAGS", "Flag", "FlagError", "Parse", "Usage"]
 
-#: The two sets of spellings Go's ``strconv.ParseBool`` accepts, and nothing else.
+#: The two sets of boolean spellings accepted, and nothing else.
 TRUE_VALUES: Final[frozenset[str]] = frozenset({"1", "t", "T", "TRUE", "true", "True"})
 FALSE_VALUES: Final[frozenset[str]] = frozenset({"0", "f", "F", "FALSE", "false", "False"})
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Flag:
-    """One flag declaration, as Go's ``flag.Flag`` holds it."""
+    """One flag declaration."""
 
     Name: str
     IsBool: bool
     Usage: str
 
 
-#: Every flag this program defines. Go keeps them in a map and sorts them when it
-#: prints, which is what :func:`Usage` does too.
+#: Every flag this program defines. They are sorted by name when printed.
 FLAGS: Final[tuple[Flag, ...]] = (
     Flag(Name="yolo", IsBool=True, Usage="Auto-approve tool execution"),
     Flag(Name="no-tools", IsBool=True, Usage="Disable tool calling"),
@@ -54,7 +52,7 @@ FLAGS: Final[tuple[Flag, ...]] = (
 class FlagError(Exception):
     """A parse outcome the entry point turns into an exit.
 
-    ``status`` is Go's: 2 for a parse failure, 0 when ``-h`` asked for the usage.
+    ``status`` is 2 for a parse failure and 0 when ``-h`` asked for the usage.
     """
 
     __slots__ = ("message", "showUsage", "status")
@@ -67,24 +65,24 @@ class FlagError(Exception):
 
 
 def Usage() -> str:
-    """Go's ``defaultUsage``: the flag set's name, then every flag by name.
+    """The flag set's name, then every flag by name.
 
-    Go appends `` (default ...)`` only for a flag whose default is not the zero
-    value of its type. Every flag here defaults to ``false`` or ``""``, so the
-    text names no defaults at all — which is why nothing enables ``-yolo`` by
+    `` (default ...)`` would be appended only for a flag whose default is not the
+    zero value of its type. Every flag here defaults to ``false`` or ``""``, so
+    the text names no defaults at all — which is why nothing enables ``-yolo`` by
     being printed.
     """
     lines = [f"Usage of {sys.argv[0]}:"]
     for flag in sorted(FLAGS, key=lambda item: item.Name):
         name = "" if flag.IsBool else " string"
-        # Four spaces then a tab: Go's alignment for a flag name longer than one
-        # character, which every flag here is.
+        # Four spaces then a tab: the alignment used for a flag name longer than
+        # one character, which every flag here is.
         lines.append(f"  -{flag.Name}{name}\n    \t{flag.Usage}")
     return "\n".join(lines) + "\n"
 
 
 def Parse(argv: Sequence[str]) -> Flags:
-    """Parse ``argv`` the way ``flag.Parse`` would, or raise :class:`FlagError`."""
+    """Parse ``argv``, or raise :class:`FlagError`."""
     byName = {flag.Name: flag for flag in FLAGS}
     values: dict[str, str] = {flag.Name: ("false" if flag.IsBool else "") for flag in FLAGS}
     index = 0
@@ -107,7 +105,7 @@ def Parse(argv: Sequence[str]) -> Flags:
             name, value = name.split("=", 1)
         flag = byName.get(name)
         if flag is None:
-            if name in ("help", "h"):  # the one special case Go's parser has
+            if name in ("help", "h"):  # the one special case the parser has
                 raise FlagError("", status=0)
             raise FlagError(f"flag provided but not defined: -{name}")
         if flag.IsBool:
@@ -130,7 +128,7 @@ def Parse(argv: Sequence[str]) -> Flags:
 
 
 def _boolValue(value: str, name: str) -> bool:
-    """Go's ``boolValue.Set``: the two accepted spellings, or a parse failure."""
+    """The two accepted boolean spellings, or a parse failure."""
     if value in TRUE_VALUES:
         return True
     if value in FALSE_VALUES:

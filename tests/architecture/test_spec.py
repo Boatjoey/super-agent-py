@@ -1,10 +1,10 @@
 """``docs/machine.md`` is the spec; this module is what makes that true.
 
-Ported from ``tests/architecture/spec_test.go``. The document owns the transition
-graph: when the machine and the document disagree, the machine is wrong. The test
-enumerates every state against every declared event, asserts the accepted set and
-its destinations match the documented table in both directions, and then checks
-that the mermaid diagram in the same file agrees with the table.
+The document owns the transition graph: when the machine and the document
+disagree, the machine is wrong. The test enumerates every state against every
+declared event, asserts the accepted set and its destinations match the documented
+table in both directions, and then checks that the mermaid diagram in the same
+file agrees with the table.
 
 Both parsers fail loudly when the document's format changes. Silently matching
 nothing would turn the whole enforcement mechanism into a no-op.

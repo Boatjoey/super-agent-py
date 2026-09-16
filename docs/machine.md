@@ -5,12 +5,12 @@ changes, action plans, scheduled actions, and transitions. It performs no I/O, t
 never calls a model or a tool.
 
 This file is the **single source of truth for the transition graph**. The table and the diagram below
-are both verified against the running machine by `tests/architecture/spec_test.go`; if you change one
+are both verified against the running machine by `tests/architecture/test_spec.py`; if you change one
 without changing `runtime/machine`, that test fails.
 
 ## States
 
-`State` is a string-backed type declared in `runtime/machine/state.go`. Six states exist:
+`State` is a string-backed type declared in `runtime/machine/state.py`. Six states exist:
 
 | State | Meaning | Entered from | Left by |
 |---|---|---|---|
@@ -47,7 +47,7 @@ noise without adding information.
 
 ## Transition Table
 
-The canonical edge list. `tests/architecture/spec_test.go` enumerates all 6 states ×
+The canonical edge list. `tests/architecture/test_spec.py` enumerates all 6 states ×
 `machine.AllEvents` (15 events, 90 pairs) and asserts that the set of accepted pairs with their
 `NextState` matches this table exactly — in both directions, so an undocumented edge fails too.
 
@@ -74,7 +74,7 @@ The canonical edge list. `tests/architecture/spec_test.go` enumerates all 6 stat
 append one `AppendToolResult` per outstanding call, so the count varies with the starting state (4
 changes from `WaitingLLM`, 5 from `WaitingApproval`, `RunningTool`, or a single-call `AdvancingQueue`
 batch). The conformance test therefore pins the edge set and `NextState` only, while
-`tests/runtime/transition_test.go` pins the exact change lists per starting state.
+`tests/runtime/test_transition.py` pins the exact change lists per starting state.
 
 Two denial paths exist and they are not the same thing:
 
@@ -96,25 +96,25 @@ unanswered.
 
 ## RuntimeData
 
-`RuntimeData` is the complete mutable machine data (`runtime_data.go`). It is replaced, never mutated
+`RuntimeData` is the complete mutable machine data (`runtime_data.py`). It is replaced, never mutated
 in place.
 
-```go
-type RuntimeData struct {
-    State              State
-    Messages           []Message
-    PendingTool        *ToolCall          // awaiting approval
-    PendingPermission  *PermissionRequest
-    CurrentTool        *ToolCall          // executing
-    ToolBatch          *ToolCallBatch     // remaining queue
-    StreamingContent   string
-    StreamingReasoning string
-}
+```python
+@dataclass(slots=True)
+class RuntimeData:
+    State: State
+    Messages: list[Message] = field(default_factory=list[Message])
+    PendingTool: ToolCall | None = None  # awaiting approval
+    PendingPermission: PermissionRequest | None = None
+    CurrentTool: ToolCall | None = None  # executing
+    ToolBatch: ToolCallBatch | None = None  # remaining queue
+    StreamingContent: str = ""
+    StreamingReasoning: str = ""
 ```
 
 ## Invariants
 
-`ValidateRuntimeData` (`snapshot.go`) is the authority; these are its rules. `SnapshotFrom` runs it
+`ValidateRuntimeData` (`snapshot.py`) is the authority; these are its rules. `SnapshotFrom` runs it
 before every transition, and the `RuntimeDataChangeApplier` runs it again on the cloned candidate, so
 an invalid intermediate state can never be committed.
 
@@ -138,7 +138,7 @@ being approved or run is always the one just consumed.
 
 ## Errors
 
-Three error types separate three different mistakes (`errors.go`):
+Three error types separate three different mistakes (`errors.py`):
 
 - `UnexpectedEventError` — the current state does not accept this event.
 - `ProtocolViolationError` — the event type is valid here, but its content does not match current
@@ -148,8 +148,8 @@ Three error types separate three different mistakes (`errors.go`):
 ## RuntimeDataChange
 
 A `RuntimeDataChange` synchronously constructs the next `RuntimeData` from the current one. The
-complete vocabulary is `machine.AllRuntimeDataChanges` (`runtime_data_change.go`); the applier
-(`runtime_data_change_applier.go`) clones, applies in order, and validates.
+complete vocabulary is `machine.AllRuntimeDataChanges` (`runtime_data_change.py`); the applier
+(`runtime_data_change_applier.py`) clones, applies in order, and validates.
 
 Transitions that end a run cannot simply drop work, so they flush and clear explicitly:
 `FlushStreamingAssistant`, `ClearPendingTool`, `ClearCurrentTool`, `ClearToolCallBatch`. A transition
@@ -160,18 +160,18 @@ applies the same rule, so a reset survives a restart while project instructions 
 
 ## ActionPlan and ScheduledAction
 
-```go
-type ActionPlan struct {
-    ClearExisting bool
-    Schedule      []ScheduledAction
-}
+```python
+@dataclass(frozen=True, slots=True)
+class ActionPlan:
+    ClearExisting: bool = False
+    Schedule: tuple[ScheduledAction, ...] = ()
 ```
 
 Clearing obsolete queue work and scheduling new work is one atomic decision, not two. The engine
 commits the plan together with the runtime data under a single lock; scheduled actions run only after
 that commit.
 
-Four `ScheduledAction` types exist (`scheduled_action.go`, enumerated by `machine.AllScheduledActions`):
+Four `ScheduledAction` types exist (`scheduled_action.py`, enumerated by `machine.AllScheduledActions`):
 
 | Action | Work |
 |---|---|
@@ -185,31 +185,31 @@ is why approval needs no second loop and no scheduling authority in `runtime/ses
 
 ## Registry
 
-Transitions live in one package-private static registry in `transition.go`, keyed by state and event
+Transitions live in one package-private static registry in `transition.py`, keyed by state and event
 kind:
 
-```go
-type transitionKey struct {
-    state State
-    event eventKind
-}
+```python
+@dataclass(frozen=True, slots=True)
+class TransitionKey:
+    state: State
+    event_kind: str
 ```
 
-`registerTransition` panics on a duplicate key, so a new rule cannot silently shadow an old one. The
+`register_transition` raises on a duplicate key, so a new rule cannot silently shadow an old one. The
 zero `State` value is not a legal running state, which is how the three global rows are registered
 once instead of six times:
 
-```go
-{transitionKey{event: eventErrorOccurred}, adaptTransition(handleErrorOccurred)},
+```python
+global_rules = ((TransitionKey(ZeroState, ErrorOccurred.kind), adapt_transition(handle_error_occurred)),)
 ```
 
 Lookup tries the exact key first, then the zero-state key, and reports `UnexpectedEventError` if
 neither exists.
 
 Handlers take concrete event types, so they cannot be stored in the registry directly.
-`adaptTransition[E Event]` unifies the signature, letting the compiler infer `E` from the handler and
-recovering the concrete event with a type assertion at call time. The `ok` check is kept so a
-mis-registration returns a `ProtocolViolationError` instead of panicking.
+`adapt_transition[E: Event]` unifies the signature: it reads the concrete event type from the
+handler's second-parameter annotation and checks it with `isinstance` at call time, so a
+mis-registration returns a `ProtocolViolationError` instead of failing in some unrelated way later.
 
 Handlers that do not need the snapshot take `_ MachineSnapshot`. Handlers that must relate the event
 to current data read it — `handleToolResultReceived` checks that a current tool exists and that the
@@ -256,10 +256,10 @@ Engine-side terms — `Engine`, `ActionQueue`, `ActionResultResolver`, `Schedule
 
 ## Adding a Transition
 
-1. Declare the event and its `eventKind` in `runtime/machine/event.go`, and add it to `AllEvents`.
-2. Write the handler in `runtime/machine/transition.go`.
+1. Declare the event and its `eventKind` in `runtime/machine/event.py`, and add it to `AllEvents`.
+2. Write the handler in `runtime/machine/transition.py`.
 3. Register the rule in `newTransitionRegistry`.
 4. Return the required `RuntimeDataChanges` and `ActionPlan`.
 5. Add the row to the table above — it is the spec, and the conformance test fails without it.
 6. Cover the legal path, the rejection path, and the exact output order in
-   `tests/runtime/transition_test.go`.
+   `tests/runtime/test_transition.py`.

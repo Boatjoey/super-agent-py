@@ -1,7 +1,4 @@
-"""Workspace access policy: containment, access modes, and symlink escapes.
-
-Ported from ``tests/workspace/context_test.go``.
-"""
+"""Workspace access policy: containment, access modes, and symlink escapes."""
 
 from __future__ import annotations
 
@@ -77,7 +74,7 @@ def test_context_rejects_symlink_escape(tmp_path: Path) -> None:
 
 
 def new_context(primary: str, *roots: workspace.Root) -> workspace.Context:
-    """Mirror the Go test helper: the primary root is also the cwd."""
+    """Build a context whose primary root is also its cwd."""
     return workspace.NewContext(primary, primary, roots)
 
 

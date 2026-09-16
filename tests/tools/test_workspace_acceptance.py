@@ -1,6 +1,6 @@
-"""Port of ``tests/tools/workspace_acceptance_test.go``.
+"""Black-box acceptance tests for the tool registry.
 
-These are black-box acceptance tests: they drive the registry through its
+These drive the registry through its
 public surface and assert only what the model would observe, so a change to the
 containment implementation cannot quietly widen access.
 """

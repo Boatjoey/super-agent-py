@@ -1,8 +1,8 @@
 """Workspace access policy and the session filesystem adapter.
 
-Ports ``workspace`` (``context.go`` and ``workspace.go``). :class:`Context` is
-the process-independent source of truth for roots and cwd; :class:`Workspace` is
-the switchable binding the session and the built-in tools share.
+:class:`Context` is the process-independent source of truth for roots and cwd;
+:class:`Workspace` is the switchable binding the session and the built-in tools
+share.
 """
 
 from __future__ import annotations

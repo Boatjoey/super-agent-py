@@ -1,9 +1,8 @@
 """The slash-command feature.
 
-Go's ``tui/commands`` package surface, re-exported so callers keep writing
-``commands.Outcome`` and ``commands.IsCommand``. ``Command`` stays the palette
-entry Go makes it; the effect type a handler returns stays inside
-``commands/model.py``.
+The package surface, re-exported so callers keep writing ``commands.Outcome`` and
+``commands.IsCommand``. ``Command`` stays the palette entry; the effect type a
+handler returns stays inside ``commands/model.py``.
 """
 
 from __future__ import annotations

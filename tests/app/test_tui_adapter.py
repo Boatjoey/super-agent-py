@@ -1,4 +1,4 @@
-"""Port of ``tests/app/tui_adapter_test.go``.
+"""The TUI adapter's mapping of runtime values to presentation values.
 
 The adapter is the one place runtime values become presentation values, so the
 test drives it through the engine: an unready engine is ``Initializing``, and a
@@ -15,9 +15,9 @@ from super_agent.app import NewTUIConversation
 
 @pytest.mark.asyncio
 async def test_tui_adapter_maps_runtime_state() -> None:
-    # Go builds the engine with a nil executor. Here the default executor wraps a
-    # nil model and a nil tool runner, which is the same engine for a test that
-    # only reads its state.
+    # The engine is built with nil ports: the default executor wraps a nil model
+    # and a nil tool runner, which is the same engine for a test that only reads
+    # its state.
     engine = runtime.NewEngine(None, None, None)
     conversation = NewTUIConversation(runtime.NewSession(engine))
 

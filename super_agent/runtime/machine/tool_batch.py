@@ -12,7 +12,7 @@ from super_agent.runtime.protocol.types import ToolCall
 class ToolCallBatch:
     """One model response's tool calls, plus how far the queue has advanced.
 
-    ``Index`` is always serialised, matching Go, because ``0`` is meaningful: it
+    ``Index`` is always serialised because ``0`` is meaningful: it
     says no call has been dispatched yet.
     """
 

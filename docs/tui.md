@@ -2,7 +2,7 @@
 
 `tui` is the inbound adapter and the only interaction surface. It depends on its `Conversation` port
 and its own display DTOs, never on `runtime` — see `architecture.md`. Runtime values become TUI values
-at the composition boundary in `app/tui_adapter.go`.
+at the composition boundary in `app/tui_adapter.py`.
 
 ## Feature Architecture
 
@@ -24,8 +24,8 @@ Meanings such as submitting a prompt, choosing an approval, or navigating a menu
 respective features.
 
 Views are pure renderers. A view may read only its feature model; it must not call a port or service,
-mutate state, start work, or emit business events. I/O and other side effects run as Bubble Tea
-commands returned by the update/effect layer, and their typed result messages drive later updates.
+mutate state, start work, or emit business events. I/O and other side effects run as commands returned
+by the update/effect layer, and their typed result messages drive later updates.
 
 Each feature defines the narrow ports required by its own use cases. TUI features must not depend on
 runtime types, global services, or a shared interface that aggregates unrelated capabilities. The
@@ -56,7 +56,7 @@ another feature — a prompt, an attachment, a snapshot refresh — travels as a
 requesting feature's outcome, and the root performs the wiring.
 
 `tui` may not import `runtime`, and a feature may not import a sibling feature or the root package.
-Both rules are enforced by `tests/architecture/dependencies_test.go`.
+Both rules are enforced by `tests/architecture/test_dependencies.py`.
 
 ## Commands
 

@@ -1,8 +1,8 @@
 """Location-stable re-exports for the session package.
 
-Go's ``session/aliases.go`` lets session code write ``Message`` and
-``PermissionMode`` without importing half the runtime. The same names live at the
-same position here.
+These re-exports let session code write ``Message`` and ``PermissionMode``
+without importing half the runtime. The same names live at the same position
+here.
 """
 
 from __future__ import annotations

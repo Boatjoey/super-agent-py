@@ -1,13 +1,10 @@
 """The prompt input, its history, queued follow-ups, and the slash palette.
 
-Ported from the Go ``tui/composer/model.go``. Go embeds ``bubbles/textarea``; the
-port keeps the same observable behaviour with a plain value-plus-cursor buffer,
-because the editing surface the root actually relies on is small: insert, delete,
-move, and the history stack.
+The editing surface is a plain value-plus-cursor buffer, because the part the
+root actually relies on is small: insert, delete, move, and the history stack.
 
-One Go signature changes shape: ``Update`` returns ``(Model, Intent | None)``.
-Go also returns a ``tea.Cmd`` from the textarea's cursor blink, which has no
-Python counterpart, so this feature has no asynchronous effect to hand back.
+``Update`` returns ``(Model, Intent | None)``, and this feature has no
+asynchronous effect to hand back, so there is no cursor-blink command to return.
 """
 
 from __future__ import annotations
@@ -22,8 +19,8 @@ from rich.text import Text
 _PROMPT_GLYPH, _SELECTED_MARKER = "\u276f", "\u203a"
 #: The cursor is a reversed cell, which keeps every line the same width.
 _CURSOR = Style(reverse=True)
-#: Go builds these inline with lipgloss; a feature may not reach for the root's
-#: styles (R6), so the composer keeps its own palette.
+#: A feature may not reach for the root's styles (R6), so the composer keeps its
+#: own palette.
 _ACCENT = Style(color="color(6)", italic=True)
 _ACCENT_SELECTED = Style(color="color(6)", bold=True)
 _DIM = Style(color="color(8)", italic=True)
@@ -86,7 +83,7 @@ class Model:
     width: int = 76
 
     def Init(self) -> None:
-        """Nothing to start. Go blinks the textarea's cursor; Rich does not."""
+        """Nothing to start: Rich does not blink the cursor."""
         return None
 
     def SetWidth(self, width: int) -> None:
@@ -351,7 +348,7 @@ def NormalizeCommands(commands: tuple[Command, ...] | list[Command]) -> tuple[Co
 
 
 def New(commands: tuple[Command, ...] | list[Command]) -> Model:
-    """Go's ``composer.New``."""
+    """Build the model with a normalised palette."""
     return Model(commands=NormalizeCommands(commands))
 
 

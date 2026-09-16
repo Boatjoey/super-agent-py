@@ -1,7 +1,7 @@
 """Batch dispatch through the unified approval events.
 
-Ported from ``tests/runtime/tool_batch_test.go``. The second case in that file
-asserts on ``EngineView`` batch progress and lives in ``tests/runtime/test_engine.py``.
+The other case asserts on ``EngineView`` batch progress and lives in
+``tests/runtime/test_engine.py``.
 """
 
 from __future__ import annotations
@@ -34,9 +34,9 @@ def test_tool_batch_received_advances_through_unified_approval_events() -> None:
 def test_snapshot_includes_pending_tool_batch_progress() -> None:
     """The header shows "2/2", so the batch counters must reach the view.
 
-    Go's test builds the view literal, which only pins the field names. The second
-    half here also drives the real ``Snapshot()`` path, because that is where the
-    counters are actually filled in — and where a regression would hide.
+    Building the view literal only pins the field names. The second half here also
+    drives the real ``Snapshot()`` path, because that is where the counters are
+    actually filled in — and where a regression would hide.
     """
     from super_agent.runtime.engine import EngineView
 

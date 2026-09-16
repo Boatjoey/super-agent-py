@@ -1,10 +1,9 @@
 """The narrow ports the command feature needs, one per use case.
 
-Ported from the Go ``tui/commands/ports.go``. Each port is declared here and
-implemented at the composition boundary; the feature never learns what is behind
-it. Reads are synchronous the way Go's are, and every call that can touch the
-disk, the network, or another process is ``async`` — Python has no goroutine to
-run it in, so the adapter must be awaited.
+Each port is declared here and implemented at the composition boundary; the
+feature never learns what is behind it. Reads are synchronous, and every call
+that can touch the disk, the network, or another process is ``async``: it is
+awaited rather than run inline.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Facade re-exports for the value types the adapters share.
 
-Go's ``runtime/api_model.go`` keeps these in one file so the whole protocol
-surface is reachable as ``runtime.Message`` and ``runtime.ToolSpec``.
+These are grouped in one module so the whole protocol surface is reachable as
+``runtime.Message`` and ``runtime.ToolSpec``.
 """
 
 from __future__ import annotations

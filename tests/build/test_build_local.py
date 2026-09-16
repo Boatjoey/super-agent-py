@@ -1,10 +1,8 @@
-"""Port of ``tests/build/build_local_test.go``.
+"""The local build script.
 
-There is no static binary to link the way ``go build`` produces one, so the
-script installs the console script into a dedicated virtual environment and puts
-a launcher on ``PATH``. The assertions are the Go test's: the launcher exists, it
-is executable, and ``-h`` succeeds without claiming that ``-yolo`` defaults to
-true.
+The script installs the console script into a dedicated virtual environment and
+puts a launcher on ``PATH``. The assertions: the launcher exists, it is
+executable, and ``-h`` succeeds without claiming that ``-yolo`` defaults to true.
 """
 
 from __future__ import annotations
@@ -13,8 +11,9 @@ import os
 import subprocess
 from pathlib import Path
 
-#: The text Go prints for a flag whose default is not the zero value. ``-yolo``
-#: defaults to false, so its appearance would mean the flag had been inverted.
+#: The text a help printer emits for a flag whose default is not the zero value.
+#: ``-yolo`` defaults to false, so its appearance would mean the flag had been
+#: inverted.
 FORBIDDEN_HELP_TEXT = "Auto-approve tool execution (default true)"
 
 

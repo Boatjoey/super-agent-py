@@ -1,9 +1,8 @@
 """MCP server lifecycle, dynamic tool registration, and settings persistence.
 
-Ported from ``app/mcp.go``. Every mutation is a three-step transaction — change
-the runtime, change the registry, persist — and a failure at any step restores
-the ones before it, so the running session and ``settings.json`` never disagree
-about which servers exist.
+Every mutation is a three-step transaction — change the runtime, change the
+registry, persist — and a failure at any step restores the ones before it, so the
+running session and ``settings.json`` never disagree about which servers exist.
 
 Persistence re-reads the settings file before writing it, so a concurrent edit
 outside the app is not silently overwritten.
@@ -42,9 +41,9 @@ class MCPServerSummary:
 class MCPController:
     """The application-facing MCP manager.
 
-    The lock is an :class:`asyncio.Lock` and is held across the whole operation,
-    exactly as Go holds its mutex: connecting, registering, and persisting have to
-    be atomic together or a rollback could undo somebody else's change.
+    The lock is an :class:`asyncio.Lock` and is held across the whole operation:
+    connecting, registering, and persisting have to be atomic together or a
+    rollback could undo somebody else's change.
     """
 
     __slots__ = ("_lock", "configs", "manager", "registry", "settingsPath", "workspace")
@@ -157,7 +156,7 @@ def NewMCPController(
     workspace: str,
     configs: Mapping[str, MCPServerSettings] | None,
 ) -> MCPController:
-    """The controller over ``manager``, mirroring Go's ``NewMCPController``."""
+    """The controller over ``manager``."""
     return MCPController(manager, registry, settingsPath, workspace, configs)
 
 

@@ -1,17 +1,17 @@
 """Agent profiles, the switchable model, and the tool filter.
 
-Ported from ``app/agents.go``. A profile is a named bundle of provider, model,
-prompt, permission mode, and tool allow-list; switching profiles replaces the
-conversation's system context, the model, the permission mode, and the visible
-tools together, so the four can never disagree about which agent is active.
+A profile is a named bundle of provider, model, prompt, permission mode, and tool
+allow-list; switching profiles replaces the conversation's system context, the
+model, the permission mode, and the visible tools together, so the four can never
+disagree about which agent is active.
 
-Two shapes differ from Go:
+Two design choices are worth naming:
 
 * every method that touches the session is a coroutine, because the session's use
   cases are;
-* the ``sync.RWMutex`` guards are gone. Every mutation here runs on the single
-  event loop and none of them yields between reading and writing, so the lock
-  would only be ceremony.
+* the mutable state needs no lock: every mutation here runs on the single event
+  loop and none of them yields between reading and writing, so a lock would only
+  be ceremony.
 """
 
 from __future__ import annotations
@@ -66,8 +66,8 @@ class filteredToolRunner:
 
     ``allowed`` is ``None`` when nothing is restricting the tool set. A profile
     that names no tools leaves it ``None`` too, rather than restricting to the
-    empty set: "run with the default tools" is the absence of a restriction, not
-    a list of zero tools, which is what Go's ``setAllowed`` says as well.
+    empty set: "run with the default tools" is the absence of a restriction, not a
+    list of zero tools.
     """
 
     __slots__ = ("_allowed", "_runner")
@@ -265,9 +265,9 @@ def initialMessages(cwd: str) -> tuple[list[Message], Bundle]:
     """The built-in prompt plus every instruction layer that applies to ``cwd``.
 
     The bundle is returned alongside so session metadata can record where the
-    instructions came from. Go declares this in ``session.go``; it lives here
-    because :func:`initialMessagesWithAgent` is its only caller and Python cannot
-    have the mutual import the two Go files would need.
+    instructions came from. It lives here rather than in the session module
+    because :func:`initialMessagesWithAgent` is its only caller and the session
+    module would otherwise need a mutual import.
     """
     bundle = loadInstructions(cwd)
     content = SystemPrompt
@@ -279,8 +279,8 @@ def initialMessages(cwd: str) -> tuple[list[Message], Bundle]:
 def initialMessagesWithAgent(cwd: str, profile: AgentProfile) -> tuple[list[Message], Bundle]:
     """:func:`initialMessages` with the active profile's prompt appended.
 
-    Go mutates the first message in place; the value is frozen here, so a
-    replacement is built instead.
+    The message value is frozen, so a replacement is built rather than mutated in
+    place.
     """
     messages, bundle = initialMessages(cwd)
     if profile.Prompt != "":

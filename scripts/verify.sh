@@ -11,8 +11,8 @@ uv run pyright
 uv run pytest
 
 # Concurrency stress: `python -X dev` enables asyncio debug mode and turns
-# un-awaited coroutines and unclosed resources into visible errors. This is the
-# closest available stand-in for `go test -race`; see docs/contributing.md.
+# un-awaited coroutines and unclosed resources into visible errors. It is the
+# project's closest approximation of a race detector; see docs/contributing.md.
 concurrency_paths=""
 for candidate in tests/runtime tests/tools; do
     if compgen -G "${candidate}/test_*.py" >/dev/null; then

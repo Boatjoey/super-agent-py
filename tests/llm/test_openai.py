@@ -1,9 +1,8 @@
-"""OpenAI-compatible adapter, ported from ``tests/llm/openai_test.go``.
+"""OpenAI-compatible adapter.
 
-The Go tests stand up an ``httptest`` server and read the request body in the
-handler. These use ``httpx2.MockTransport`` instead: the handler sees the same
-request the SDK would have sent, so the assertions are on the JSON body the
-adapter produced and on the parsed result, and nothing touches the network.
+These use ``httpx2.MockTransport``: the handler sees the same request the SDK
+would have sent, so the assertions are on the JSON body the adapter produced and
+on the parsed result, and nothing touches the network.
 """
 
 from __future__ import annotations
@@ -319,7 +318,7 @@ async def test_openai_model_fails_on_truncated_tool_call(monkeypatch: pytest.Mon
                         "index": 0,
                         "id": "call_1",
                         "type": "function",
-                        "function": {"name": "write_file", "arguments": '{"path":"main.go","content":"package'},
+                        "function": {"name": "write_file", "arguments": '{"path":"main.py","content":"import'},
                     }
                 ],
             },
@@ -378,13 +377,13 @@ async def test_openai_model_reports_usage(monkeypatch: pytest.MonkeyPatch) -> No
 async def test_openai_model_uses_environment_api_key_when_config_key_is_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Replaces ``TestOpenAIModelSkipsAuthHeaderWithoutAPIKey``.
+    """An empty config key must not shadow the environment API key.
 
-    Go's SDK sends the request with no ``Authorization`` header when no key is
-    configured anywhere. The Python SDK refuses to build a client without
-    credentials, so the port pins the property that matters instead: an empty
-    ``APIKey`` leaves the variable unset for the SDK, so the environment
-    fallback still applies rather than being shadowed by an empty value.
+    The SDK sends the request with no ``Authorization`` header when no key is
+    configured anywhere, but it refuses to build a client without credentials. So
+    the property this pins is that an empty ``APIKey`` leaves the variable unset
+    for the SDK, so the environment fallback still applies rather than being
+    shadowed by an empty value.
     """
     monkeypatch.setenv("OPENAI_API_KEY", "env-key")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)

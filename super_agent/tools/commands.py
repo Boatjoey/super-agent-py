@@ -1,8 +1,8 @@
 """Command tools: the runner, its limits, and the workspace commands.
 
-Ported from ``tools/commands.go``. A command's output is capped while it is
-read and its process gets its own session, so a command that emits gigabytes or
-leaves a background job behind cannot outlive the call or the memory bound.
+A command's output is capped while it is read and its process gets its own
+session, so a command that emits gigabytes or leaves a background job behind
+cannot outlive the call or the memory bound.
 
 A non-zero exit is a result, not a failure: :class:`command_exit_error` carries
 the status into the output and only the tools that treat it as a diagnosis
@@ -434,7 +434,7 @@ def _finish(sink: capped_buffer, returncode: int | None) -> tuple[str, BaseExcep
 
 
 def _exit_status_message(returncode: int) -> str:
-    """Go's ``exec.ExitError`` text: an exit status, or the killing signal."""
+    """The exit-status text: an exit status, or the killing signal."""
     if returncode < 0:
         return "signal: " + _signal_name(-returncode)
     return f"exit status {returncode}"

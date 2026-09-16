@@ -1,13 +1,13 @@
 """Committed messages, live streaming content, and the expansion flags.
 
-Ported from the Go ``tui/transcript/model.go``. The feature owns the transcript,
-the streaming message, and the four expansion flags; the root owns the viewport
-it renders into and the clipboard the copy intent reaches.
+The feature owns the transcript, the streaming message, and the four expansion
+flags; the root owns the viewport it renders into and the clipboard the copy
+intent reaches.
 
-Go composes rendered strings with lipgloss and ``ansi.Wrap``. The port composes
-:class:`rich.text.Text` fragments and leaves wrapping to the root's clamp, so a
-view here is a value, not a width-perfect string. Tests assert the width
-invariant at the root rather than the exact layout for that reason.
+A view here is composed of :class:`rich.text.Text` fragments, and wrapping is
+left to the root's clamp, so a view is a value, not a width-perfect string. Tests
+assert the width invariant at the root rather than the exact layout for that
+reason.
 """
 
 from __future__ import annotations
@@ -42,10 +42,8 @@ __all__ = [
 class MarkdownRenderer(Protocol):
     """The renderer this feature needs, restated here on purpose.
 
-    Go's ``transcript.Styles`` holds a glamour ``TermRenderer``: a type both the
-    feature and the root can name because it comes from a library. Rich has no
-    such type, and a feature may not import a root module (R6), so the feature
-    declares the shape it uses and the root's renderer satisfies it structurally.
+    A feature may not import a root module (R6), so the feature declares the shape
+    it uses and the root's renderer satisfies it structurally.
     """
 
     def render(self, content: str, width: int) -> Text: ...
@@ -53,7 +51,7 @@ class MarkdownRenderer(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Styles:
-    """The styles the transcript renders with: Go's ``transcript.Styles``."""
+    """The styles the transcript renders with."""
 
     Status: Style
     UserLabel: Style
@@ -326,7 +324,7 @@ class ToolDisplayGroup:
 
 
 def New(welcome: str, styles: Styles) -> Model:
-    """Go's ``transcript.New``."""
+    """Build the model with its welcome text and styles."""
     return Model(welcome=welcome, styles=styles)
 
 
@@ -408,8 +406,8 @@ def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
 def _parseArgs(input_text: str) -> dict[str, Any]:
     """The tool call's JSON arguments, or an empty mapping when there are none.
 
-    Go unmarshals into a ``map[string]any`` and ignores the error; the port keeps
-    the same tolerance and normalises anything that is not an object to ``{}``.
+    Parsing is tolerant: a failure and anything that is not an object both
+    normalise to ``{}``.
     """
     try:
         parsed: Any = json.loads(input_text)
@@ -429,7 +427,7 @@ def _stringSlice(value: object) -> list[str]:
 
 
 def _indent(text: Text, indent: int) -> Text:
-    """Pad every line left by ``indent`` columns, as lipgloss PaddingLeft does."""
+    """Pad every line left by ``indent`` columns."""
     if indent <= 0:
         return text
     padding = " " * indent

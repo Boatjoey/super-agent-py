@@ -1,9 +1,8 @@
 """Facade re-exports for ``runtime/engine``.
 
-Go's ``runtime/api_engine.go`` keeps the engine's compatibility surface in one
-file so callers can write ``runtime.NewEngine(...)`` without importing the
-subpackage. R4 in ``tests/architecture/test_dependencies.py`` keeps this file from
-reaching any concrete adapter.
+The engine's compatibility surface, so callers can write ``runtime.NewEngine(...)``
+without importing the subpackage. R4 in ``tests/architecture/test_dependencies.py``
+keeps this file from reaching any concrete adapter.
 """
 
 from __future__ import annotations

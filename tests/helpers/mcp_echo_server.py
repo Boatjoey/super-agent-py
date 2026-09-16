@@ -1,10 +1,9 @@
 """A fake MCP server exposing one ``echo`` tool.
 
 Run as ``python -m tests.helpers.mcp_echo_server [--call-delay SECONDS]``. It
-stands in for the server the Go test builds with the official SDK: it completes
-the ``initialize``/``initialized`` handshake, advertises a single ``echo`` tool
-whose schema requires ``text``, and answers ``tools/call`` with
-``echo: <text>``.
+stands in for a server built with the official SDK: it completes the
+``initialize``/``initialized`` handshake, advertises a single ``echo`` tool whose
+schema requires ``text``, and answers ``tools/call`` with ``echo: <text>``.
 
 Frames are Content-Length delimited, the framing the hand-written client in
 ``super_agent/tools/mcp`` speaks. ``--call-delay`` postpones a call's reply so a

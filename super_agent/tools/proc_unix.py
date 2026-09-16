@@ -1,11 +1,10 @@
 """Process-group isolation for command tools.
 
-Ported from ``tools/proc_unix.go``; the ``sys.platform`` dispatch in
-``commands.py`` stands in for the Go ``unix`` build tag.
+The ``sys.platform`` dispatch in ``commands.py`` selects this module on unix
+platforms.
 
-Go's ``isolateProcessGroup`` both puts the child in its own process group and
-installs a cancel function. Here the group is created at spawn with
-``start_new_session=True`` (see :data:`spawn_kwargs`) and the cancel function is
+The child is put in its own process group at spawn with ``start_new_session=True``
+(see :data:`spawn_kwargs`), and the cancel function is
 :func:`terminate_process_tree`.
 
 Killing only the direct child is not enough: ``bash -lc "make"`` leaves the
@@ -25,7 +24,7 @@ from typing import Any, Final
 #: command itself has exited or been killed.
 PROCESS_GROUP_WAIT_DELAY: Final[float] = 2.0
 
-#: Spawn options equivalent to Go's ``SysProcAttr{Setpgid: true}``.
+#: Spawn options that put the child in its own process group.
 spawn_kwargs: Final[dict[str, Any]] = {"start_new_session": True}
 
 

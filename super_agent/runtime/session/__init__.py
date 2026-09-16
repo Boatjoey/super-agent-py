@@ -6,7 +6,7 @@ makes each of them survive a restart. R5 in
 ``tests/architecture/test_dependencies.py`` keeps this layer off ``os``,
 ``pathlib``, ``store``, and ``tui``.
 
-Python splits a Go package across files, so this module stands in for the package
+A package spans several modules here, so this module stands in for the package
 namespace.
 """
 

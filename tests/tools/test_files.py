@@ -1,4 +1,4 @@
-"""Port of ``tests/tools/files_test.go``: the workspace file tools."""
+"""The workspace file tools."""
 
 from __future__ import annotations
 
@@ -79,14 +79,14 @@ async def test_read_file_rejects_a_path_outside_the_workspace(tmp_path: Path) ->
 
 @pytest.mark.asyncio
 async def test_list_files_returns_matching_relative_files(tmp_path: Path) -> None:
-    must_write(tmp_path, "a.go", "")
-    must_write(tmp_path, "nested/b.go", "")
+    must_write(tmp_path, "a.py", "")
+    must_write(tmp_path, "nested/b.py", "")
     must_write(tmp_path, "nested/c.txt", "")
     registry = DefaultRegistry(workspace_for(tmp_path))
 
-    got = await must_succeed(registry, "list_files", {"path": ".", "pattern": "*.go"})
+    got = await must_succeed(registry, "list_files", {"path": ".", "pattern": "*.py"})
 
-    assert got == "a.go\nnested/b.go"
+    assert got == "a.py\nnested/b.py"
 
 
 @pytest.mark.asyncio
@@ -102,17 +102,17 @@ async def test_search_finds_text_with_line_numbers(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_apply_patch_replaces_expected_text(tmp_path: Path) -> None:
-    must_write(tmp_path, "main.go", "package main\n\nfunc main() {}\n")
+    must_write(tmp_path, "main.py", "def greet():\n    pass\n")
     registry = DefaultRegistry(workspace_for(tmp_path))
 
     got = await must_succeed(
         registry,
         "apply_patch",
-        {"path": "main.go", "old_text": "func main() {}", "new_text": 'func main() {\n\tprintln("hi")\n}'},
+        {"path": "main.py", "old_text": "    pass", "new_text": '    print("hi")'},
     )
 
-    assert got == "patched main.go"
-    assert 'println("hi")' in (tmp_path / "main.go").read_text(encoding="utf-8")
+    assert got == "patched main.py"
+    assert 'print("hi")' in (tmp_path / "main.py").read_text(encoding="utf-8")
 
 
 @pytest.mark.asyncio

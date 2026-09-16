@@ -1,9 +1,9 @@
 """Project root resolution.
 
-Ported from ``project/project.go``. :class:`Project` identifies the code project
-the user selected, and its id is intentionally independent of workspace access
-roots: which directory the agent may read is a different question from which
-project the configuration and history belong to.
+:class:`Project` identifies the code project the user selected, and its id is
+intentionally independent of workspace access roots: which directory the agent
+may read is a different question from which project the configuration and history
+belong to.
 """
 
 from __future__ import annotations

@@ -1,14 +1,9 @@
 """Tool, executor, policy, and approval fakes for the engine tests.
 
-Ported alongside ``tests/runtime/engine_test.go``'s ``fakeTool``,
-``recordingExecutor``, ``failingOnceExecutor``, ``recordingPolicy``,
-``denyNthPolicy``, ``blockingApprovalStore``, and ``blockingSpecsRunner``.
-
-Two of those Go fakes block on a channel to prove the engine never holds its
-lock while it calls out. Python cannot block the event loop the same way, so the
-ports record what they observe instead: :class:`LockProbeApprovalStore` and
-:class:`SpecProbeRunner` ask a probe (the test's ``engine.lock``) whether the
-lock was held when the port ran.
+The fakes that need to prove the engine never holds its lock while it calls out
+cannot block the event loop the way a channel would, so they record what they
+observe instead: :class:`LockProbeApprovalStore` and :class:`SpecProbeRunner` ask
+a probe (the test's ``engine.lock``) whether the lock was held when the port ran.
 """
 
 from __future__ import annotations
@@ -56,7 +51,7 @@ __all__ = [
 
 
 class FakeToolRunner:
-    """Mirrors Go's ``fakeTool``: fixed specs and results, records every call."""
+    """Fixed specs and results, and it records every call."""
 
     def __init__(self, results: Mapping[str, str] | None = None, specs: Sequence[ToolSpec] = ()) -> None:
         self.results: dict[str, str] = dict(results or {})
@@ -72,7 +67,7 @@ class FakeToolRunner:
 
 
 class RecordingExecutor:
-    """Mirrors Go's ``recordingExecutor``: one model reply, records the actions."""
+    """One model reply, and it records the actions it was asked to run."""
 
     def __init__(self) -> None:
         self.actions: list[ScheduledAction] = []
@@ -89,7 +84,7 @@ class RecordingExecutor:
 
 
 class FailingOnceExecutor:
-    """Mirrors Go's ``failingOnceExecutor``: the first call faults, later ones recover."""
+    """The first call faults, later ones recover."""
 
     def __init__(self) -> None:
         self.calls: int = 0
@@ -110,7 +105,7 @@ class FailingOnceExecutor:
 
 
 class StaticReplyExecutor:
-    """Mirrors Go's ``staticExecutor``: always the same model reply."""
+    """Always the same model reply."""
 
     def __init__(self, content: str = "model summary") -> None:
         self.content: str = content
@@ -131,7 +126,7 @@ class StaticReplyExecutor:
 
 
 class RecordingPolicy:
-    """Mirrors Go's ``recordingPolicy``: one fixed decision, records its inputs."""
+    """One fixed decision, and it records its inputs."""
 
     def __init__(self, decision: ToolDecision) -> None:
         self.decision: ToolDecision = decision
@@ -148,7 +143,7 @@ class RecordingPolicy:
 
 
 class DenyNthPolicy:
-    """Mirrors Go's ``denyNthPolicy``: run everything directly except the nth call."""
+    """Run everything directly except the nth call."""
 
     def __init__(self, deny_at: int) -> None:
         self.deny_at: int = deny_at
@@ -168,7 +163,7 @@ class ScriptedApprovalWaiter:
     """Answers approvals from a script and records every request.
 
     ``on_wait`` runs while the engine is parked on the approval action, which is
-    where the Go tests inspect engine state before sending their decision.
+    where a test can inspect engine state before sending its decision.
     """
 
     def __init__(
@@ -185,8 +180,8 @@ class ScriptedApprovalWaiter:
         if self._on_wait is not None:
             self._on_wait()
         if not self.decisions:
-            # Go closes the approval channel; the engine must read that as a
-            # dismissal rather than as a decision nobody sent.
+            # An exhausted script reads as a dismissal, not as a decision nobody
+            # sent.
             raise ErrApprovalDismissed
         return self.decisions.pop(0)
 
@@ -232,9 +227,9 @@ class LockProbeApprovalStore:
 class SpecProbeRunner:
     """Answers each action and records whether the lock was held fetching specs.
 
-    Mirrors Go's ``blockingSpecsRunner``. Fetching tool specs can block for a
-    long time (an MCP reconnect, say), so the engine must do it outside the lock;
-    ``probe`` is the test's ``lambda: engine.lock.locked()``.
+    Fetching tool specs can block for a long time (an MCP reconnect, say), so the
+    engine must do it outside the lock; ``probe`` is the test's
+    ``lambda: engine.lock.locked()``.
     """
 
     def __init__(self, specs: Sequence[ToolSpec] = ()) -> None:

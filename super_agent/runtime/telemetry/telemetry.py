@@ -21,7 +21,7 @@ from super_agent import jsonutil
 from super_agent.runtime.protocol.run_context import RunContext
 from super_agent.timeutil import NowRFC3339Nano
 
-#: One record's fields, as Go's ``telemetry.Fields``.
+#: One record's fields.
 Fields = Mapping[str, Any]
 
 _lock = threading.Lock()
@@ -60,8 +60,7 @@ def IsConfigured() -> bool:
 def Record(kind: str, fields: Fields) -> None:
     """Append one record, stamped with the current UTC time and ``kind``.
 
-    A field named ``time`` or ``kind`` overwrites the stamp, which is what Go's
-    map assignment does.
+    A field named ``time`` or ``kind`` overwrites the stamp.
     """
     with _lock:
         if _fd is None:
@@ -90,7 +89,7 @@ def _close_locked() -> None:
 
 
 class IDs:
-    """The run and action a record belongs to. Mirrors Go's ``telemetry.IDs``."""
+    """The run and action a record belongs to."""
 
     __slots__ = ("ActionID", "RunID")
 
@@ -113,8 +112,8 @@ _IDS_KEY: Final[object] = object()
 def WithIDs(ctx: RunContext, run_id: str, action_id: str) -> RunContext:
     """A context derived from ``ctx`` carrying the run and action identity.
 
-    Equivalent to Go's ``context.WithValue``: the derived context shares ``ctx``'s
-    cancellation, so waiting on either observes the same cancel.
+    The derived context shares ``ctx``'s cancellation, so waiting on either
+    observes the same cancel.
     """
     return ctx.WithValue(_IDS_KEY, IDs(RunID=run_id, ActionID=action_id))
 

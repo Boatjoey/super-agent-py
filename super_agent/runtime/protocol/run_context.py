@@ -1,9 +1,9 @@
-"""The stand-in for Go's ``context.Context``.
+"""Cancellation for one run.
 
-Go's context carries cancellation, deadlines, and values. Only cancellation is
-modelled as an object here: deadlines are expressed with ``asyncio.wait_for`` and
-values with :mod:`contextvars`, so a ``RunContext`` only has to answer "has this
-run been cancelled" and to give waiters something to block on.
+Only cancellation is modelled as an object here: deadlines are expressed with
+``asyncio.wait_for`` and values with :mod:`contextvars`, so a ``RunContext`` only
+has to answer "has this run been cancelled" and to give waiters something to
+block on.
 
 It lives in ``runtime/protocol`` because it appears in the port signatures
 (``Model.Next``, ``ToolRunner.Run``) and because ``llm`` and ``tools`` may reach
@@ -28,7 +28,7 @@ class RunContext:
     happens", which ``asyncio.wait`` expresses directly.
 
     A context may be derived from a parent. Cancelling the parent cancels every
-    context derived from it, which is the part of Go's context tree the run
+    context derived from it, which is the part of the context tree the run
     controller relies on: a turn's context is derived from the caller's, so
     cancelling the caller stops the run.
     """
@@ -46,10 +46,10 @@ class RunContext:
         """A context derived from this one that also carries ``key``.
 
         The derived context *shares* the cancellation event rather than
-        registering as a child. Go's ``context.WithValue`` builds a parent chain,
-        which is safe because the chain is collected with the value; here the
-        parent holds its children, so registering a per-action context would leak
-        one entry per action for the life of the run.
+        registering as a child. A parent chain would be safe because it is
+        collected with the value; here the parent holds its children, so
+        registering a per-action context would leak one entry per action for the
+        life of the run.
         """
         derived = RunContext()
         derived.cancelled = self.cancelled
@@ -68,7 +68,7 @@ class RunContext:
         self._children.append(child)
 
     def Done(self) -> asyncio.Event:
-        """The event to wait on, mirroring Go's ``ctx.Done()`` channel."""
+        """The event to wait on for cancellation."""
         return self.cancelled
 
     def Err(self) -> Exception | None:
@@ -99,7 +99,6 @@ class RunContext:
 def LiveContext() -> RunContext:
     """A context that is never cancelled by itself, for helpers outside a run.
 
-    Equivalent to Go's ``context.Background()``, which the engine uses for the
-    commands that are not part of a turn.
+    The engine uses this for the commands that are not part of a turn.
     """
     return RunContext()

@@ -1,8 +1,8 @@
-"""Port of ``tests/tools/command_tools_test.go``: the command-backed tools.
+"""The command-backed tools.
 
-The Go tests call the real ``go``, ``gofmt``, and ``git`` binaries. These do the
-same and skip when a binary is not installed, so the suite stays green on a
-machine without a toolchain.
+These call the real ``go``, ``gofmt``, and ``git`` binaries and skip when a
+binary is not installed, so the suite stays green on a machine without a
+toolchain.
 """
 
 from __future__ import annotations

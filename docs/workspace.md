@@ -42,8 +42,8 @@ Workspace 在 Coding Agent 领域没有统一标准定义。VS Code、Claude Cod
 
 如果 Agent 只接收自然语言，而没有 Workspace，它无法稳定回答以下基础问题：
 
-- `src/main.go` 应该相对于哪个目录解析？
-- `go test ./...` 应该在哪个目录运行？
+- `src/main.py` 应该相对于哪个目录解析？
+- `python -m pytest` 应该在哪个目录运行？
 - 搜索 `UserService` 应该搜索整个磁盘还是当前仓库？
 - Agent 是否可以读取相邻仓库？
 - Agent 是否可以修改一个额外依赖目录？
@@ -348,17 +348,18 @@ Session
 
 对应最小数据模型：
 
-```go
-type WorkspaceSpec struct {
-    PrimaryRoot string
-    CWD         string
-    Roots       []WorkspaceRootSpec
-}
+```python
+@dataclass(frozen=True)
+class WorkspaceSpec:
+    PrimaryRoot: str
+    CWD: str
+    Roots: tuple[WorkspaceRootSpec, ...]
 
-type WorkspaceRootSpec struct {
-    Path   string
-    Access AccessMode // read | read_write
-}
+
+@dataclass(frozen=True)
+class WorkspaceRootSpec:
+    Path: str
+    Access: AccessMode  # read | read_write
 ```
 
 运行时对象：
@@ -424,10 +425,10 @@ super-agent 已经实现了上述模型中的核心对象。它把三件容易�
 
 | 类型 | 文件 | 角色 |
 |---|---|---|
-| `project.Project` | `project/project.go` | 身份：解析出的 root 及其稳定 id。由 `project.Resolve` 产生。 |
-| `workspace.Context` | `workspace/context.go` | 访问策略对象，也是**进程无关的运行时唯一真相来源**。持有一个 primary root、一个 cwd，以及若干带 `read` / `read_write` 标记的 root。 |
-| `workspace.Workspace` | `workspace/workspace.go` | 一个由互斥锁保护的、**可切换**的 `Context` 绑定，同时是 session 文件系统适配器（checkpoint、attachment、export）。通过 `Spec`/`Validate`/`Canonicalize`/`Activate` 实现 `runtime/session.Workspace` 端口。 |
-| `session.WorkspaceSpec` | `runtime/session/repository.go` | 可持久化的 JSON 描述：primary root、cwd、带访问模式的 roots。它**不携带授权语义** —— 校验与访问决策属于具体的 `workspace` 实现。 |
+| `project.Project` | `project/project.py` | 身份：解析出的 root 及其稳定 id。由 `project.Resolve` 产生。 |
+| `workspace.Context` | `workspace/context.py` | 访问策略对象，也是**进程无关的运行时唯一真相来源**。持有一个 primary root、一个 cwd，以及若干带 `read` / `read_write` 标记的 root。 |
+| `workspace.Workspace` | `workspace/workspace.py` | 一个由互斥锁保护的、**可切换**的 `Context` 绑定，同时是 session 文件系统适配器（checkpoint、attachment、export）。通过 `Spec`/`Validate`/`Canonicalize`/`Activate` 实现 `runtime/session.Workspace` 端口。 |
+| `session.WorkspaceSpec` | `runtime/session/repository.py` | 可持久化的 JSON 描述：primary root、cwd、带访问模式的 roots。它**不携带授权语义** —— 校验与访问决策属于具体的 `workspace` 实现。 |
 
 `store` 会把 `WorkspaceSpec` 与两个相互独立的字段 `ProjectID`、`ConfigRoot` 一起写入 session metadata；replay 期间三者互不派生（`session.md`）。
 
@@ -464,7 +465,7 @@ resume
 - 工具注入、可切换的运行时绑定，以及恢复 cwd 变化后 LSP 的惰性重连：`tools.md`（“Registry”、“Built-in Tools”）。
 - `--cwd` 与解析出的 project root：`config.md`（“Flags and Environment”）。
 
-子 `delegate` agent 会针对它自己的、以子 cwd 为根的默认 context 运行。承载该子 agent 的 worktree 创建在父 workspace 之内，因此其写检查使用父绑定；见 `session.md` 与 `app/subagents.go`。
+子 `delegate` agent 会针对它自己的、以子 cwd 为根的默认 context 运行。承载该子 agent 的 worktree 创建在父 workspace 之内，因此其写检查使用父绑定；见 `session.md` 与 `app/subagents.py`。
 
 ### 不变量
 
@@ -478,12 +479,12 @@ resume
 | 路径 | 角色 |
 |---|---|
 | `project/` | 项目 root 解析 |
-| `workspace/context.go` | 访问策略：规范包含判断、访问模式、cwd 解析 |
-| `workspace/workspace.go` | 可切换绑定与 session 文件系统适配器 |
-| `tools/workspace.go` | 面向内建工具的窄 `WorkspaceContext` 端口与读写解析 |
-| `runtime/session/repository.go` | `WorkspaceSpec` DTO 与 `Workspace` 端口 |
-| `runtime/session/history.go` | Resume：校验、激活、一次性 legacy 升级 |
+| `workspace/context.py` | 访问策略：规范包含判断、访问模式、cwd 解析 |
+| `workspace/workspace.py` | 可切换绑定与 session 文件系统适配器 |
+| `tools/workspace.py` | 面向内建工具的窄 `WorkspaceContext` 端口与读写解析 |
+| `runtime/session/repository.py` | `WorkspaceSpec` DTO 与 `Workspace` 端口 |
+| `runtime/session/history.py` | Resume：校验、激活、一次性 legacy 升级 |
 | `store/` | spec 的 JSON 持久化，含 `SaveWorkspaceDescription` |
-| `app/config.go`、`app/session.go`、`app/subagents.go` | 组合根接线 |
+| `app/config.py`、`app/session.py`、`app/subagents.py` | 组合根接线 |
 
 完整的包与文件职责由 `architecture.md` 拥有。

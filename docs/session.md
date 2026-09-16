@@ -11,7 +11,7 @@ This file covers what the agent "remembers": how context is assembled, persisted
 There is no vector database and no cross-session long-term memory. Everything the agent can recall is
 the `[]Message` handed to the model, held in `runtime/machine.RuntimeData.Messages`.
 
-`Message` (`runtime/protocol/types.go`) has four roles:
+`Message` (`runtime/protocol/types.py`) has four roles:
 
 | Role | Content |
 |---|---|
@@ -101,7 +101,7 @@ Context exists at two levels:
 - `RuntimeData.Messages` is the live truth the model is called with.
 - `~/.superagent/sessions/<session-id>/events.jsonl` is the durable event log used to rebuild history.
 
-`runtime/session/snapshot_emitter.go` watches engine snapshots, forwards newly appended messages to the
+`runtime/session/snapshot_emitter.py` watches engine snapshots, forwards newly appended messages to the
 TUI, and persists them through `Repository`. It tracks how far it has emitted so nothing is written
 twice.
 
@@ -243,13 +243,13 @@ Worth knowing, because they are easy to assume otherwise:
 
 | Topic | Location |
 |---|---|
-| Messages and the model interface | `runtime/protocol/types.go` |
-| Initial system message | `app/system_prompt.go`, `app/session.go` |
-| Layered instruction loading | `app/instructions/instructions.go` |
-| Message mutation and reset | `runtime/machine/runtime_data_change_applier.go` |
-| Conversation and tool transitions | `runtime/machine/transition.go` |
-| Model and tool execution | `runtime/execution/scheduled_action_executor.go` |
-| Turn and message emission | `runtime/session/turn.go`, `runtime/session/snapshot_emitter.go` |
-| Resume, compaction, undo | `runtime/session/history.go` |
-| Persistence adapter | `store/repository.go`, `store/store.go` |
-| File checkpoints | `runtime/session/checkpoint.go`, `workspace/workspace.go` |
+| Messages and the model interface | `runtime/protocol/types.py` |
+| Initial system message | `app/system_prompt.py`, `app/session.py` |
+| Layered instruction loading | `app/instructions/__init__.py` |
+| Message mutation and reset | `runtime/machine/runtime_data_change_applier.py` |
+| Conversation and tool transitions | `runtime/machine/transition.py` |
+| Model and tool execution | `runtime/execution/scheduled_action_executor.py` |
+| Turn and message emission | `runtime/session/turn.py`, `runtime/session/snapshot_emitter.py` |
+| Resume, compaction, undo | `runtime/session/history.py` |
+| Persistence adapter | `store/repository.py`, `store/store.py` |
+| File checkpoints | `runtime/session/checkpoint.py`, `workspace/workspace.py` |

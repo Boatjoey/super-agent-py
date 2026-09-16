@@ -1,6 +1,6 @@
 """The fifteen events the machine accepts.
 
-The set is closed the way Go closes it with an unexported marker method:
+The set is closed by construction:
 :meth:`Event.__init_subclass__` refuses a subclass declared anywhere but this
 module, so the transition registry can never be extended from outside.
 

@@ -4,8 +4,8 @@ States, events, runtime data, runtime-data changes, action plans, scheduled
 actions, and transitions. No I/O, no locks, no model or tool calls — the
 dependency rule in ``tests/architecture/test_dependencies.py`` (R7) enforces it.
 
-Python splits a Go package across files, so this module stands in for the package
-namespace: everything Go callers write as ``machine.X`` is re-exported here.
+A package spans several modules here, so this module stands in for the package
+namespace: everything written as ``machine.X`` is re-exported here.
 """
 
 from __future__ import annotations

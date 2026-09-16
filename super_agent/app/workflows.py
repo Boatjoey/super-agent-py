@@ -1,9 +1,8 @@
 """Extension workflows: hooks, custom commands, and the read-only repository queries.
 
-Ported from ``app/workflows.go``. A hook runs a shell command through
-``tools.Registry.RunDirect``, never through ``Run``: ``Run`` is what triggers the
-pre-tool and post-tool hooks, so a hook that reached it would re-enter the observer
-that invoked it.
+A hook runs a shell command through ``tools.Registry.RunDirect``, never through
+``Run``: ``Run`` is what triggers the pre-tool and post-tool hooks, so a hook that
+reached it would re-enter the observer that invoked it.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from super_agent.runtime.protocol.types import ToolCall, ToolSpec
 
 __all__ = ["Runner", "WorkflowController"]
 
-#: The empty argument object Go's ``json.Marshal(map[string]any{})`` produces.
+#: The empty JSON object used when a call takes no arguments.
 NO_ARGUMENTS = "{}"
 
 

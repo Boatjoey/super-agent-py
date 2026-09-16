@@ -1,15 +1,13 @@
 """A stdio language-server client and the tools a manager exposes.
 
-Ported from ``tools/lsp/client.go``. A language server is a long-lived
-subprocess speaking JSON-RPC over Content-Length frames on its stdin and stdout;
-its stderr is discarded rather than forwarded, because the TUI owns the terminal
-and a chatty server (gopls, rust-analyzer) would garble it.
+A language server is a long-lived subprocess speaking JSON-RPC over Content-Length
+frames on its stdin and stdout; its stderr is discarded rather than forwarded,
+because the TUI owns the terminal and a chatty server (gopls, rust-analyzer) would
+garble it.
 
-Go guards the pending map, the diagnostics map, and the stored error with one
-``sync.Mutex`` and serialises wire writes with a second mutex. The event loop
-cannot interleave a synchronous mutation, so the maps and the error need no lock
-at all here; the write lock survives because a write really does suspend the
-task part-way through a frame.
+The pending map, the diagnostics map, and the stored error need no lock: the event
+loop cannot interleave a synchronous mutation. Wire writes are serialised by a
+lock, because a write really does suspend the task part-way through a frame.
 
 Two deliberate behaviours are worth naming:
 
@@ -88,7 +86,7 @@ class _RpcError:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _Response:
-    """One JSON-RPC reply, mirroring Go's ``response``."""
+    """One JSON-RPC reply."""
 
     Result: Any = None
     Error: _RpcError | None = None
@@ -96,7 +94,7 @@ class _Response:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ToolInput:
-    """The arguments every LSP tool accepts, mirroring Go's inline struct."""
+    """The arguments every LSP tool accepts."""
 
     Path: str = dataclasses.field(default="", metadata=json_field(name="path"))
     Query: str = dataclasses.field(default="", metadata=json_field(name="query"))
@@ -128,7 +126,7 @@ async def read_header(reader: asyncio.StreamReader) -> int:
 
 
 def file_uri(path: str) -> str:
-    """The ``file://`` URI Go's ``fileURI`` produces for ``path``."""
+    """The ``file://`` URI for ``path``."""
     return "file://" + urllib.parse.quote(path.replace(os.sep, "/"), safe="/")
 
 
@@ -489,6 +487,6 @@ class Tool:
 
 
 def _read_text(path: str) -> str:
-    """Read ``path`` the way Go's ``string(os.ReadFile(...))`` does."""
+    """Read ``path`` as text, replacing undecodable bytes."""
     with open(path, "rb") as handle:
         return handle.read().decode("utf-8", errors="replace")

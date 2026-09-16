@@ -157,9 +157,9 @@ def clone_runtime_data(runtime_data: RuntimeData) -> RuntimeData:
 def clone_message(message: Message) -> Message:
     """Return ``message``.
 
-    Go copies a ``Message`` because its slices would otherwise be shared. Every
-    field here is immutable — the sequence fields are tuples of frozen values —
-    so there is nothing to copy and the call sites still read like Go's.
+    Every field here is immutable — the sequence fields are tuples of frozen
+    values — so there is nothing to copy, and the call sites can keep the
+    clone-shaped vocabulary.
     """
     return message
 

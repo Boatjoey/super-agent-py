@@ -1,9 +1,8 @@
 """Error plumbing shared by every layer.
 
-Go gets wrapping, identity checks, and joining from ``fmt``, ``errors``, and
-``context``. Python splits the same work between ``__cause__`` chaining,
-``isinstance``, and ``BaseExceptionGroup``. Two deliberate choices stand in for
-the Go behaviour:
+Wrapping, identity checks, and joining use ``__cause__`` chaining,
+``isinstance``, and ``BaseExceptionGroup``. Two deliberate choices shape the
+error types here:
 
 * :class:`Cancelled` exists because ``asyncio.CancelledError`` derives from
   ``BaseException``. An adapter converts it at its boundary so that ordinary
@@ -11,8 +10,8 @@ the Go behaviour:
   bare ``CancelledError`` reaching it.
 * :class:`JoinedError` is a plain ``Exception`` carrying its members rather than
   an ``ExceptionGroup``, because ``ExceptionGroup`` changes ``except`` semantics
-  and formats its message differently. Callers here want Go's ``errors.Join``: one
-  error that stands for several causes and is still an ``Exception``.
+  and formats its message differently. Callers here want one error that stands
+  for several causes and is still an ``Exception``.
 """
 
 from __future__ import annotations
@@ -23,17 +22,16 @@ from collections.abc import Iterator
 class Cancelled(Exception):
     """The work was cancelled.
 
-    Raised where Go returns ``context.Canceled``. Adapters translate
-    ``asyncio.CancelledError`` into this at their boundary; the engine treats both
-    as cancellation so a stray ``CancelledError`` cannot be mistaken for a
-    failure that turns into a tool result.
+    Adapters translate ``asyncio.CancelledError`` into this at their boundary; the
+    engine treats both as cancellation so a stray ``CancelledError`` cannot be
+    mistaken for a failure that turns into a tool result.
     """
 
 
 class JoinedError(Exception):
-    """Several errors reported as one, the way ``errors.Join`` does.
+    """Several errors reported as one.
 
-    ``str`` joins the members with newlines, matching Go's message shape.
+    ``str`` joins the members with newlines, one per member.
     """
 
     def __init__(self, *members: BaseException | None) -> None:
@@ -65,10 +63,8 @@ def _walk(error: BaseException | None) -> Iterator[BaseException]:
 def errors_is(error: BaseException | None, target: type[BaseException] | BaseException) -> bool:
     """Report whether ``error`` is, or wraps, ``target``.
 
-    A class target matches by ``isinstance`` — the typed-sentinel form of Go's
-    ``errors.Is``. An instance target matches by identity, which is how Go's
-    ``errors.Is`` matches a value created with ``errors.New`` where
-    ``var ErrSentinel = errors.New(...)`` is compared, never a class.
+    A class target matches by ``isinstance``. An instance target matches by
+    identity, so a module-level sentinel value can be compared directly.
     """
     for current in _walk(error):
         if isinstance(target, type):

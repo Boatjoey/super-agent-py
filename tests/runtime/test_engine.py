@@ -1,16 +1,16 @@
 """The engine: the run lifecycle, the action loop, and the ports around it.
 
-Ported from ``tests/runtime/engine_test.go``. The Go tests drive the engine
-through ``session.RunTurn``; the session layer is not part of this milestone, so
-the cases whose subject is engine behaviour call ``Engine.RunTurn`` directly with
-an approval waiter in place of the approval channel. The cases whose subject is a
-session notification have no Python counterpart yet and are listed in the module
-docstring of the port's migration map.
+These cases drive the engine through ``session.RunTurn``. The session layer is
+not exercised here, so the cases whose subject is engine behaviour call
+``Engine.RunTurn`` directly with an approval waiter in place of the approval
+channel. The cases whose subject is a session notification live in
+``tests/runtime/test_session_notifications.py``.
 
-Two engine-level cases that the earlier milestone left behind are appended here:
-``test_engine_does_not_commit_invalid_custom_runtime_data_change_result`` (from
-``machine_invariants_test.go``) and ``test_engine_rejects_invalid_permission_mode``
-(from ``action_result_resolver_test.go``).
+Two engine-level cases that the other modules leave to the engine are appended
+here: ``test_engine_does_not_commit_invalid_custom_runtime_data_change_result``
+(from ``tests/runtime/test_machine_invariants.py``) and
+``test_engine_rejects_invalid_permission_mode`` (from
+``tests/runtime/test_action_result_resolver.py``).
 """
 
 from __future__ import annotations
@@ -59,12 +59,12 @@ from tests.runtime.test_transition import transition_snapshot
 
 
 async def run_turn(engine: Engine, content: str, waiter: ApprovalWaiter | None = None) -> None:
-    """The Python equivalent of the Go tests' ``runSession`` helper."""
+    """Run one turn from a user message, the way the session layer does."""
     await engine.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content=content), None, waiter)
 
 
 class _InvalidRuntimeDataChangeApplier:
-    """Mirrors Go's ``invalidRuntimeDataChangeApplier``: an applier that lies.
+    """An applier that lies about what it applied.
 
     Every state except ``Initializing`` gets an impossible result back, which is
     exactly the mistake the engine's post-apply validation exists to catch.
@@ -780,7 +780,7 @@ def test_run_controller_current_context_reports_missing_context() -> None:
     assert controller.CurrentContext()[1] is False
 
 
-# --- Transition decisions (mirrored from engine_test.go) ---------------------
+# --- Transition decisions ----------------------------------------------------
 
 
 def test_transition_produces_runtime_data_changes_and_scheduled_actions() -> None:
@@ -836,7 +836,7 @@ def test_cancel_requested_returns_runtime_to_idle() -> None:
     assert len(decision.ActionPlan.Schedule) == 0
 
 
-# --- Cases the earlier milestones left for this one --------------------------
+# --- Engine cases shared with other modules ----------------------------------
 
 
 @pytest.mark.asyncio
@@ -875,7 +875,7 @@ async def test_engine_rejects_invalid_permission_mode() -> None:
         await engine.SetPermissionPolicy(PermissionMode("root"), PermissionRules())
 
 
-# --- Coverage these milestones add ------------------------------------------
+# --- Engine guarantees -------------------------------------------------------
 
 
 @pytest.mark.asyncio

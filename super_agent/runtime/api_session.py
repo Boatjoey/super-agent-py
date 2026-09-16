@@ -1,7 +1,7 @@
 """Facade re-exports for ``runtime/session``.
 
-Go's ``runtime/api_session.go`` keeps the session's compatibility surface in one
-file so callers can write ``runtime.NewSession(...)``. R4 in
+The session's compatibility surface, so callers can write
+``runtime.NewSession(...)``. R4 in
 ``tests/architecture/test_dependencies.py`` keeps this file from reaching any
 concrete adapter.
 """

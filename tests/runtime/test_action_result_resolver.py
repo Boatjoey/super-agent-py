@@ -1,8 +1,8 @@
 """The resolver and the policy precedence order.
 
-Ported from ``tests/runtime/action_result_resolver_test.go``. The engine-level
-case from that file (``TestEngineRejectsInvalidPermissionMode``) lives in
-``tests/runtime/test_engine.py``, because it needs the engine milestone M3 builds.
+The engine-level case (``test_engine_rejects_invalid_permission_mode``) lives in
+``tests/runtime/test_engine.py``, because it drives the engine rather than the
+resolver in isolation.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def test_default_action_result_resolver_turns_risky_queued_tool_into_approval_ev
 
 def test_default_action_result_resolver_turns_policy_denial_into_tool_event() -> None:
     subject = resolver(NewPolicy(PermissionModePlan, PermissionRules()))
-    call = machine.ToolCall(ID="call-1", Name="write_file", Input='{"path":"main.go","content":"x"}')
+    call = machine.ToolCall(ID="call-1", Name="write_file", Input='{"path":"main.py","content":"x"}')
 
     event = subject.Resolve(
         ToolQueueChecked(),
@@ -205,7 +205,7 @@ def test_accept_edits_runs_read_only_git_without_approval() -> None:
 
 def test_plan_mode_denies_write_tool() -> None:
     policy = NewPolicy(PermissionModePlan, PermissionRules())
-    call = machine.ToolCall(Name="write_file", Input='{"path":"main.go","content":"x"}')
+    call = machine.ToolCall(Name="write_file", Input='{"path":"main.py","content":"x"}')
     assert classify(policy, call, WRITE_SPEC) == ToolDecision.DecisionDenied
 
 

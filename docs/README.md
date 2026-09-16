@@ -49,12 +49,12 @@ adapter changes to `architecture.md`, and so on.
 
 ## Enforcement
 
-`tests/architecture/spec_test.go` parses `machine.md` and verifies it against the running machine. It
+`tests/architecture/test_spec.py` parses `machine.md` and verifies it against the running machine. It
 enumerates every state against every declared event and fails when the set of accepted transitions, or
 their destinations, differs from the documented table — in either direction. It also checks that the
 state diagram in the same file agrees with the table.
 
-`tests/architecture/dependencies_test.go` enforces the dependency rule the same way, by parsing imports.
+`tests/architecture/test_dependencies.py` enforces the dependency rule the same way, by parsing imports.
 
 Treat a failure in either test as a documentation defect first. Amending the document is the fix; the
 code follows.

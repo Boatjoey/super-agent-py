@@ -1,16 +1,15 @@
 """Clipboard, code-block extraction, and turn cancellation.
 
-Ported from the Go ``tui/actions.go``. The clipboard write is the one child
-process this package starts, so it runs as a command: copying a large block must
-never stall rendering.
+The clipboard write is the one child process this package starts, so it runs as a
+command: copying a large block must never stall rendering.
 
-Two deliberate differences from Go:
+Two deliberate choices:
 
-* Go prefers a native clipboard tool and falls back to OSC 52. The port writes
-  OSC 52 when stdout is a terminal — it is the only encoding that survives SSH
-  and tmux — and falls back to ``pyperclip`` when it is not.
+* The clipboard write prefers OSC 52 when stdout is a terminal — it is the only
+  encoding that survives SSH and tmux — and falls back to ``pyperclip`` when it
+  is not.
 * ``cancelRun`` is a coroutine, because cancelling the turn is an ``await`` on
-  the turn port rather than a call on a ``context.CancelFunc``.
+  the turn port rather than a synchronous call.
 """
 
 from __future__ import annotations

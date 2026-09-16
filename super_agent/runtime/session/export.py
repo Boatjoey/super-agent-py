@@ -128,5 +128,5 @@ def htmlExport(meta: Metadata, messages: list[Message], events: list[AuditEvent]
 
 
 def _title(text: str) -> str:
-    """Go's ``strings.Title`` for the values used here: capitalise each word."""
+    """Capitalise each word, for the values used here."""
     return " ".join(word[:1].upper() + word[1:] for word in text.split(" "))

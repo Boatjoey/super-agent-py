@@ -1,9 +1,8 @@
 """Provider adapters.
 
 Claude, OpenAI, and DeepSeek behind the ``runtime/protocol`` ``Model`` port, plus
-the registry that turns a provider name into one of them. Python splits a Go
-package across files, so this module stands in for the package namespace:
-everything Go callers write as ``llm.X`` is re-exported here.
+the registry that turns a provider name into one of them. The llm package
+surface: everything callers write as ``llm.X`` is re-exported here.
 """
 
 from __future__ import annotations

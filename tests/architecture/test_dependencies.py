@@ -1,10 +1,10 @@
-"""Dependency-rule enforcement, ported from ``tests/architecture/dependencies_test.go``.
+"""Dependency-rule enforcement.
 
-The Go test parses each package's imports and fails when the dependency rule in
-``docs/architecture.md`` is broken. This module does the same with :mod:`ast`.
+This module parses each package's imports and fails when the dependency rule in
+``docs/architecture.md`` is broken.
 
-Rules, with Go parity noted. ``super_agent`` is the import root, so
-``super-agent/tui`` becomes ``super_agent.tui``.
+Rules. ``super_agent`` is the import root, so ``super-agent/tui`` becomes
+``super_agent.tui``.
 
 R1  ``tui/**``                       must not import ``super_agent.runtime*``
 R2  ``llm/``, ``tools/`` (top level) ``super_agent.runtime*`` may only be ``...protocol``
@@ -16,19 +16,19 @@ R6  ``tui/<feature>/**``             must not import a sibling feature
 R7  ``runtime/machine/**`` (new)     must not import I/O modules or anything outside the pure core
 R8  ``tui/<feature>/**`` (new)       must not import the root ``super_agent.tui`` package
 
-Two Python-shaped adjustments to Go's rules, both narrowing a hole rather than
-widening a permission:
+Two Python-shaped adjustments, both narrowing a hole rather than widening a
+permission:
 
-* Go compares import paths for equality (``path == "super-agent/store"``). Python
-  submodules make that miss ``super_agent.store.repository``, so every
-  "concrete adapter" rule matches on package boundaries instead. The same change
-  keeps ``super_agent.runtime.protocol.types`` legal where Go wrote
-  ``super-agent/runtime/protocol``.
-* The Go feature rule is an unconditional prefix ban. In Go a feature is a single
-  package whose files cannot import each other; in Python a feature is a package
-  whose modules must, so R6 allows the file's own feature package and bans
-  everything else under ``super_agent.tui``. ``__init__.py`` sits at feature level
-  and is exempt because it belongs to no feature.
+* Import paths are matched on package boundaries rather than compared for
+  equality (``path == "super-agent/store"``), because a Python submodule such as
+  ``super_agent.store.repository`` would otherwise slip past every "concrete
+  adapter" rule. The same change keeps ``super_agent.runtime.protocol.types``
+  legal under the rule that names ``super-agent/runtime/protocol``.
+* The feature rule is an unconditional prefix ban by default. A feature is a
+  package whose modules must be able to import each other, so R6 allows the
+  file's own feature package and bans everything else under ``super_agent.tui``.
+  ``__init__.py`` sits at feature level and is exempt because it belongs to no
+  feature.
 """
 
 from __future__ import annotations
@@ -299,7 +299,7 @@ def test_tui_feature_rule_sees_files() -> None:
 
 
 def test_tui_features_do_not_import_each_other() -> None:
-    """The Go test's subject: features collaborate through typed messages.
+    """The subject: features collaborate through typed messages.
 
     R6 and R8 are the two rules that carry the invariant, so this asserts on
     their result specifically rather than on the whole rule set.

@@ -1,8 +1,8 @@
 """Environment scrubbing for tool subprocesses.
 
-Ported from ``tools/env.go``. The parent environment is not inherited wholesale
-by child processes: a tool call as ordinary as ``printenv`` would otherwise
-hand every API key in the environment straight to the model.
+The parent environment is not inherited wholesale by child processes: a tool call
+as ordinary as ``printenv`` would otherwise hand every API key in the environment
+straight to the model.
 """
 
 from __future__ import annotations

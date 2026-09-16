@@ -1,10 +1,9 @@
-"""Port of ``tests/app/instructions_test.go``.
+"""Layered-instruction loading and session construction.
 
 The layered-instruction tests are pure function calls. The session tests build a
-real session, which means building a real model: the Go adapter tolerates an
-empty credential, while the OpenAI SDK the Python adapter wraps refuses to
-construct without one, so those tests supply ``ModelConfig`` explicitly. Nothing
-in them reaches the network.
+real session, which means building a real model: the OpenAI SDK the Python
+adapter wraps refuses to construct without a credential, so those tests supply
+``ModelConfig`` explicitly. Nothing in them reaches the network.
 """
 
 from __future__ import annotations

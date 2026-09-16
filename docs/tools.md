@@ -33,7 +33,7 @@ Thirteen tools ship in `DefaultRegistry`:
 | `web_search` | Search the public web after network approval |
 | `browser_fetch` | Fetch public HTTP(S) pages with redirect, size, timeout, and private-address protections |
 
-`delegate` is registered by `app` (`app/session.go`) rather than by the tools package. It runs a task
+`delegate` is registered by `app` (`app/session.py`) rather than by the tools package. It runs a task
 in a child agent and returns the final result; see `session.md` for child sessions and worktrees.
 
 Every built-in file-oriented tool resolves paths and checks read or write access through the injected
@@ -99,7 +99,7 @@ response size, and total time, and extracts page text without executing scripts.
 Permission modes route approvals; they are **not** a security boundary. Command classification is a
 text heuristic and can be wrong, which is why command execution is contained separately.
 
-On Linux, `tools/sandbox_linux.go` runs commands under strict bubblewrap isolation by default:
+On Linux, `tools/sandbox_linux.py` runs commands under strict bubblewrap isolation by default:
 
 - the host root is mounted read-only;
 - the workspace is the only writable host bind;

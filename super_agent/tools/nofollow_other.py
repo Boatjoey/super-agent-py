@@ -1,8 +1,8 @@
 """Open a workspace file on platforms without ``O_NOFOLLOW``.
 
-Ported from ``tools/nofollow_other.go``. Containment relies on the symlink
-resolution performed before these calls, so both helpers fall back to the plain
-open, which cannot refuse a symlink final component.
+Containment relies on the symlink resolution performed before these calls, so both
+helpers fall back to the plain open, which cannot refuse a symlink final
+component.
 """
 
 from __future__ import annotations

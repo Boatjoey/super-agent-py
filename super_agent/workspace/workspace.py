@@ -1,9 +1,9 @@
 """A switchable workspace binding and the session filesystem adapter.
 
-Ported from ``workspace/workspace.go``. The binding is protected by a lock
-because it is mutable: a resume swaps the whole :class:`Context` atomically, and
-the built-in tools hold the same binding, so a half-swapped context would let one
-turn resolve paths against the old roots and the next against the new ones.
+The binding is protected by a lock because it is mutable: a resume swaps the whole
+:class:`Context` atomically, and the built-in tools hold the same binding, so a
+half-swapped context would let one turn resolve paths against the old roots and
+the next against the new ones.
 
 The adapter implements the session's :class:`~super_agent.runtime.session.Workspace`
 port — ``Spec``, ``Validate``, ``Canonicalize``, ``Activate``, ``Capture``,
@@ -170,7 +170,7 @@ class Workspace:
 
 
 def New(context: Context) -> Workspace:
-    """A binding over ``context``, mirroring Go's ``workspace.New``."""
+    """A binding over ``context``."""
     return Workspace(context)
 
 
@@ -235,8 +235,8 @@ def fromSessionAccess(access: WorkspaceAccessMode) -> Access:
 def capture(path: str) -> FileSnapshot:
     """Snapshot one file: existence, content, and permission bits.
 
-    Non-UTF-8 bytes become U+FFFD, which is exactly what Go's JSON encoder writes
-    for a snapshot it has to persist; ordinary text round-trips unchanged.
+    Non-UTF-8 bytes become U+FFFD when the snapshot is persisted; ordinary text
+    round-trips unchanged.
     """
     try:
         info = os.stat(path)
@@ -253,11 +253,11 @@ def capture(path: str) -> FileSnapshot:
 
 
 def detectContentType(content: bytes) -> str:
-    """A small stand-in for Go's ``http.DetectContentType``.
+    """A small content-type sniffer.
 
-    The MIME string never reaches disk, so only the shapes the session cares
-    about are reproduced: the common image and document signatures, a text sniff
-    matching Go's control-byte rule, and ``application/octet-stream`` otherwise.
+    The MIME string never reaches disk, so only the shapes the session cares about
+    are reproduced: the common image and document signatures, a text sniff on the
+    control-byte rule, and ``application/octet-stream`` otherwise.
     """
     head = content[:512]
     if head.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -282,6 +282,6 @@ def detectContentType(content: bytes) -> str:
 
 
 def _isBinary(content: bytes) -> bool:
-    """Go's binary sniff: a control byte other than tab, newline, form feed, CR, or escape."""
+    """The binary sniff: a control byte other than tab, newline, form feed, CR, or escape."""
     allowed = {0x09, 0x0A, 0x0C, 0x0D, 0x1B}
     return any(byte < 0x20 and byte not in allowed for byte in content)

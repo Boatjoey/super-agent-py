@@ -1,6 +1,6 @@
 """Orchestration: the single agent loop and the state lock around it.
 
-Python splits a Go package across files, so this module stands in for the package
+A package spans several modules here, so this module stands in for the package
 namespace. The engine is assembled from mixins because one class cannot be spread
 over several modules: ``commands.py`` holds the commands, ``action_loop.py`` the
 loop, ``query.py`` the reads, and ``engine.py`` the constructors and the wiring.

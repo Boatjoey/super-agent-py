@@ -1,22 +1,21 @@
 """The TUI's update, routing, view, and turn lifecycle.
 
-Ported from ``tests/tui/app_test.go``. The Go tests drive the real engine and
-session through ``app.NewTUIConversation``; the TUI may not import ``runtime``
-(R1), so the port is a fake defined here that scripts its notifications instead.
-The behaviours under test are the same ones: routing order, the stale-turn guard,
-the composer's intents, the approval latch, and the width and height invariants.
+The tests drive the real engine and session through ``app.NewTUIConversation``;
+the TUI may not import ``runtime`` (R1), so the double defined here is a fake
+that scripts its notifications instead. The behaviours under test: routing
+order, the stale-turn guard, the composer's intents, the approval latch, and the
+width and height invariants.
 
-Two deliberate differences from the Go tests:
+Two deliberate choices:
 
-* Nothing asserts a rendered string. Rich measures and wraps differently from
-  lipgloss and glamour, so a view is asserted by the properties it must keep —
-  every line is at most ``width`` cells, the tail survives the height window, and
-  the text carries the words the user must see. ``render`` measures through a
-  fixed-width console, so the result cannot depend on the developer's terminal.
-* Commands are awaited rather than run in a goroutine. Go's ``tea.Cmd`` returns a
-  message; here a command is an awaitable, and a test awaits it and feeds the
-  result back through ``Update`` itself, which is the same round trip the runtime
-  performs.
+* Nothing asserts a rendered string. Rich measures and wraps text, so a view is
+  asserted by the properties it must keep — every line is at most ``width``
+  cells, the tail survives the height window, and the text carries the words the
+  user must see. ``render`` measures through a fixed-width console, so the result
+  cannot depend on the developer's terminal.
+* Commands are awaited rather than run concurrently. A command is an awaitable,
+  and a test awaits it and feeds the result back through ``Update`` itself, which
+  is the same round trip the runtime performs.
 """
 
 from __future__ import annotations
@@ -110,10 +109,10 @@ def assert_lines_fit_width(renderable: object, width: int) -> None:
 class FakeConversation:
     """The ``Conversation`` port, scripted.
 
-    It holds the state the Go test fakes hold: what ``RunTurn`` notifies, what
-    each read returns, and what the TUI asked it to do. ``RunTurn`` closes the
-    notification channel before returning, exactly as Go's session does when the
-    turn ends.
+    It holds the scripted state: what ``RunTurn`` notifies, what each read
+    returns, and what the TUI asked it to do. ``RunTurn`` closes the notification
+    channel before returning, exactly as the runtime session does when the turn
+    ends.
     """
 
     def __init__(
@@ -287,7 +286,7 @@ def new_app(fake: FakeConversation, info: StartupInfo | None = None, *options: O
 
 
 def recording_printer(printed: list[str]) -> OutputPrinter:
-    """A printer that records scrollback instead of writing it, as Go's fake does."""
+    """A printer that records scrollback instead of writing it."""
 
     def print_output(content: str) -> Command[Msg] | None:
         printed.append(content)
@@ -886,8 +885,8 @@ async def test_tool_calls_are_summarized_and_expand_on_demand() -> None:
                     Content="Answer",
                     ReasoningContent="private reasoning",
                     ToolCalls=(
-                        ToolCall(Name="read_file", Input='{"path": "tui/app.go"}'),
-                        ToolCall(Name="read_file", Input='{"path": "tui/update.go"}'),
+                        ToolCall(Name="read_file", Input='{"path": "tui/app.py"}'),
+                        ToolCall(Name="read_file", Input='{"path": "tui/update.py"}'),
                     ),
                 )
             ),
@@ -895,7 +894,7 @@ async def test_tool_calls_are_summarized_and_expand_on_demand() -> None:
                 Message=Message(
                     Role=RoleAssistant,
                     ReasoningContent="patch reasoning",
-                    ToolCalls=(ToolCall(Name="apply_patch", Input='{"path": "tui/view.go"}'),),
+                    ToolCalls=(ToolCall(Name="apply_patch", Input='{"path": "tui/view.py"}'),),
                 )
             ),
         ]
@@ -905,18 +904,18 @@ async def test_tool_calls_are_summarized_and_expand_on_demand() -> None:
     app, _ = await settle(app, listener, run)
 
     view = render(View(app))
-    assert "● Read 2 files" in view and "● Edited tui/view.go" in view
+    assert "● Read 2 files" in view and "● Edited tui/view.py" in view
     assert "private reasoning" not in view, "reasoning stays collapsed by default"
     assert '{"path"' not in view, "raw tool inputs stay hidden"
 
     app, _ = await press(app, "ctrl+o")
     latest = render(View(app))
-    assert "tui/view.go" in latest and "tui/app.go" not in latest, "only the latest group expands"
+    assert "tui/view.py" in latest and "tui/app.py" not in latest, "only the latest group expands"
 
     app, _ = await press(app, "alt+o")
     expanded = render(View(app))
-    assert "tui/app.go" in expanded and "tui/view.go" in expanded
-    assert expanded.index("● Read") < expanded.index("tui/app.go") < expanded.index("● Edited"), (
+    assert "tui/app.py" in expanded and "tui/view.py" in expanded
+    assert expanded.index("● Read") < expanded.index("tui/app.py") < expanded.index("● Edited"), (
         "expanded details stay below their tool call"
     )
 

@@ -1,10 +1,9 @@
 """Strict command isolation with bubblewrap and prlimit.
 
-Ported from ``tools/sandbox_linux.go``. The argument list is reproduced exactly:
-the host root is mounted read-only, the workspace is the only writable host
-bind, temporary and home directories are ephemeral, networking follows the
-configured policy, and ``prlimit`` bounds CPU time, address space, process
-count, and open files.
+The argument list is fixed: the host root is mounted read-only, the workspace is
+the only writable host bind, temporary and home directories are ephemeral,
+networking follows the configured policy, and ``prlimit`` bounds CPU time, address
+space, process count, and open files.
 
 The type import is guarded because ``sandbox.py`` selects this module at import
 time, so importing it back at runtime would be circular.

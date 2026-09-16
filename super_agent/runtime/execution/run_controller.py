@@ -4,10 +4,9 @@ The controller is what makes a cancelled turn unable to write into the next one:
 every action carries the run id it was scheduled under, and a completion whose run
 id is no longer current is discarded rather than applied.
 
-Unlike the engine's state lock, these methods are plain synchronous calls. Go
-needs a ``sync.Mutex`` because a goroutine may call them while another holds the
-lock; here every caller runs on the same event loop, and no method awaits, so
-there is no interleaving point to protect.
+Unlike the engine's state lock, these methods are plain synchronous calls. Every
+caller runs on the same event loop, and no method awaits, so there is no
+interleaving point to protect.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from super_agent.runtime.protocol.run_context import RunContext
 
 
 class RunID(str):
-    """Identity of one turn's run. Derived from the Go string type."""
+    """Identity of one turn's run, as a string-backed type."""
 
     __slots__ = ()
 

@@ -1,9 +1,9 @@
 """The composition root: the model, its construction inputs, and its options.
 
-Ported from the Go ``tui/app.go``. ``App`` owns application lifecycle, global
-message routing, focus, terminal dimensions, and layout composition. Every user
-capability lives in the feature that owns it, so nothing here knows how a
-command, an approval, or an attachment behaves.
+``App`` owns application lifecycle, global message routing, focus, terminal
+dimensions, and layout composition. Every user capability lives in the feature
+that owns it, so nothing here knows how a command, an approval, or an attachment
+behaves.
 
 The package surface — ``New``, ``infoBar``, ``welcomeString``, ``footerView``,
 and ``applyOutcome`` — lives in ``super_agent/tui/__init__.py``, because those
@@ -82,7 +82,7 @@ class ConversationNotificationMsg:
 
 
 def scrollbackPrinter(content: str) -> runtime.Command[Msg] | None:
-    """The default command output: committed above the live view, as tea.Println."""
+    """The default command output: committed above the live view."""
     if not content.strip():
         return None
     return runtime.Scrollback(Content=content.rstrip("\n"))
@@ -120,8 +120,8 @@ class App:
     def Init(self) -> tuple[runtime.Command[Msg], ...]:
         """The commands a freshly built app starts with.
 
-        Go batches the composer's cursor blink with the attachment load; the
-        composer has no asynchronous effect in Python, so only one is left.
+        Only the attachment load is left: the composer has no asynchronous
+        effect of its own.
         """
         return (self.attachments.Init(),)
 

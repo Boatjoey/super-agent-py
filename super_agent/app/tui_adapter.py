@@ -1,8 +1,8 @@
 """The terminal adapter: the runtime application API behind the TUI's port.
 
-Ported from ``app/tui_adapter.go``. Conversion lives at the composition edge, so
-neither side knows the other: the TUI sees only its own display DTOs, and the
-runtime only knows its own notifications and views.
+Conversion lives at the composition edge, so neither side knows the other: the
+TUI sees only its own display DTOs, and the runtime only knows its own
+notifications and views.
 
 Two things this file is the single home of:
 
@@ -10,10 +10,9 @@ Two things this file is the single home of:
   notification kind the mapping does not know becomes a visible
   :class:`tui.ConversationError` naming the type, rather than being dropped, so a
   new runtime notification cannot degrade the interface without a trace.
-* the two bridges of a turn. Go attaches the runtime channels to the TUI's
-  channels with goroutines; Python's channels are queues, and the run context is
-  built from the turn's :class:`tui.Cancellation` so the runtime still sees one
-  cancellation signal.
+* the two bridges of a turn. The runtime channels are attached to the TUI's
+  channels by coroutines over queues, and the run context is built from the turn's
+  :class:`tui.Cancellation` so the runtime still sees one cancellation signal.
 """
 
 from __future__ import annotations
@@ -58,8 +57,8 @@ class TUIConversation:
                 case AgentController():
                     self.agents = controller
                 case _:
-                    # An unrecognised controller is not an error: Go's type switch
-                    # has the same silent default, and a caller may pass anything.
+                    # An unrecognised controller is not an error: a caller may pass
+                    # anything, so the default is silent.
                     pass
 
     # --- agent profiles ------------------------------------------------------
@@ -295,7 +294,7 @@ class TUIConversation:
 
 
 def NewTUIConversation(session: runtime.Session, *controllers: object) -> TUIConversation:
-    """Go's ``NewTUIConversation``: the session, plus whichever controllers apply."""
+    """The session, plus whichever controllers apply."""
     return TUIConversation(session, *controllers)
 
 
@@ -369,7 +368,7 @@ async def _hookFailure(agents: AgentController, ctx: RunContext, events: tuple[s
 
 
 def _join(error: BaseException | None, other: BaseException | None) -> BaseException | None:
-    """Go's ``errors.Join`` for two values: one error, or both joined."""
+    """Join two optional errors: one error, or both joined."""
     if error is None:
         return other
     if other is None:
@@ -433,9 +432,9 @@ def to_tui_status(state: runtime.State) -> tui.AgentStatus:
     """The presentation status for one runtime state.
 
     The table is exhaustive over the runtime states; a state it does not name is
-    reported as ``Unknown`` rather than borrowing a neighbouring label, which is
-    what Go's switch default does. Presentation words, not runtime words, are the
-    whole point: the TUI owns no runtime state enum.
+    reported as ``Unknown`` rather than borrowing a neighbouring label.
+    Presentation words, not runtime words, are the whole point: the TUI owns no
+    runtime state enum.
     """
     match state:
         case runtime.StateInitializing:
@@ -464,8 +463,8 @@ def to_tui_message_ptr(message: runtime.Message | None) -> tui.Message | None:
 def to_tui_message(message: runtime.Message) -> tui.Message:
     """One message in the transcript's vocabulary.
 
-    Go's message holds ``[]*ToolCall`` and skips nil entries; the runtime type here
-    is a flat tuple with no nil in it, so there is nothing to skip.
+    The runtime type is a flat tuple with no nil entries, so there is nothing to
+    skip.
     """
     calls = tuple(to_tui_tool_call(call) for call in message.ToolCalls or ())
     attachments = tuple(

@@ -1,10 +1,9 @@
 """DeepSeek adapter.
 
-Ported from ``llm/deepseek.go``. DeepSeek speaks the OpenAI chat-completions
-protocol, so this is :class:`~super_agent.llm.openai.OpenAIModel` with a
-DeepSeek base URL. Usage is not requested explicitly: DeepSeek-compatible
-endpoints vary on ``stream_options`` support, and DeepSeek streams carry usage
-itself where available.
+DeepSeek speaks the OpenAI chat-completions protocol, so this is
+:class:`~super_agent.llm.openai.OpenAIModel` with a DeepSeek base URL. Usage is
+not requested explicitly: DeepSeek-compatible endpoints vary on ``stream_options``
+support, and DeepSeek streams carry usage itself where available.
 """
 
 from __future__ import annotations

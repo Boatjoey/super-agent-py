@@ -1,7 +1,7 @@
 """Open a workspace file without following a symlink in its final component.
 
-Ported from ``tools/nofollow_unix.go``; the ``sys.platform`` dispatch in
-``files.py`` stands in for the Go ``unix`` build tag.
+The ``sys.platform`` dispatch in ``files.py`` selects this module on unix
+platforms.
 """
 
 from __future__ import annotations

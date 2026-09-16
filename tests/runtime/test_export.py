@@ -1,8 +1,7 @@
 """Session export in markdown, JSON, and HTML.
 
-Ported from ``tests/runtime/export_test.go``. The HTML case is a security
-assertion, not a formatting one: transcript content must never reach the output as
-live markup.
+The HTML case is a security assertion, not a formatting one: transcript content
+must never reach the output as live markup.
 """
 
 from __future__ import annotations
@@ -76,7 +75,7 @@ def test_session_export_includes_persisted_audit_events(tmp_path: Path) -> None:
     root = tmp_path / "sessions"
     repository_store = store.New(str(root))
     meta = repository_store.Create(store.Metadata(Title="Audit", Provider="test", Model="model", CWD=str(tmp_path)), [])
-    call = ToolCall(ID="call-1", Name="run_command", Input='{"command":"go test ./..."}')
+    call = ToolCall(ID="call-1", Name="run_command", Input='{"command":"ls -la"}')
     repository_store.Append(meta.ID, store.Record(Type=store.EventApprovalDecision, ToolCall=call, Decision="deny"))
     repository_store.Append(meta.ID, store.Record(Type=store.EventError, Error="denied"))
 
@@ -93,8 +92,8 @@ def test_session_export_includes_persisted_audit_events(tmp_path: Path) -> None:
     for expected in ('"events"', '"approval_decision"', '"run_command"', '"denied"'):
         assert expected in content, f"export missing {expected}: {content}"
     payload = json.loads(content)
-    # session.Metadata declares no JSON tags in Go, so its keys are the Go
-    # field names; the export reproduces that rather than inventing lowercase ones.
+    # session.Metadata's keys are its dataclass field names; the export
+    # reproduces that rather than inventing lowercase ones.
     assert payload["metadata"]["Title"] == "Audit"
     assert len(payload["events"]) == 2
 

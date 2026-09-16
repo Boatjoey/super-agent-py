@@ -1,14 +1,13 @@
 """The app's view: the welcome block, the transcript, the footer, the help box.
 
-Ported from the Go ``tui/view.go``. Two invariants are the whole point of this
-module and both are testable without pinning a rendered string:
+Two invariants are the whole point of this module and both are testable without
+pinning a rendered string:
 
 * every line is clamped to the terminal width, so the terminal never hard-wraps;
 * the dynamic area is windowed to the terminal height and shows its tail.
 
-Go clamps with lipgloss ``MaxWidth``, which is ANSI- and width-aware. Rich's
-:meth:`rich.text.Text.truncate` is the same operation on a styled value, so the
-clamp here measures cells rather than characters.
+The clamp measures cells rather than characters: Rich's
+:meth:`rich.text.Text.truncate` is width-aware on a styled value.
 """
 
 from __future__ import annotations
@@ -126,7 +125,7 @@ def _footerView(app: App) -> Text:
     return footerView(app)
 
 
-#: The command rows the overlay lists, matching the Go help text.
+#: The command rows the overlay lists, matching the help text.
 _COMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("/agent", "Select agent profile"),
     ("/attach", "Queue image or file"),

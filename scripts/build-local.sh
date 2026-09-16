@@ -8,10 +8,10 @@ venv_dir="${SUPER_AGENT_VENV:-${XDG_DATA_HOME:-$HOME/.local/share}/super-agent-p
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-# There is no static binary to link the way `go build` produces one, so the
-# console script is installed into a dedicated virtual environment and a small
-# launcher is placed on PATH. The launcher forwards every argument and exit
-# code unchanged, so `super-agent -h` behaves exactly like the console script.
+# The console script is installed into a dedicated virtual environment and a
+# small launcher is placed on PATH. The launcher forwards every argument and
+# exit code unchanged, so `super-agent -h` behaves exactly like the console
+# script.
 uv build --wheel --out-dir "$tmp_dir" "$repo_root" >/dev/null
 wheel="$(find "$tmp_dir" -maxdepth 1 -name '*.whl' -print -quit)"
 if [[ -z "$wheel" ]]; then

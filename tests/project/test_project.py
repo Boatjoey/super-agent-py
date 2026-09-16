@@ -1,7 +1,4 @@
-"""Project resolution: explicit selection, upward discovery, and cwd fallback.
-
-Ported from ``tests/project/project_test.go``.
-"""
+"""Project resolution: explicit selection, upward discovery, and cwd fallback."""
 
 from __future__ import annotations
 

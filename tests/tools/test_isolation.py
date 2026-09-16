@@ -1,4 +1,4 @@
-"""Port of ``tests/tools/isolation_test.go``: containment and resource bounds.
+"""Containment and resource bounds.
 
 The symlink tests prove the workspace check resolves before it trusts, the
 output tests prove a model-supplied limit cannot buffer an arbitrary amount of

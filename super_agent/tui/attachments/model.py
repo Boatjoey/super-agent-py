@@ -1,11 +1,11 @@
 """Files queued for the next turn.
 
-Ported from the Go ``tui/attachments/model.go``. The feature owns the queue and
-the port it asks for a file; the root owns the status line the outcome feeds.
+The feature owns the queue and the port it asks for a file; the root owns the
+status line the outcome feeds.
 
-Go's ``Attach`` and ``PendingAttachments`` return a ``tea.Cmd`` that runs off the
-update loop. Python keeps that shape: both return an awaitable command whose
-result message comes back through the runtime, because the port does I/O.
+``Attach`` and ``PendingAttachments`` return a command that runs off the update
+loop: both return an awaitable command whose result message comes back through
+the runtime, because the port does I/O.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ from rich.text import Text
 
 __all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "New", "Outcome", "Port"]
 
-#: Go builds this inline with lipgloss; a feature may not reach for the root's
-#: styles (R6), so the summary keeps its own.
+#: A feature may not reach for the root's styles (R6), so the summary keeps its
+#: own.
 _ACCENT = Style(color="color(6)", italic=True)
 
 type AttachCommand = Callable[[], Coroutine[object, object, "Loaded | Attached | None"]]
@@ -120,5 +120,5 @@ class Model:
 
 
 def New(port: Port) -> Model:
-    """Go's ``attachments.New``."""
+    """Build the model around its port."""
     return Model(port=port)

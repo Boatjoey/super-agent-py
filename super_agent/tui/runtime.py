@@ -1,22 +1,21 @@
 """The Elm/MVU runtime the TUI runs on.
 
-Go gets this from Bubble Tea: a message loop, commands that run off the update
-thread and post their result back, a raw-mode key decoder, and a renderer. Python
-has no equivalent, so the loop is written here and kept deliberately small:
+It provides the message loop, commands that run off the update task and post
+their result back, a raw-mode key decoder, and a renderer. The loop is kept
+deliberately small:
 
     message = await queue.get()
     model, commands = await update(model, message)
     render(model)
     for command in commands: start(command)
 
-Three things have no Go counterpart and are worth naming:
+Three things are worth naming:
 
 * :class:`Listener` marks a command that waits on a channel until its turn ends.
-  Go leaves the goroutine blocked; here the program keeps the task so a new turn
-  can cancel the previous listener instead of leaking it.
-* :class:`Scrollback` is ``tea.Println``: content committed above the live view
-  rather than into it.
-* The console is module state (:func:`active_console`) because ``tea.Println``
+  The program keeps the task so a new turn can cancel the previous listener
+  instead of leaking it.
+* :class:`Scrollback` commits content above the live view rather than into it.
+* The console is module state (:func:`active_console`) because a scrollback write
   reaches the running program implicitly. Exactly one program runs per process.
 """
 
@@ -68,12 +67,12 @@ class WindowSizeMsg:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class KeyMsg:
-    """One key press, named the way Bubble Tea names it.
+    """One key press, named with the TUI's canonical key vocabulary.
 
-    ``Key`` is the canonical name: a single character for a rune, otherwise
-    ``enter``, ``tab``, ``esc``, ``up``, ``down``, ``ctrl+c``, ``alt+o``,
-    ``shift+enter``, and so on. Bubble Tea's ``KeyMsg.String()`` is the vocabulary
-    the features switch on, so the decoder produces exactly that.
+    ``Key`` is the canonical name: a single character for a printable key,
+    otherwise ``enter``, ``tab``, ``esc``, ``up``, ``down``, ``ctrl+c``,
+    ``alt+o``, ``shift+enter``, and so on. The features switch on these names, so
+    the decoder produces exactly them.
     """
 
     Key: str = ""
@@ -97,11 +96,11 @@ async def _clear_screen() -> ClearScreenMsg:
     return ClearScreenMsg()
 
 
-#: The command that stops the program. Go writes it ``tea.Quit``; here it is a
-#: value rather than an async function, so a caller passes it, never calls it.
+#: The command that stops the program. It is a value rather than an async
+#: function, so a caller passes it, never calls it.
 Quit: Final[Command[QuitMsg]] = _quit
 
-#: The command that clears the screen: Go's ``tea.ClearScreen``.
+#: The command that clears the screen.
 ClearScreen: Final[Command[ClearScreenMsg]] = _clear_screen
 
 
@@ -110,8 +109,7 @@ class Listener[M]:
     """A command that waits on a channel until the turn it belongs to ends.
 
     A new turn replaces the previous listener, so the program cancels the task
-    the old one runs in. Go cancels nothing: the old goroutine wakes only when
-    its channel closes.
+    the old one runs in rather than leaving it blocked until its channel closes.
     """
 
     command: Command[M]
@@ -122,7 +120,7 @@ class Listener[M]:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Scrollback:
-    """A command that commits text above the live view: Go's ``tea.Println``."""
+    """A command that commits text above the live view."""
 
     Content: str = ""
 
@@ -134,11 +132,11 @@ class Scrollback:
 
 
 def batch[M](*commands: Command[M] | None) -> tuple[Command[M], ...]:
-    """Collect commands, dropping the ones that do nothing, as ``tea.Batch`` does."""
+    """Collect commands, dropping the ones that do nothing."""
     return tuple(command for command in commands if command is not None)
 
 
-#: The console the running program renders to, for ``tea.Println`` equivalents.
+#: The console the running program renders to, for scrollback writes.
 #: ``None`` before a program runs, which makes a printer a no-op in a unit test.
 _active_console: Console | None = None
 
@@ -156,7 +154,7 @@ def _set_active_console(console: Console | None) -> None:
 #: How long a lone ``Esc`` waits for the rest of a sequence before it is one key.
 _ESCAPE_TIMEOUT = 0.05
 
-#: CSI and SS3 sequences, with the names Bubble Tea gives them.
+#: CSI and SS3 sequences, with their canonical key names.
 _SEQUENCES: dict[str, str] = {
     "\x1b[A": "up",
     "\x1b[B": "down",
@@ -181,7 +179,7 @@ _SEQUENCES: dict[str, str] = {
     "\x1b\n": "alt+enter",
 }
 
-#: Control bytes, with the names Bubble Tea gives them.
+#: Control bytes, with their canonical key names.
 _CONTROLS: dict[str, str] = {
     "\x03": "ctrl+c",
     "\x04": "ctrl+d",
@@ -329,7 +327,7 @@ class Program[Model, MsgT]:
     quit: bool = False
 
     def send(self, message: MsgT) -> None:
-        """Post a message into the loop, as ``tea.Program.Send`` does."""
+        """Post a message into the loop."""
         self.queue.put_nowait(message)
 
     async def step(self) -> bool:

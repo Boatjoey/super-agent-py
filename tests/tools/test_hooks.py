@@ -1,8 +1,7 @@
-"""Port of ``tests/tools/hooks_test.go``: registry lifecycle hooks.
+"""Registry lifecycle hooks.
 
-A hook reports a failure by raising, which is the Python form of Go's
-``return err``. A failing post hook must not turn a successful tool run into a
-failed one, because the work has already happened.
+A hook reports a failure by raising. A failing post hook must not turn a
+successful tool run into a failed one, because the work has already happened.
 """
 
 from __future__ import annotations

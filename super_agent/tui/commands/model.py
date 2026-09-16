@@ -1,12 +1,11 @@
 """The slash-command catalogue, its input semantics, and its background work.
 
-Ported from the Go ``tui/commands/model.go``. The feature owns which commands
-exist, what each one means, and the operations it starts; the root owns the
-effects a command asks for, including every cross-feature one.
+The feature owns which commands exist, what each one means, and the operations it
+starts; the root owns the effects a command asks for, including every
+cross-feature one.
 
-One Go signature changes shape: ``Handle`` is a coroutine. Go calls ports such as
-``Workspace.Diagnostics`` from the update goroutine and blocks it; Python must
-await them, so the caller awaits :meth:`Model.Handle`.
+``Handle`` is a coroutine rather than a blocking call. The ports it reaches, such
+as ``Workspace.Diagnostics``, do I/O, so the caller awaits :meth:`Model.Handle`.
 """
 
 from __future__ import annotations
@@ -397,7 +396,7 @@ class Model:
         return Outcome(Status="Branch status", Output=result)
 
 
-#: The workflow prompts, verbatim from the Go ``Handle``.
+#: The workflow prompts, verbatim from ``Handle``.
 _REVIEW_PROMPT = (
     "Review the current changes. Inspect the git diff, relevant code, and LSP diagnostics when configured, "
     "then report only actionable defects with file and line references. Do not modify files."
@@ -412,5 +411,5 @@ _COMMIT_MESSAGE_PROMPT = (
 
 
 def New(config: Config, ports: Ports) -> Model:
-    """Go's ``commands.New``: the catalogue follows the discovered extensions."""
+    """The constructor: the catalogue follows the discovered extensions."""
     return Model(ports=ports, config=config, customCommands=tuple(ports.Extensions.CustomCommands()))

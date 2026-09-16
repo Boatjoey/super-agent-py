@@ -13,10 +13,9 @@ The walk stops at the nearest directory containing ``.git``. Directories above t
 topmost one that holds any instruction file are trimmed, so a stray ``AGENTS.md``
 in ``/`` cannot change what a project sees.
 
-Go declares the driver ``app.LoadProjectInstructions`` in a sibling file
-(``app/instructions.go``). Python cannot have both ``app/instructions.py`` and an
-``app/instructions/`` package, so the driver lives here and ``super_agent.app``
-re-exports it under the same name.
+The driver ``LoadProjectInstructions`` lives here, and ``super_agent.app``
+re-exports it under the same name so callers keep writing
+``app.LoadProjectInstructions``.
 """
 
 from __future__ import annotations

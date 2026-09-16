@@ -1,9 +1,8 @@
 """Attachments staged for the next turn.
 
-Ported from ``tests/runtime/attachments_test.go``. Attachment staging is a narrow
-optional port on the workspace, so both cases here run against the real workspace
-implementation rather than a stand-in: the escape check is a security property and
-testing it against a fake would prove nothing.
+Attachment staging is a narrow optional port on the workspace, so both cases here
+run against the real workspace implementation rather than a stand-in: the escape
+check is a security property and testing it against a fake would prove nothing.
 """
 
 from __future__ import annotations
@@ -32,8 +31,8 @@ NOTIFICATION_CAPACITY = 20
 class _StaticExecutor:
     """Answers every model call with the same reply.
 
-    Local to this module so it fails on its own terms; ``session_store_test`` has
-    a recording version of the same idea.
+    Local to this module so it fails on its own terms; ``test_session_store.py``
+    has a recording version of the same idea.
     """
 
     def __init__(self) -> None:

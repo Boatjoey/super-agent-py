@@ -1,4 +1,4 @@
-"""Provider registry, ported from ``tests/llm/factory_test.go``."""
+"""Provider registry."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from super_agent.runtime.protocol.types import Message, ModelResponse, StreamChu
 
 
 class FakeModel:
-    """The Go test's ``fakeModel``: a model that answers without calling out."""
+    """A model that answers without calling out."""
 
     async def Next(
         self,

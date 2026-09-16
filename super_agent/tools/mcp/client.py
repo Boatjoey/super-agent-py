@@ -1,14 +1,13 @@
 """A stdio MCP client and the tools a connected server contributes.
 
-Ported from ``tools/mcp/client.go``. The Go client is built on the official
-``go-sdk``; this port speaks the same JSON-RPC itself, because the repository
-deliberately does not depend on an MCP SDK. The wire framing is Content-Length,
-shared with the LSP client in this package.
+The client speaks JSON-RPC directly, because the repository deliberately does not
+depend on an MCP SDK. The wire framing is Content-Length, shared with the LSP
+client in this package.
 
-The observable behaviour the Go implementation relies on is preserved: a connect
-timeout, a per-call deadline, the ``initialize``/``initialized`` handshake,
-``tools/list`` mapped to :class:`ToolSpec`, ``tools/call`` with bounded output,
-an explicit environment, and discovered tools that are *always* risky.
+The observable contract: a connect timeout, a per-call deadline, the
+``initialize``/``initialized`` handshake, ``tools/list`` mapped to
+:class:`ToolSpec`, ``tools/call`` with bounded output, an explicit environment,
+and discovered tools that are *always* risky.
 
 Two ordering rules matter:
 
@@ -106,8 +105,8 @@ def tool_spec(tool: Mapping[str, Any]) -> ToolSpec:
     if schema is not None:
         if not isinstance(schema, Mapping):
             raise RuntimeError("tool input schema must be an object")
-        # Go unmarshals into a map that already holds "type": "object", so the
-        # default survives and the declared keys are merged over it.
+        # The parameters start as a map that already holds "type": "object", so
+        # the default survives and the declared keys are merged over it.
         for key, value in cast("Mapping[str, Any]", schema).items():
             parameters[str(key)] = value
     return ToolSpec(
@@ -147,7 +146,7 @@ def format_result(result: Any) -> str:
 
 
 def _quote(value: str) -> str:
-    """Go's ``%q`` for a string, so the error text reads the same."""
+    """A JSON string literal for ``value``."""
     return json.dumps(value)
 
 
@@ -504,7 +503,7 @@ class Manager:
         return list(self._tools)
 
     async def Close(self) -> None:
-        """Close every server, joining the failures the way ``errors.Join`` does."""
+        """Close every server, aggregating the failures into one error."""
         async with self._lock:
             if self._closed:
                 return

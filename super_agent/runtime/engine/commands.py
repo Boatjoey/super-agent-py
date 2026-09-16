@@ -50,7 +50,7 @@ COMPACT_SUMMARY_PROMPT = (
 
 
 def discard_chunk(_chunk: StreamChunk) -> None:
-    """Stand-in for Go's nil ``chunkFunc``, which the model must not call."""
+    """A no-op stream callback; the model must not call it."""
 
 
 class CommandsMixin:

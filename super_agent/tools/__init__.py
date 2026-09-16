@@ -1,8 +1,7 @@
 """The built-in tool adapters.
 
-Ported from the Go ``tools`` package. Python splits a package across modules,
-so this module stands in for the package namespace: everything Go callers write
-as ``tools.X`` is re-exported here.
+The tools package surface: everything callers write as ``tools.X`` is re-exported
+here.
 
 Tools are outbound adapters. They may import ``runtime/protocol`` but not the
 root ``runtime`` facade — see ``docs/architecture.md``.

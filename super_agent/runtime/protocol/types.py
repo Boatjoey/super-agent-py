@@ -4,11 +4,11 @@ These are the types that cross the adapter boundary. Nothing here knows about th
 state machine, and nothing here knows about a provider: an adapter translates its
 SDK's values into these and back.
 
-Field names keep Go's spelling so the two implementations read alike, and each
-field's JSON key is declared explicitly with
-:func:`~super_agent.jsonutil.json_field` because the artefacts on disk are shared
-with the Go implementation. Sequence fields on these frozen types are tuples:
-they are values, never mutated, and a tuple keeps the type hashable.
+Field names keep their exported spelling so the code reads alike across the
+runtime, and each field's JSON key is declared explicitly with
+:func:`~super_agent.jsonutil.json_field` because the artefacts on disk have a
+fixed schema. Sequence fields on these frozen types are tuples: they are values,
+never mutated, and a tuple keeps the type hashable.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from super_agent.runtime.protocol.run_context import RunContext
 
 
 class Role(str):
-    """What a message is for. Mirrors Go's string-backed ``Role``."""
+    """What a message is for, as a string-backed type."""
 
     __slots__ = ()
 
@@ -35,9 +35,9 @@ RoleUser: Final[Role] = Role("user")
 RoleAssistant: Final[Role] = Role("assistant")
 RoleTool: Final[Role] = Role("tool")
 
-#: Go's zero value for the type, kept so a zero :class:`Message` is constructible
-#: the way ``protocol.Message{}`` is. A message with no role is never produced by
-#: a working adapter; it exists for the same reason Go's zero values do.
+#: The zero value for the type, kept so a zero :class:`Message` is constructible
+#: without a role. A message with no role is never produced by a working adapter;
+#: it exists so default construction stays valid.
 ZeroRole: Final[Role] = Role("")
 
 

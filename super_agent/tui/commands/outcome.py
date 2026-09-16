@@ -1,9 +1,8 @@
 """What a command reports back, and the async results that follow it.
 
-Ported from the Go ``tui/commands/outcome.go``. A command reports its whole
-effect at once: the error line, the status line, and any scrollback output. Go
-signals failure with a non-nil ``error``; the port carries the exception as a
-value so the root can apply the same precedence rules without unwinding.
+A command reports its whole effect at once: the error line, the status line, and
+any scrollback output. Failure is carried as an exception value so the root can
+apply the same precedence rules without unwinding.
 """
 
 from __future__ import annotations

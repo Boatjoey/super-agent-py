@@ -1,6 +1,6 @@
 """The transcript feature.
 
-Go's ``tui/transcript`` package surface, re-exported so callers keep writing
+The package surface, re-exported so callers keep writing
 ``transcript.Model`` and ``transcript.RoleAssistant``.
 """
 

@@ -1,14 +1,12 @@
 """The TUI's visual vocabulary.
 
-Ported from the Go ``tui/styles.go``. Go builds lipgloss styles and one glamour
-``TermRenderer``; Rich has the same two pieces, so the port keeps the same split:
+Rich supplies the two pieces this needs, so the module keeps a clean split:
 
-* :class:`Styles` carries one :class:`rich.style.Style` per role. lipgloss colour
-  numbers are Rich's ``color(N)`` form of the same 256-colour palette, so
-  ``lipgloss.Color("6")`` becomes ``color(6)``.
-* :class:`MarkdownRenderer` stands in for glamour's ``TermRenderer``. The two
-  disagree about wrapping and about how much padding a block gets, which is why
-  the tests assert width invariants rather than rendered strings.
+* :class:`Styles` carries one :class:`rich.style.Style` per role, using Rich's
+  ``color(N)`` form of the 256-colour palette.
+* :class:`MarkdownRenderer` renders markdown for the transcript. Its wrapping and
+  block padding differ from a width-perfect string, which is why the tests assert
+  width invariants rather than rendered strings.
 """
 
 from __future__ import annotations
@@ -35,7 +33,7 @@ class MarkdownRenderer(Protocol):
 
 
 class DefaultMarkdownRenderer:
-    """glamour's ``TermRenderer``, built on :class:`rich.markdown.Markdown`.
+    """A markdown renderer built on :class:`rich.markdown.Markdown`.
 
     Rendering happens through a private console whose width is the caller's, so
     the result is a plain :class:`rich.text.Text` the transcript can compose,
@@ -69,7 +67,7 @@ def _style_of(segment: Segment) -> Style | None:
 
 
 def _strip_blank_lines(text: Text) -> Text:
-    """Drop the blank padding glamour also trims, and trailing spaces with it."""
+    """Drop the blank padding and trailing spaces."""
     lines: list[Text] = []
     for line in text.split("\n", allow_blank=True):
         line.rstrip()
@@ -102,7 +100,7 @@ class Styles:
 
 
 def DefaultStyles() -> Styles:
-    """The Go ``DefaultStyles``: cyan accents, dim secondary text."""
+    """The default styles: cyan accents, dim secondary text."""
     secondary, accent = "color(8)", "color(6)"
     return Styles(
         Status=Style(color=accent, italic=True),

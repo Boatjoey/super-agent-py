@@ -7,7 +7,7 @@ from super_agent.runtime.machine.state import State
 
 
 def _event_name(event: Event | None) -> str:
-    """The type name Go's ``%T`` prints; ``<nil>`` for a missing event."""
+    """The event's type name, or ``"<nil>"`` for a missing event."""
     return "<nil>" if event is None else type(event).__name__
 
 

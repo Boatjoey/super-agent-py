@@ -1,8 +1,7 @@
 """Telemetry correlation: one turn's records carry one run and action identity.
 
-Ported from ``tests/runtime/telemetry_test.go``. The sink is a process-global
-JSONL file, so the test configures it against ``tmp_path`` and always closes it,
-even when the turn fails.
+The sink is a process-global JSONL file, so the test configures it against
+``tmp_path`` and always closes it, even when the turn fails.
 """
 
 from __future__ import annotations

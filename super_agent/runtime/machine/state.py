@@ -1,7 +1,7 @@
 """The six runtime phases.
 
-``State`` is string-backed, exactly like Go's, because the value is written into
-snapshots and diagnostics and has to read the same in both implementations.
+``State`` is string-backed because the value is written into snapshots and
+diagnostics and has to serialise as a bare string.
 """
 
 from __future__ import annotations

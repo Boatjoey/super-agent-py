@@ -1,7 +1,7 @@
 """Engine queries.
 
 Python cannot split one class across modules, so the engine is assembled from
-mixins: :class:`QueryMixin` owns Go's ``Engine`` methods that only read state, and
+mixins: :class:`QueryMixin` owns the ``Engine`` methods that only read state, and
 ``engine.py`` combines it with the command and action-loop mixins. The
 ``TYPE_CHECKING`` block declares the attributes ``Engine.__init__`` provides.
 """

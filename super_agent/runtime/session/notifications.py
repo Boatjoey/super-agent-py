@@ -1,9 +1,8 @@
 """What the session tells the outside world while a turn runs.
 
 Six notification kinds carry information. :class:`NotificationsClosed` is the
-seventh member and carries none: Go marks the end of a turn by closing the
-channel, and an :class:`asyncio.Queue` has no close, so the close is delivered as
-a value the consumer stops on.
+seventh member and carries none: an :class:`asyncio.Queue` has no close, so the
+end of a turn is delivered as a value the consumer stops on.
 """
 
 from __future__ import annotations
@@ -84,7 +83,7 @@ class SessionError(SessionNotification):
 class NotificationsClosed(SessionNotification):
     """The turn has finished and nothing more will arrive.
 
-    Go's ``close(notifications)``. Delivered as a value because
+    The end-of-turn marker. Delivered as a value because
     :class:`asyncio.Queue` cannot be closed, and kept inside the sealed set so the
     queue has one element type.
     """

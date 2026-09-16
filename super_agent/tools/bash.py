@@ -1,8 +1,8 @@
 """The ``bash`` tool.
 
-Ported from ``tools/bash.go``. It runs through the same runner as every other
-command tool, so it inherits the command timeout, output cap, process group,
-and environment scrubbing rather than reimplementing them.
+It runs through the same runner as every other command tool, so it inherits the
+command timeout, output cap, process group, and environment scrubbing rather than
+reimplementing them.
 """
 
 from __future__ import annotations

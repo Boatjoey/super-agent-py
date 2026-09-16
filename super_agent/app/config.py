@@ -1,9 +1,9 @@
 """Startup configuration: settings, flags, environment, and the selected project.
 
-Ported from ``app/config.go``. Configuration comes from exactly three places —
-``~/.superagent/settings.json``, the environment, and the command line — and the
-result is one :class:`Config` value the rest of the composition root reads. There
-is no project-level settings file and no layered merge.
+Configuration comes from exactly three places — ``~/.superagent/settings.json``,
+the environment, and the command line — and the result is one :class:`Config`
+value the rest of the composition root reads. There is no project-level settings
+file and no layered merge.
 
 Two spellings of the configuration directory are in play and neither may be
 unified: ``~/.superagent/`` (settings, home, no hyphen) and ``<workspace>/.super-
@@ -13,9 +13,8 @@ first.
 :func:`LoadConfig` resolves the selected provider's credential, and that resolved
 value is what the session builds the adapter from — the raw ``providers`` map on
 :class:`Config` is kept only so a custom agent profile can name a different
-provider. Building the model from the unresolved map is the Go implementation's
-credential bug: it can send the template placeholder ``sk-...`` as a real bearer
-token.
+provider. Building the model from the unresolved map is a credential bug: it can
+send the template placeholder ``sk-...`` as a real bearer token.
 """
 
 from __future__ import annotations
@@ -70,8 +69,7 @@ __all__ = [
     "resolveProviderConfig",
 ]
 
-#: Where an unset variable is looked up. ``None`` means "not set", which is the
-#: Python shape of Go's ``(value, ok)`` pair.
+#: Where an unset variable is looked up. ``None`` means "not set".
 type Lookup = Callable[[str], str | None]
 
 #: The user-level configuration directory spelling: no hyphen, under home.
@@ -168,8 +166,8 @@ class PermissionSettings:
 class Settings:
     """``~/.superagent/settings.json``, field for field.
 
-    Every field is written, because Go's struct has no ``omitempty`` on any of
-    them: a template file a user opens has to show every knob it can turn.
+    Every field is written, because none of them is ``omitempty``: a template file
+    a user opens has to show every knob it can turn.
     """
 
     Provider: str = dataclasses.field(default="", metadata=json_field(name="provider"))
@@ -203,8 +201,7 @@ class Config:
     """Everything startup decided, resolved and ready for the session.
 
     Mutable on purpose: :func:`super_agent.app.session.NewSessionWithExtensions`
-    points ``Sandbox.Workspace`` at the workspace's primary root once it knows it,
-    which is what Go does to the copy it was handed.
+    points ``Sandbox.Workspace`` at the workspace's primary root once it knows it.
     """
 
     Provider: str = ""
@@ -301,9 +298,8 @@ def LoadConfig(flags: Flags, lookup: Lookup | None = None) -> Config:
         DenyEnv=settings.Permissions.DenyEnv,
         Network=firstNonEmpty(settings.Permissions.Network, "deny"),
     )
-    # Go sorts the MCP server names because it iterates a map; Python's map is
-    # insertion-ordered but settings come from JSON, so the sort is what makes the
-    # order deterministic in both implementations.
+    # Settings come from JSON, where object key order is not meaningful, so the
+    # server names are sorted to make the resolved order deterministic.
     mcpServers: list[MCPServerConfig] = []
     for name in sorted(settings.MCPServers):
         server = settings.MCPServers[name]

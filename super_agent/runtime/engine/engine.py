@@ -6,7 +6,7 @@ results. Everything else — policy, storage, presentation — is a port or an a
 around it.
 
 The class is assembled from three mixins because Python cannot split one class
-across modules and the Go file split is worth keeping: ``commands.py`` has the
+across modules, and the split is worth keeping: ``commands.py`` has the
 commands, ``action_loop.py`` the loop, ``query.py`` the reads.
 """
 
@@ -82,10 +82,9 @@ class Engine(CommandsMixin, ActionLoopMixin, QueryMixin):
     async def _notify_state_observer(self) -> None:
         """Fire the observer, never while holding the lock.
 
-        Go reads the field under the mutex because a goroutine could be replacing
-        it; here assignment and read are atomic and nothing awaits between them.
-        Awaiting the observer while holding the lock would instead let it
-        deadlock against its own reads.
+        Assignment and read of the observer field are atomic, and nothing awaits
+        between them. Awaiting the observer while holding the lock would instead
+        let it deadlock against its own reads.
         """
         observer = self._state_observer
         if observer is not None:

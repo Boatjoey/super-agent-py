@@ -1,8 +1,7 @@
 """The transition table's exact output: state, change order, and action plan.
 
-Ported from ``tests/runtime/transition_test.go``. Counts catch missing or extra
-outputs; the type lists assert exact order, which is the part of a transition
-that is easiest to get subtly wrong.
+Counts catch missing or extra outputs; the type lists assert exact order, which is
+the part of a transition that is easiest to get subtly wrong.
 """
 
 from __future__ import annotations

@@ -1,8 +1,7 @@
 """Durable session storage and the repository adapter over it.
 
-Ports ``store`` (``store.go`` and ``repository.go``). Python splits a Go package
-across files, so this module stands in for the package namespace: everything Go
-callers write as ``store.X`` is re-exported here.
+The store package surface: everything callers write as ``store.X`` is re-exported
+here.
 """
 
 from __future__ import annotations

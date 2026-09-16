@@ -1,11 +1,10 @@
 """OpenAI-compatible chat adapter.
 
-Ported from ``llm/openai.go``. One implementation serves both OpenAI and
-DeepSeek: :func:`NewDeepSeek` is the same model with a different base URL and
-without an explicit usage request. The adapter streams chat completions and
-accumulates deltas itself so the merge rules — tool-call fragments keyed by
-``index`` with ``function.arguments`` concatenated in order — are visible in one
-place instead of hidden in an SDK helper.
+One implementation serves both OpenAI and DeepSeek: :func:`NewDeepSeek` is the
+same model with a different base URL and without an explicit usage request. The
+adapter streams chat completions and accumulates deltas itself so the merge rules
+— tool-call fragments keyed by ``index`` with ``function.arguments`` concatenated
+in order — are visible in one place instead of hidden in an SDK helper.
 """
 
 from __future__ import annotations
@@ -40,12 +39,12 @@ from super_agent.runtime.protocol.types import (
     Usage,
 )
 
-#: Go's ``httpClient`` leaves the connection open for as long as the provider
-#: keeps sending; two minutes bounds how long a stalled connection may hang.
+#: The connection stays open for as long as the provider keeps sending; two
+#: minutes bounds how long a stalled connection may hang.
 STREAM_TIMEOUT_SECONDS = 120.0
 
-#: Go raises on ``finish_reason=length`` rather than hand a half-emitted
-#: tool-call argument string to the executor.
+#: Raised on ``finish_reason=length`` rather than handing a half-emitted tool-call
+#: argument string to the executor.
 TRUNCATED_ERROR = (
     "llm output truncated by the token limit (finish_reason=length); "
     "raise the model's max output or shorten the conversation"
@@ -55,8 +54,7 @@ TRUNCATED_ERROR = (
 def http_client() -> httpx2.AsyncClient:
     """Build the HTTP client the provider SDK streams through.
 
-    Go replaces ``http.DefaultTransport`` in tests; the Python seam is this
-    function, which the tests monkeypatch to return a client backed by
+    This function is the seam tests monkeypatch to return a client backed by
     ``httpx2.MockTransport``.
     """
     return httpx2.AsyncClient(timeout=httpx2.Timeout(STREAM_TIMEOUT_SECONDS))

@@ -1,18 +1,16 @@
 """The store, and the session use cases that run over it.
 
-Ported from ``tests/runtime/session_store_test.go``. Two of the Go file's cases
-have no counterpart here because their subject is engine behaviour, not storage,
-and they already live in ``test_engine.py``:
+Two cases whose subject is engine behaviour rather than storage already live in
+``test_engine.py``:
 
-* ``TestConcurrentRunTurnFailsWithoutBlockingEvents`` — the engine half is
+* the engine half of "a concurrent run turn fails without blocking events" is
   ``test_invalid_second_turn_does_not_cancel_active_run``; the session half, the
   busy error, is ``test_session_run_turn_refuses_a_second_turn`` below.
-* ``TestResolverErrorLeavesNoToolMessageWhenNothingWasAsked`` —
-  ``test_no_tools_tool_call_is_protocol_error``.
+* ``test_no_tools_tool_call_is_protocol_error``.
 
-The store-only cases the milestone calls for beyond the Go file are at the end:
-cross-language replay of a real Go store, the torn tail and mid-file corruption
-pairs, the 20 MiB read cap, identifiers, and atomic metadata writes.
+The store-only cases are at the end: replay of a checked-in golden store, the
+torn tail and mid-file corruption pairs, the 20 MiB read cap, identifiers, and
+atomic metadata writes.
 """
 
 from __future__ import annotations
@@ -58,12 +56,12 @@ from super_agent.runtime.session import (
 from tests.fakes.execution import FakeToolRunner, StaticReplyExecutor
 from tests.fakes.model import BlockingModel
 
-#: A real store written by the Go implementation. Read-only here; every test that
-#: mutates it copies it to ``tmp_path`` first.
-GO_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "go_sessions"
+#: A checked-in golden session store. Read-only here; every test that mutates it
+#: copies it to ``tmp_path`` first.
+SESSION_STORE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "session_store"
 
-#: Go writes ``store.Metadata{ID: "new"}`` for a session whose stored id does not
-#: matter yet; the explicit conversion stands in for the untyped constant.
+#: A session whose stored id does not matter yet; the explicit conversion keeps
+#: the value a `SessionID`.
 NEW_ID = store.SessionID("new")
 
 
@@ -71,12 +69,12 @@ NEW_ID = store.SessionID("new")
 
 
 def configured_workspace(root: str) -> workspace.Workspace:
-    """Mirror the Go tests' ``configuredWorkspace`` helper."""
+    """The workspace helper the session tests share."""
     return workspace.New(workspace.NewDefaultContext(root))
 
 
 def persistent_session(engine: Engine, st: store.Store, meta: store.Metadata) -> Session:
-    """Mirror the Go tests' ``persistentSession`` helper."""
+    """The persistent-session helper the store tests share."""
     root = meta.CWD or os.getcwd()
     return NewPersistentSession(
         engine,
@@ -108,7 +106,7 @@ async def run_turn(session: Session, query: str) -> None:
 
 
 class CheckpointWorkspace:
-    """Mirrors Go's ``checkpointWorkspace``: a port stub that records what it captured."""
+    """A port stub that records what it captured."""
 
     def __init__(self, files: list[FileSnapshot]) -> None:
         self.paths: list[str] = []
@@ -139,14 +137,14 @@ class CheckpointWorkspace:
 
 
 class FailingWorkspaceRepository(store.Repository):
-    """Mirrors Go's ``failingWorkspaceRepository``: the migration write always fails."""
+    """A repository whose migration write always fails."""
 
     def SaveWorkspaceDescription(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
         raise RuntimeError("workspace metadata write failed")
 
 
 class CanonicalizeSpy(workspace.Workspace):
-    """Mirrors Go's ``canonicalizeSpy``: counts how often the legacy upgrade ran."""
+    """Counts how often the legacy workspace upgrade ran."""
 
     def __init__(self, context: workspace.Context) -> None:
         super().__init__(context)
@@ -752,13 +750,13 @@ def test_metadata_writes_are_atomic_with_expected_modes_and_layout(tmp_path: Pat
     assert stat.S_IMODE(memory_path.stat().st_mode) == 0o600
 
 
-# --- cross-language replay ---------------------------------------------------
+# --- golden store replay -----------------------------------------------------
 
 
-def test_store_replays_a_real_go_session(tmp_path: Path) -> None:
-    """Read a fixture written by the Go implementation and replay every message path."""
+def test_store_replays_a_checked_in_session_store(tmp_path: Path) -> None:
+    """Read the checked-in golden store and replay every message path."""
     sessions = tmp_path / "sessions"
-    shutil.copytree(GO_FIXTURE, sessions)
+    shutil.copytree(SESSION_STORE_FIXTURE, sessions)
     st = store.New(str(sessions))
     session_id = store.SessionID("20260916T120000123456789")
     session_key = SessionID(str(session_id))

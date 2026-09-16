@@ -1,10 +1,10 @@
 """The `runtime` facade.
 
-Go groups the compatibility surface into ``api_model.go``, ``api_machine.go``,
-``api_execution.go``, ``api_engine.go``, and ``api_session.go``, all in package
-`runtime`. This module is that package: it re-exports each of those files and
+The compatibility surface is grouped into ``api_model.py``, ``api_machine.py``,
+``api_execution.py``, ``api_engine.py``, and ``api_session.py``, all in package
+`runtime`. This module is that package: it re-exports each of those modules and
 adds nothing of its own, so ``runtime.Transition`` and ``runtime.MachineSnapshot``
-read exactly as they do in Go.
+are reachable from one place.
 
 Internal packages depend on the narrow package that owns a type, never on this
 facade. R4 in ``tests/architecture/test_dependencies.py`` keeps the facade from

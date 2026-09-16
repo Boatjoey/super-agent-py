@@ -1,8 +1,7 @@
 """The stdio language-server adapter.
 
-Ported from the Go ``tools/lsp`` package. Python splits a Go package across
-modules, so this module stands in for the package namespace: everything Go
-callers write as ``lsp.X`` is re-exported here.
+The lsp package surface: everything callers write as ``lsp.X`` is re-exported
+here.
 
 ``lsp.Tools()`` returns one :class:`Tool` per query name; the tools join
 ``tools.Registry`` like any built-in, and the manager reconnects lazily when the

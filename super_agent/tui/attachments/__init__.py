@@ -1,6 +1,6 @@
 """The attachments feature.
 
-Go's ``tui/attachments`` package surface, re-exported so callers keep writing
+The package surface, re-exported so callers keep writing
 ``attachments.Model`` and ``attachments.Item``.
 """
 

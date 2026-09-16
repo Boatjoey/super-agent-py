@@ -1,8 +1,8 @@
 """The pending tool-approval request, its selection, and the decision it yields.
 
-Ported from the Go ``tui/approval/model.go``. The model owns the request, the
-selected row, and the ``submitted`` latch; the root owns the decision channel the
-answer travels on, so this feature never talks to a port.
+The model owns the request, the selected row, and the ``submitted`` latch; the
+root owns the decision channel the answer travels on, so this feature never talks
+to a port.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ _DECISIONS_BY_ROW: Final[tuple[str, ...]] = ("once", "always", "deny")
 
 #: The selected-row marker, U+203A.
 _SELECTED_MARKER = "\u203a"
-#: Go builds these inline with lipgloss; a feature may not reach for the root's
-#: styles (R6), so the menu keeps its own palette.
+#: A feature may not reach for the root's styles (R6), so the menu keeps its own
+#: palette.
 _BANNER = Style(bgcolor="color(3)", color="color(0)")
 _BOLD = Style(bold=True)
 _DIM = Style(color="color(8)", italic=True)

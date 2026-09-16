@@ -1,10 +1,10 @@
 """The ``delegate`` tool: running a task in a child agent.
 
-Ported from ``app/subagents.go``. A delegation creates a real persistent child
-session with its own workspace, its own tool registry, and its own engine, runs
-one turn, and returns the child's final assistant message to the parent call.
+A delegation creates a real persistent child session with its own workspace, its
+own tool registry, and its own engine, runs one turn, and returns the child's
+final assistant message to the parent call.
 
-Three rules the Go implementation relies on are kept exactly:
+Three rules are kept exactly:
 
 * the recursion depth is carried on the run context, and a fourth level is
   refused;
@@ -72,8 +72,8 @@ __all__ = [
 #: How many levels of delegation are allowed. The first child runs at depth 1.
 maxSubagentDepth: Final[int] = 3
 
-#: The run-context key carrying the current depth. Go uses an empty struct type;
-#: an object identity is the Python equivalent of a private type.
+#: The run-context key carrying the current depth. An object identity is the
+#: private-type equivalent.
 subagentDepthKey: Final[object] = object()
 
 #: How long a worktree removal may take before the directory is deleted instead.
@@ -212,9 +212,9 @@ class subagentTool:
     async def runTurn(self, ctx: RunContext, child: Session, prompt: str, depth: int) -> None:
         """Run one child turn, denying every approval it asks for.
 
-        Go runs the denial on its own goroutine while the turn blocks. Here it is
-        a task: the same decoupling, with the task cancelled once the turn ends so
-        nothing outlives the delegation.
+        The denial runs on its own task while the turn blocks, so the same
+        decoupling holds; the task is cancelled once the turn ends so nothing
+        outlives the delegation.
         """
         notifications: asyncio.Queue[SessionNotification] = asyncio.Queue(maxsize=100)
         approvals: asyncio.Queue[ApprovalDecision | ApprovalsClosed] = asyncio.Queue(maxsize=1)

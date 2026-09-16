@@ -1,4 +1,4 @@
-"""Port of ``tests/tools/bash_test.go``: the bash tool and the registry."""
+"""The bash tool and the registry."""
 
 from __future__ import annotations
 

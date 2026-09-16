@@ -1,8 +1,8 @@
 """The capped sink a command's merged output is written into.
 
-Ported from ``tools/output.go``. Truncation happens while reading, not after:
-buffering the whole stream and trimming afterwards means a command that emits
-gigabytes is still read into memory in full before the limit is applied.
+Truncation happens while reading, not after: buffering the whole stream and
+trimming afterwards means a command that emits gigabytes is still read into memory
+in full before the limit is applied.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """The tool-approval feature.
 
-Go's ``tui/approval`` package surface, re-exported so callers keep writing
+The package surface, re-exported so callers keep writing
 ``approval.Model`` and ``approval.ApproveOnce``.
 """
 

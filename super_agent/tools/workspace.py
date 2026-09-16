@@ -1,11 +1,11 @@
 """The narrow workspace policy port that built-in tools require.
 
-Ported from ``tools/workspace.go``. ``super_agent.workspace.Context`` is the
-concrete implementation assembled by ``app``; a tool only ever sees this
-protocol, so the same tool values run against the real context or a test double.
+``super_agent.workspace.Context`` is the concrete implementation assembled by
+``app``; a tool only ever sees this protocol, so the same tool values run against
+the real context or a test double.
 
-Go returns ``(value, error)``; here a refusal raises, and the caller turns it
-into the text it feeds back to the model.
+A refusal raises, and the caller turns it into the text it feeds back to the
+model.
 """
 
 from __future__ import annotations

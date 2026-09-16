@@ -1,8 +1,8 @@
 """Workspace file tools and the argument plumbing they share.
 
-Ported from ``tools/files.go``. Reading and writing go through the injected
-workspace context, and the open itself refuses a symlink final component so the
-containment check cannot be undone between resolve and open.
+Reading and writing go through the injected workspace context, and the open itself
+refuses a symlink final component so the containment check cannot be undone
+between resolve and open.
 """
 
 from __future__ import annotations
@@ -78,8 +78,8 @@ class _WriteFileArgs:
 def decode_args[T](text: str, cls: type[T]) -> T:
     """Parse a tool call's raw JSON input into ``cls``.
 
-    Go decodes straight into a typed struct; every decoding failure surfaces to
-    the model as the same message, so the distinction is not preserved.
+    Every decoding failure surfaces to the model as the same message, so the
+    distinction is not preserved.
     """
     try:
         return from_json_value(_json_object(text), cls)
@@ -286,8 +286,8 @@ def collect_files(workspace: WorkspaceContext | None, root: str, pattern: str) -
     A failure on ``root`` itself is still reported.
     """
     if not os.path.isdir(root):
-        # Go's WalkDir hands the root entry itself to the callback when the root
-        # is a regular file, and reports its own error when it cannot stat it.
+        # A root that is a regular file is treated as a single entry, and a root
+        # that cannot be stat'd is reported as its own error.
         if not os.path.exists(root):
             raise FileNotFoundError(2, "no such file or directory", root)
         rel = _try_readable(workspace, root)
@@ -304,7 +304,7 @@ def collect_files(workspace: WorkspaceContext | None, root: str, pattern: str) -
             root_error = error
 
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False, onerror=on_error):
-        # Go's WalkDir reads a directory in lexical order and skips .git.
+        # Directories are read in lexical order and .git is skipped.
         dirnames[:] = sorted(name for name in dirnames if name != ".git")
         for name in sorted(filenames):
             rel = _try_readable(workspace, os.path.join(dirpath, name))
@@ -349,7 +349,7 @@ def search_files(workspace: WorkspaceContext | None, root: str, pattern: re.Patt
         for index, raw_line in enumerate(content.split(b"\n")):
             line = raw_line[:-1] if raw_line.endswith(b"\r") else raw_line
             if len(line) > max_search_line_bytes:
-                # Go's bufio.Scanner stops this file at an over-long line.
+                # Scanning stops this file at an over-long line.
                 break
             text = line.decode("utf-8", "surrogateescape")
             if pattern.search(text) is not None:

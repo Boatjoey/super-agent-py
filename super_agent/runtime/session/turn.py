@@ -37,8 +37,8 @@ if TYPE_CHECKING:
 class ApprovalsClosed:
     """Pushed onto the approvals queue when the interface stops offering decisions.
 
-    Go closes the channel. An :class:`asyncio.Queue` cannot be closed, so the
-    close is delivered as a value; :func:`waitApproval` turns it into
+    An :class:`asyncio.Queue` cannot be closed, so the close is delivered as a
+    value; :func:`waitApproval` turns it into
     :data:`~super_agent.runtime.execution.ErrApprovalDismissed`.
     """
 
@@ -124,16 +124,16 @@ class TurnMixin:
             finally:
                 self._unlock()
         finally:
-            # Go's `defer close(notifications)`, registered first and therefore run
-            # last: the observer is already cleared and the turn lock released by
-            # the time the consumer sees this.
+            # The end-of-turn close, registered first and therefore run last: the
+            # observer is already cleared and the turn lock released by the time
+            # the consumer sees this.
             #
             # A bounded queue can be full here, and raising `QueueFull` from a
             # `finally` would replace whatever the turn actually produced — the
-            # error the caller must see would be masked by a delivery detail. Go's
-            # `close` cannot fail, so the delivery is best effort; the authoritative
-            # end-of-turn signal is this call returning, which callers and the
-            # notification bridge both observe.
+            # error the caller must see would be masked by a delivery detail. The
+            # delivery is therefore best effort; the authoritative end-of-turn
+            # signal is this call returning, which callers and the notification
+            # bridge both observe.
             with contextlib.suppress(asyncio.QueueFull):
                 notifications.put_nowait(NOTIFICATIONS_CLOSED)
 

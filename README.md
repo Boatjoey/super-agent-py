@@ -41,11 +41,8 @@ The documents under [`docs/`](docs/README.md) are the specification for this cod
 [`docs/README.md`](docs/README.md) indexes them: architecture, the state machine, the runtime loop,
 sessions and context, the TUI, tools and sandboxing, and configuration.
 
-This repository is a Python port of a Go implementation of the same design, kept readable side by
-side: exported identifiers keep their Go spelling, module names mirror the Go file names, and
-[`tests/MIGRATION_MAP.md`](tests/MIGRATION_MAP.md) records which Go test each Python test covers.
-`tests/fixtures/go_sessions/` holds a session store written by the Go implementation, so the
-on-disk format is verified against real output rather than a description of it.
+`tests/fixtures/session_store/` holds a checked-in golden session store, so the on-disk format is
+verified against a fixed layout rather than a description of it.
 
 ## Status
 

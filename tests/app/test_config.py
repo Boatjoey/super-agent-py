@@ -1,13 +1,12 @@
-"""Port of ``tests/app/config_test.go``, plus the credential regression case.
+"""Configuration loading and resolution, plus the credential regression case.
 
-The Go tests call ``t.Setenv`` and ``t.Chdir``; here that is ``monkeypatch``, and
-the shared fixture in ``tests/conftest.py`` has already pinned ``HOME`` and the
+The shared fixture in ``tests/conftest.py`` has already pinned ``HOME`` and the
 working directory, cleared ``YOLO``/``NO_TOOLS``, and removed every ``*_API_KEY``
-from the environment. A test that needs one of those sets it explicitly.
+from the environment; a test that needs one of those sets it explicitly with
+``monkeypatch``.
 
-One test has no Go counterpart:
 :func:`test_model_uses_resolved_credential_not_placeholder` pins the fix for the
-credential bug in ``app/session.go``, which built the adapter from the unresolved
+credential bug in ``app/session.py``, which built the adapter from the unresolved
 provider map and could therefore send the template placeholder as a bearer token.
 """
 
@@ -33,7 +32,7 @@ PLACEHOLDER: Final[str] = "sk-..."
 
 
 def lookup(values: Mapping[str, str] | None = None) -> Lookup:
-    """Go's ``lookup`` helper: a table lookup that reports "not set" as ``None``."""
+    """A table lookup that reports "not set" as ``None``."""
     table = {} if values is None else dict(values)
 
     def get(key: str) -> str | None:
@@ -266,7 +265,7 @@ def test_load_settings_file_creates_template_when_missing(tmp_path: Path) -> Non
     assert settings.Permissions.Mode == "ask"
     assert settings.Permissions.Network == "deny"
     assert '"permissions"' in content
-    # The disk format is a contract with the Go implementation: two-space indent,
+    # The disk format is a contract: two-space indent,
     # a trailing newline, and a file nobody else may read.
     assert content.endswith("\n")
     assert '\n  "provider"' in content
@@ -328,8 +327,7 @@ async def test_model_uses_resolved_credential_not_placeholder(monkeypatch: pytes
 
     ``providers.deepseek.api_key`` still holds the template placeholder when the
     real credential comes from the environment. Building the model from that map
-    entry — which is what the Go implementation does — sends ``sk-...`` as a
-    bearer token.
+    entry sends ``sk-...`` as a bearer token.
     """
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))

@@ -1,8 +1,8 @@
 """Durable session storage: one directory per session, one JSONL transcript.
 
-Ported from ``store/store.go``. The layout, JSON keys, enum strings, timestamp
-format, and file modes are a contract with the Go implementation, so the store
-writes the same bytes shape even though byte equality is not required:
+The layout, JSON keys, enum strings, timestamp format, and file modes are a
+persisted contract, so the store writes a stable byte shape even though byte
+equality is not required:
 
 * ``~/.superagent/sessions/<session-id>/meta.json`` — the sidecar the session is
   discovered by, written atomically and last, so an interrupted creation cannot
@@ -10,12 +10,11 @@ writes the same bytes shape even though byte equality is not required:
 * ``~/.superagent/sessions/<session-id>/events.jsonl`` — the append-only log.
 * ``~/.superagent/sessions/_memory.json`` — the cross-session memory.
 
-Concurrency: Go's ``sync.Mutex`` becomes a :class:`threading.Lock` here. Every
-public method is synchronous, but the store is reached from the session's
-asynchronous code and from the TUI's own threads, and ``Append`` performs a
-``meta.json`` read-modify-write next to an append plus ``fsync``. A lock keeps
-those cycles whole, which is what Go's mutex exists for and what a "no lock at
-all" argument could not show.
+Concurrency: a :class:`threading.Lock` guards every method. Every method is
+synchronous, but the store is reached from the session's asynchronous code and
+from the TUI's own threads, and ``Append`` performs a ``meta.json``
+read-modify-write next to an append plus ``fsync``. The lock keeps those cycles
+whole; a "no lock at all" argument could not show that.
 """
 
 from __future__ import annotations
@@ -48,17 +47,17 @@ EventCheckpoint: Final[str] = "checkpoint"
 EventCompact: Final[str] = "compact"
 EventContextReplaced: Final[str] = "context_replaced"
 
-#: Go's ``time.Time{}``, which marshals as ``0001-01-01T00:00:00Z``. Kept as a
-#: real value so a zero metadata timestamp round-trips exactly.
+#: The zero time, which serialises as ``0001-01-01T00:00:00Z``. Kept as a real
+#: value so a zero metadata timestamp round-trips exactly.
 ZERO_TIME: Final[datetime] = datetime(1, 1, 1, tzinfo=UTC)
 
-#: The per-line read cap, mirroring Go's ``bufio.Scanner`` buffer of 20 MiB. A
-#: line beyond it is not a record this format can hold, so it fails loudly.
+#: The per-line read cap of 20 MiB. A line beyond it is not a record this format
+#: can hold, so it fails loudly.
 MAX_EVENT_BYTES: Final[int] = 20 * 1024 * 1024
 
 
 class SessionID(str):
-    """Identity of one stored session. Mirrors Go's string-backed ``SessionID``."""
+    """Identity of one stored session. A ``str`` subclass so it serialises as its value."""
 
     __slots__ = ()
 
@@ -67,7 +66,7 @@ class SessionID(str):
 
 
 class TurnID(str):
-    """Identity of one turn. Mirrors Go's string-backed ``TurnID``."""
+    """Identity of one turn. A ``str`` subclass so it serialises as its value."""
 
     __slots__ = ()
 
@@ -96,8 +95,8 @@ class WorkspaceSpec:
 class Metadata:
     """What ``meta.json`` holds.
 
-    Fields without ``omitempty`` are always written, exactly as Go's struct tags
-    dictate, because the Go reader expects them.
+    Fields without ``omitempty`` are always written, because the reader expects
+    them.
     """
 
     ID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="id"))
@@ -163,8 +162,8 @@ class Record:
     """One line of ``events.jsonl``.
 
     Presence of ``Message``, ``ToolCall``, ``Checkpoint``, ``Compact``, and
-    ``Messages`` depends on ``Type``; Go encodes that with pointers and slices,
-    so the Python fields are optional exactly the same way.
+    ``Messages`` depends on ``Type``: those fields are optional and only the ones
+    a given ``Type`` needs are set.
     """
 
     Type: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="type"))
@@ -617,9 +616,9 @@ class Store:
     def _ensure_dir(self, path: str) -> None:
         """Create ``path`` and any missing parent, mode ``0700`` for every level.
 
-        ``os.makedirs`` applies ``mode`` to the leaf only, while Go's ``MkdirAll``
-        applies it to every directory it creates; the difference is visible to a
-        test that checks the sessions root's mode.
+        ``os.makedirs`` would apply ``mode`` to the leaf only, so the mode is set
+        on every directory this creates; the difference is visible to a test that
+        checks the sessions root's mode.
         """
         missing: list[str] = []
         current = os.path.normpath(path)
@@ -650,11 +649,11 @@ def writeRecords(path: str, records: Sequence[Record]) -> None:
 
 
 def _idText(moment: datetime, *, keep_dot: bool) -> str:
-    """Go's ``20060102T150405.000000000`` layout, from seconds and microseconds.
+    """The ``20060102T150405.000000000`` layout, from seconds and microseconds.
 
     ``strftime("%f")`` only reaches microseconds, so the nine-digit fraction is
-    assembled by hand: Python has no sub-microsecond clock here, and the last
-    three digits are zeros rather than Go's nanoseconds.
+    assembled by hand: there is no sub-microsecond clock here, and the last three
+    digits are zeros.
     """
     utc = moment.astimezone(UTC)
     stamp = f"{utc.year:04d}{utc.month:02d}{utc.day:02d}T{utc.hour:02d}{utc.minute:02d}{utc.second:02d}"
@@ -663,5 +662,5 @@ def _idText(moment: datetime, *, keep_dot: bool) -> str:
 
 
 def _isZeroTime(moment: datetime) -> bool:
-    """Go's ``time.Time.IsZero`` for the value this module writes as the zero time."""
+    """True for the value this module writes as the zero time."""
     return moment == ZERO_TIME

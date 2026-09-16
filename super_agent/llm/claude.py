@@ -1,10 +1,10 @@
 """Anthropic Claude adapter.
 
-Ported from ``llm/claude.go``. The Messages API has no ``system`` role, so
-system messages are lifted into the top-level ``system`` field and the rest of
-the conversation is translated into content blocks: tool results become ``user``
-messages carrying ``tool_result`` blocks, and adjacent same-role messages are
-merged because the API rejects two in a row.
+The Messages API has no ``system`` role, so system messages are lifted into the
+top-level ``system`` field and the rest of the conversation is translated into
+content blocks: tool results become ``user`` messages carrying ``tool_result``
+blocks, and adjacent same-role messages are merged because the API rejects two in
+a row.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from super_agent.runtime.protocol.types import (
     Usage,
 )
 
-#: Go raises on ``stop_reason=max_tokens`` rather than hand a half-emitted
+#: Raised on ``stop_reason=max_tokens`` rather than handing a half-emitted
 #: ``input_json_delta`` to the executor as if it were valid JSON.
 TRUNCATED_ERROR = (
     "llm output truncated by the token limit (stop_reason=max_tokens); "
@@ -214,7 +214,7 @@ def to_claude_messages(messages: list[Message]) -> list[MessageParam]:
 
 
 def _attachment_blocks(name: str, mime: str, data: str) -> list[dict[str, Any]]:
-    """Translate one attachment into content blocks, matching Go's switch."""
+    """Translate one attachment into content blocks."""
     if mime.startswith("image/"):
         return [{"type": "image", "source": {"type": "base64", "media_type": mime, "data": data}}]
     if mime == "application/pdf":

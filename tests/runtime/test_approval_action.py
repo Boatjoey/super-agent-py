@@ -1,8 +1,7 @@
 """The approval scheduled action and its waiter.
 
-Ported from ``tests/runtime/approval_action_test.go``, extended with the cases
-that pin the dismissal sentinel: approval travels the same action → result →
-event path as a model call, which is why the session needs no scheduling
+The cases here pin the dismissal sentinel: approval travels the same action →
+result → event path as a model call, which is why the session needs no scheduling
 authority of its own.
 """
 
@@ -89,7 +88,7 @@ async def test_approval_dismissal_is_reported_as_the_sentinel() -> None:
     """The engine cancels on dismissal, so the sentinel must survive identically.
 
     ``ErrApprovalDismissed`` is a single instance: the engine compares against it
-    by identity the way Go's ``errors.Is`` compares sentinel values.
+    by identity rather than by type or message.
     """
     executor = DefaultScheduledActionExecutor(None, None)
     with pytest.raises(Exception) as raised:

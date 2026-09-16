@@ -1,11 +1,10 @@
 """The transition table, as one package-private static registry.
 
-Go keys the registry by ``(state, eventKind)`` and infers the concrete event type
-of each handler from a generic parameter. Python has no compile-time inference, so
-:func:`adapt_transition` reads the handler's second-parameter annotation instead.
-The ``isinstance`` check it installs is kept for the same reason Go keeps its
-``ok`` check: a mis-registration returns a ``ProtocolViolationError`` rather than
-failing in some unrelated way later.
+The registry is keyed by ``(state, event_kind)``, and the concrete event type of
+each handler is read from the handler's second-parameter annotation by
+:func:`adapt_transition`. The ``isinstance`` check it installs keeps a
+mis-registration returning a ``ProtocolViolationError`` rather than failing in
+some unrelated way later.
 
 The zero :class:`~super_agent.runtime.machine.state.State` is not a legal running
 state, which is how the three global rows are registered once instead of six
@@ -98,8 +97,7 @@ class TransitionKey:
 def adapt_transition[E: Event](handler: Callable[[MachineSnapshot, E], TransitionResult]) -> TransitionHandler:
     """Wrap a concrete-event handler so the registry can hold it.
 
-    The event type is read from the handler's second parameter annotation, which
-    is what Go infers from the generic parameter.
+    The event type is read from the handler's second parameter annotation.
     """
     event_type = _event_type_of(handler)
 
@@ -432,7 +430,6 @@ def _runtime_error_message(error: BaseException | None) -> str:
 
 
 #: Every rule, keyed by state and event kind. Built last because the registry
-#: names the handlers above; Go's package-level initialisation runs after every
-#: function is declared, and a module-level call here has to be sequenced the
-#: same way by hand.
+#: names the handlers above; a module-level call has to be sequenced after every
+#: function it references is declared.
 _TRANSITION_REGISTRY: Final[dict[TransitionKey, TransitionHandler]] = _new_transition_registry()

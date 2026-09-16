@@ -1,8 +1,7 @@
 """The slash-command catalogue.
 
-Ported from the Go ``tui/commands/catalog.go``. The built-ins come first, in the
-order the composer offers them, followed by the discovered custom commands in
-sorted order.
+The built-ins come first, in the order the composer offers them, followed by the
+discovered custom commands in sorted order.
 """
 
 from __future__ import annotations

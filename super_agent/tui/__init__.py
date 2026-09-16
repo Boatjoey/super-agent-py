@@ -1,8 +1,8 @@
 """The Rich inbound adapter: the only interaction surface.
 
-Ported from the Go ``tui`` package. Go keeps this package in six root files; the
-port keeps the same split with one module each, and this module stands in for the
-package namespace so Go callers keep writing ``tui.New`` and ``tui.Message``.
+This package keeps its surface in six root modules, one per concern, and this
+module stands in for the package namespace so callers keep writing ``tui.New``
+and ``tui.Message``.
 
 Four things live here because they read the whole model rather than one feature:
 
@@ -216,7 +216,7 @@ __all__ = [
 
 
 def New(session: Conversation, info: StartupInfo, *options: Option) -> App:
-    """Go's ``tui.New``: build the model and wire every feature to the port."""
+    """Build the model and wire every feature to the port."""
     styles = DefaultStyles()
     command_model = commands.New(
         commands.Config(CWD=info.CWD, InstructionPaths=info.InstructionPaths, NoTools=info.NoTools),
@@ -330,7 +330,7 @@ async def applyOutcome(
 
     It only routes and applies: the feature owns the semantics, the root owns the
     effects and the wiring to the features a command reaches across. The routes
-    are exclusive and in Go's order — an outcome that both attaches and prompts
+    are exclusive and fixed in order — an outcome that both attaches and prompts
     only attaches.
     """
     if outcome is None:

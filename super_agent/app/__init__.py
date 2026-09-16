@@ -1,8 +1,8 @@
 """The composition root's public surface.
 
-Ports the Go ``app`` package: configuration and settings, the session and agent
-constructors, the MCP and workflow controllers, and the terminal adapter. Go
-callers write ``app.LoadConfig``; the re-exports here keep that spelling.
+The app package surface: configuration and settings, the session and agent
+constructors, the MCP and workflow controllers, and the terminal adapter. Callers
+write ``app.LoadConfig``; the re-exports here keep that spelling.
 
 ``app`` is the only place the concrete adapters meet. It may import ``llm``,
 ``tools``, ``store``, ``workspace``, ``project``, ``runtime``, and ``tui``; none
@@ -10,9 +10,8 @@ of them may import it back, and ``tui`` must never see ``runtime`` directly —
 the conversion between the two happens in :mod:`super_agent.app.tui_adapter`.
 
 ``LoadProjectInstructions`` is re-exported here even though its driver lives in
-:mod:`super_agent.app.instructions`: Go declares it in ``app/instructions.go``,
-and Python cannot have both ``app/instructions.py`` and an ``app/instructions/``
-package.
+:mod:`super_agent.app.instructions`, so callers can keep writing
+``app.LoadProjectInstructions``.
 """
 
 from __future__ import annotations

@@ -40,28 +40,28 @@ that was not yet committed.
 
 ## The Single Loop
 
-`runtime/engine/action_loop.go` holds the only agent loop, `runScheduledActions`. It pops from the
+`runtime/engine/action_loop.py` holds the only agent loop, `_run_scheduled_actions`. It pops from the
 action queue until the queue is empty, and the run ends only when the queue is empty *and* the state
 is `Idle`:
 
-```go
-for {
-    action, ok := e.actionQueue.Pop()
-    if !ok {
-        if e.runtimeData.State == machine.StateIdle {
-            return nil
-        }
-        return machine.InvariantViolationError{Reason: "action queue is empty in state " + string(state)}
-    }
-    // execute, resolve, transition, commit, repeat
-}
+```python
+while True:
+    async with self.lock:
+        action = self._action_queue.Pop()
+        if action is None:
+            if self._runtime_data.State == StateIdle:
+                self._runs.FinishRun(run_id)
+                return
+            state = self._runtime_data.State
+            raise InvariantViolationError(f"action queue is empty in state {state}")
+    # execute, resolve, transition, commit, repeat
 ```
 
 An empty queue in an active state is an invariant violation, not a quiet stop: every non-`Idle` state
 must have pending or in-flight work. The real loop also handles locking, finishing and cancelling runs,
 `RunID` filtering, error transitions, and state notification.
 
-`executeScheduledAction` wraps each iteration: run the action, resolve the result into an event,
+`_execute_scheduled_action` wraps each iteration: run the action, resolve the result into an event,
 compute the transition, commit it atomically, and let the new actions enter the queue.
 
 ## Scheduled Actions
@@ -90,7 +90,7 @@ security boundary. What actually contains a command is the sandbox, described in
 
 ## Session's Role
 
-`runtime/session` starts a turn and supplies ports; it never schedules actions. `runtime/session/turn.go`
+`runtime/session` starts a turn and supplies ports; it never schedules actions. `runtime/session/turn.py`
 provides exactly three things to the engine:
 
 - an `ApprovalWaiter`, which reads the approval channel and persists each decision;
@@ -154,12 +154,12 @@ Machine-side terms — `State`, `Event`, `RuntimeData`, `RuntimeDataChange`, `Ac
 To follow one turn end to end, read in this order:
 
 ```text
-runtime/session/turn.go
-  -> runtime/engine/action_loop.go
-  -> runtime/execution/scheduled_action_runner.go
-  -> runtime/execution/scheduled_action_executor.go
-  -> runtime/execution/action_result_resolver.go
-  -> runtime/machine/transition.go
+runtime/session/turn.py
+  -> runtime/engine/action_loop.py
+  -> runtime/execution/scheduled_action_runner.py
+  -> runtime/execution/scheduled_action_executor.py
+  -> runtime/execution/action_result_resolver.py
+  -> runtime/machine/transition.py
 ```
 
 In one sentence: `Transition` decides the next step, the engine's single action loop drives it forward,

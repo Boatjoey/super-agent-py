@@ -68,16 +68,15 @@ tests, which assert the width invariant on a full render. The smoke test only pr
 reachable and non-destructive through the real interface.
 
 What remains genuinely manual, and why: colour and layout legibility, key sequences that depend on
-the terminal (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`), and clipboard behaviour. There is no
-`-race`-style automatic check for the visual result, so a rendering change needs a human to look at
-it. The automated width invariant is the part that must not regress.
+the terminal (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`), and clipboard behaviour. There is no automatic
+check for the visual result, so a rendering change needs a human to look at it. The automated width
+invariant is the part that must not regress.
 
-## Concurrency and the Missing Race Detector
+## Concurrency
 
-There is no `-race` equivalent in Python. Go's race detector finds unsynchronised access to shared
-memory at run time; Python's single-threaded event loop makes that class of bug impossible, but it
-introduces a different one — state that is only safe because nothing yields between reading it and
-writing it. The approximations in use are:
+Python's single-threaded event loop rules out unsynchronised access to shared memory, but it
+introduces a different failure mode — state that is only safe because nothing yields between reading
+it and writing it. The approximations in use are:
 
 - `python -X dev`, run over the concurrent test directories by `./scripts/verify.sh`. It enables
   asyncio debug mode and turns un-awaited coroutines, unclosed transports, and slow callbacks into
@@ -96,23 +95,19 @@ still escape, which is the residual gap. When you touch the engine loop, the run
 action queue, or the session emitter, say in the pull request what you did to convince yourself the
 commit points are still atomic.
 
-## Python Port Conventions
+## Python Conventions
 
-This repository is a port of a Go implementation, and the two are meant to be readable side by side.
-That shapes the style:
+The style is deliberate and consistent across the codebase:
 
-- **Go exported identifiers keep their Go spelling.** `StateIdle`, `AppendUserMessage`, `RunTurn`,
-  `ApplyRuntimeDataChanges`. Go unexported identifiers become snake_case (`handle_engine_ready`,
-  `same_tool_call`), because they are implementation detail in both languages.
-- **Module names are snake_case**, matching the Go file they came from: `runtime/machine/transition.py`
-  mirrors `runtime/machine/transition.go`.
-- **A Go package becomes a Python package whose `__init__.py` re-exports the package surface**, so
-  `machine.StateIdle` and `machine.Transition` read the same as Go.
-- **`docs/machine.md` is copied verbatim.** Its Go snippets describe the Go implementation of a shared
-  design; the Python field names and JSON keys match them.
+- **Exported identifiers keep their PascalCase spelling.** `StateIdle`, `AppendUserMessage`,
+  `RunTurn`, `ApplyRuntimeDataChanges`. Package-private helpers are snake_case
+  (`handle_engine_ready`, `same_tool_call`), because they are implementation detail.
+- **Module names are snake_case**: `runtime/machine/transition.py`.
+- **A package re-exports its surface from `__init__.py`**, so `machine.StateIdle` and
+  `machine.Transition` resolve from the package namespace.
 - **Value types are `@dataclass` with an explicit codec** (`super_agent/jsonutil.py`), not a
-  validation library. Field names keep Go's spelling; each field declares its JSON key with
-  `json_field`, because the artefacts on disk are shared with the Go implementation.
+  validation library. Each field declares its JSON key with `json_field`, so the key names stay
+  stable regardless of the Python attribute name.
 - **Sequence fields** on frozen types are tuples and on mutable types are lists. Frozen means frozen:
   a frozen value type never shares a mutable container with a caller.
 - **Ports are `typing.Protocol`**, declared at the adapter boundary and nowhere else. Add
@@ -121,20 +116,18 @@ That shapes the style:
   `__init_subclass__` refuses a subclass declared outside its own module, and a `kind` class
   variable for the registry key.
 - **Errors**: `raise X(...) from err` for wrapping, `super_agent.errors.errors_is` for identity, and
-  `JoinedError` for aggregation. `Cancelled` stands in for `context.Canceled`; adapters convert
-  `asyncio.CancelledError` into it at their boundary.
+  `JoinedError` for aggregation. Adapters convert `asyncio.CancelledError` into `Cancelled` at their
+  boundary.
 
-### Disk-Format Parity
+### Disk-Format Stability
 
-Sessions, settings, memory, and telemetry are shared with the Go implementation, so their formats are
-a contract, not an implementation detail. The rule is **field-level interop**: key names, enum
-strings, timestamp format, file modes, and replay semantics must match, and JSON must be *parseable*
-by the other implementation. Byte equality is not required — Go's HTML escaping and float formatting
-are deliberately not reproduced.
+Sessions, settings, memory, and telemetry are persisted artefacts, so their formats are a contract,
+not an implementation detail. The rule is **field-level stability**: key names, enum strings,
+timestamp format, file modes, and replay semantics must not change, and JSON written by one version
+must stay parseable by another.
 
 Timestamps are RFC 3339 with nanosecond precision. Session and turn identifiers come from
-`time.time_ns()` formatted by hand, because `strftime("%f")` only reaches microseconds and Go's
-identifier carries nine fractional digits.
+`time.time_ns()` formatted by hand, because `strftime("%f")` only reaches microseconds.
 
 Three spellings of the configuration directory exist and none of them may be unified:
 `~/.superagent/` (home, no hyphen), `<cwd>/.superagent/` (project extensions, no hyphen), and
@@ -145,7 +138,7 @@ Three spellings of the configuration directory exist and none of them may be uni
 - Use concise conventional commit messages, for example `fix: preserve reasoning replay`.
 - Name branches by scope: `feat/session-notifications`, `fix/tool-approval`.
 - A pull request should state its purpose, the main files changed, test output, and any local config
-  notes. For a ported change, name the Go file it came from.
+  notes.
 - Add screenshots only for visible TUI changes.
 
 ## Repository Notes
@@ -185,9 +178,3 @@ docs/                        this specification
 ```
 
 Each package's files and responsibilities are listed in [architecture.md](architecture.md).
-
-## The Go Implementation
-
-The ported code lives beside this repository at `../super-agent-go`. When a behaviour is unclear, the
-Go implementation is the reference; when the two disagree about *observed behaviour*, that is a bug
-in the port. `tests/MIGRATION_MAP.md` records which Go test each Python test corresponds to.

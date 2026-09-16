@@ -1,8 +1,7 @@
 """The stdio MCP client adapter.
 
-Ported from the Go ``tools/mcp`` package. Python splits a Go package across
-modules, so this module stands in for the package namespace: everything Go
-callers write as ``mcp.X`` is re-exported here.
+The mcp package surface: everything callers write as ``mcp.X`` is re-exported
+here.
 
 Discovered tools join ``tools.Registry`` atomically and are always risky under
 the common permission policy, regardless of what a server claims about itself.

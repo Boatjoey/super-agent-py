@@ -1,4 +1,4 @@
-"""Queue identity and ordering. Ported from ``tests/runtime/action_queue_test.go``."""
+"""Queue identity and ordering."""
 
 from __future__ import annotations
 

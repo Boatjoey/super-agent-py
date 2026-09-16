@@ -1,9 +1,8 @@
 """Provider registry and factory.
 
-Ported from ``llm/factory.go``: a provider name maps to a factory that builds a
-:class:`~super_agent.runtime.protocol.types.Model`. Go registers the built-in
-providers in ``NewDefaultModelRegistry`` and keeps one package-level registry;
-Python defers building that registry until the first :func:`NewModel` call so
+A provider name maps to a factory that builds a
+:class:`~super_agent.runtime.protocol.types.Model`. The registry of built-in
+providers is built on the first :func:`NewModel` call rather than at import, so
 that importing a single provider module never depends on the package ``__init__``.
 """
 
@@ -17,7 +16,7 @@ from typing import Final
 from super_agent.jsonutil import json_field
 from super_agent.runtime.protocol.types import Model
 
-#: The provider Go falls back to when a caller names none.
+#: The provider used when a caller names none.
 DefaultProvider: Final[str] = "deepseek"
 
 
@@ -25,7 +24,7 @@ DefaultProvider: Final[str] = "deepseek"
 class ProviderConfig:
     """How one provider is configured.
 
-    Field names and JSON keys match Go's ``ProviderConfig`` struct.
+    Field names and JSON keys are fixed by the settings file.
     """
 
     BaseURL: str = dataclasses.field(default="", metadata=json_field(name="base_url"))
@@ -82,7 +81,7 @@ def NewDefaultModelRegistry() -> ModelRegistry:
 
 @functools.cache
 def _default_registry() -> ModelRegistry:
-    """The package-level registry Go keeps in ``defaultRegistry``."""
+    """The process-wide registry of built-in providers."""
     return NewDefaultModelRegistry()
 
 

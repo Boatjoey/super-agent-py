@@ -1,9 +1,8 @@
 """Location-stable re-exports of the protocol and permission values.
 
-Go's ``machine/aliases.go`` exists so other packages can write
-``machine.Message`` without importing ``runtime/protocol`` themselves. The same
-names are re-exported here at the same position, so ``machine.Message`` and
-``machine.PermissionRequest`` keep working.
+These re-exports let other packages write ``machine.Message`` without importing
+``runtime/protocol`` themselves. The same names are re-exported here at the same
+position, so ``machine.Message`` and ``machine.PermissionRequest`` keep working.
 """
 
 from __future__ import annotations

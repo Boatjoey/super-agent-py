@@ -1,8 +1,7 @@
 """The app's update: one message in, the model and its commands out.
 
-Ported from the Go ``tui/update.go``. Message routing order and key dispatch order
-are both load-bearing — they decide which feature sees a key first — so both are
-kept exactly as Go has them:
+Message routing order and key dispatch order are both load-bearing — they decide
+which feature sees a key first — so both are fixed:
 
 * messages: window size, then feature results, then a key press, then a
   conversation notification, then a finished turn;
@@ -57,7 +56,7 @@ _CANCEL_KEYS = ("ctrl+c", "esc")
 
 
 async def Update(app: App, message: Msg) -> tuple[App, tuple[runtime.Command[Msg], ...]]:
-    """Route one message. The order of these tests is the Go switch's order."""
+    """Route one message in the fixed dispatch order the app relies on."""
     if isinstance(message, runtime.WindowSizeMsg):
         return resize(app, message)
     if isinstance(message, actions.ClipboardDone):
@@ -77,8 +76,8 @@ async def Update(app: App, message: Msg) -> tuple[App, tuple[runtime.Command[Msg
         return updateConversationNotification(app, message.Notification)
     if isinstance(message, SubmitDone):
         return finishSubmit(app, message.Err)
-    # Go forwards everything else to the composer, where only the textarea's own
-    # messages live. The Python composer has none, so there is nothing to do.
+    # Everything else would belong to the composer, where only the textarea's
+    # own messages live. This composer has none, so there is nothing to do.
     return app, ()
 
 
@@ -332,8 +331,8 @@ def runTurn(
 def waitForNotification(channel: Channel[ConversationNotification], turn: int) -> runtime.Listener[Msg]:
     """The listener command for one turn's notification channel.
 
-    It ends when the channel closes, which is what stops the chain: Go's listener
-    returns a nil message for a closed channel, and so does this one.
+    It ends when the channel closes, which is what stops the chain: a closed
+    channel yields no message, and returning ``None`` ends the listener.
     """
 
     async def listen() -> Msg | None:

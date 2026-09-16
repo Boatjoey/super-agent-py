@@ -1,7 +1,4 @@
-"""Workspace activation and the one-time canonical upgrade of legacy specs.
-
-Ported from ``tests/workspace/spec_test.go``.
-"""
+"""Workspace activation and the one-time canonical upgrade of legacy specs."""
 
 from __future__ import annotations
 

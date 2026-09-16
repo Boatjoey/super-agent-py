@@ -2,7 +2,7 @@
 
 ``runtime/execution`` implements the outbound ports the engine drives: calling a
 model, running a tool, deciding whether a call needs approval, and classifying a
-command. Python splits a Go package across files, so this module stands in for the
+command. A package spans several modules here, so this module stands in for the
 package namespace.
 """
 

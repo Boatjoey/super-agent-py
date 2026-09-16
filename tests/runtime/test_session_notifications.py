@@ -1,10 +1,10 @@
 """What a turn tells the outside world, and in what order.
 
-These cases live in Go's ``engine_test.go`` because the session is what publishes
-notifications while the engine loop runs. They get their own module here because
-Go's file is 1585 lines and the notification contract is a subject of its own: a
-consumer that renders as it reads depends on the order, and a consumer that
-appends to a transcript depends on each message being published exactly once.
+These cases get their own module because the notification contract is a subject of
+its own: a consumer that renders as it reads depends on the order, and a consumer
+that appends to a transcript depends on each message being published exactly once.
+The session is what publishes notifications while the engine loop runs, so they
+exercise the two together.
 
 The fakes are local to this module so it fails on its own terms.
 """

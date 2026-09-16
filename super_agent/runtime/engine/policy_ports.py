@@ -1,12 +1,11 @@
 """The optional policy capabilities the engine probes for.
 
-Go declares these three interfaces in ``engine.go`` because an interface can be
-declared anywhere without import consequences. Python cannot: ``engine.py``
-imports the mixins that need to check these protocols, so the protocols need a
-home that imports nothing from the engine.
+These three protocols cannot live in ``engine.py``: it imports the mixins that
+need to check them, so the protocols need a home that imports nothing from the
+engine.
 
 ``runtime/engine/__init__.py`` and ``engine.py`` both re-export them, so
-``engine.PolicySetter`` reads exactly as it does in Go.
+``engine.PolicySetter`` is reachable from either.
 """
 
 from __future__ import annotations

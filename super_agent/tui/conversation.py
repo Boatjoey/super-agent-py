@@ -1,22 +1,20 @@
 """The boundary between the TUI and whatever runs the conversation.
 
-Ported from the Go ``tui/conversation.go``. The names here are the display DTOs
-the composition boundary hands the TUI and the notifications it sends back; the
-owning feature holds each definition and this module re-exports it, so Go callers
-keep addressing one package.
+The names here are the display DTOs the composition boundary hands the TUI and
+the notifications it sends back; the owning feature holds each definition and
+this module re-exports it, so callers keep addressing one package.
 
 The port is a bundle rather than one wide service interface: the root keeps only
 the snapshot and turn ports, and every other capability is routed to the feature
 that owns it.
 
-Two Python-shaped pieces have no Go counterpart:
+Two pieces exist for Python's concurrency model:
 
-* :class:`Channel` is a Go channel. ``asyncio.Queue`` cannot be closed, so the
-  close is an explicit flag and ``Get`` returns ``None`` once the producer has
-  closed and drained the buffer — which is what ends a listener command.
-* :class:`Cancellation` stands in for the ``context.Context``/``CancelFunc`` pair
-  one turn is started with. It is a value, so a port that starts before the
-  cancel still sees the cancel, exactly as ``ctx.Err()`` does in Go.
+* :class:`Channel` is a queue with an explicit close. ``asyncio.Queue`` cannot be
+  closed, so the close is a flag and ``Get`` returns ``None`` once the producer
+  has closed and drained the buffer — which is what ends a listener command.
+* :class:`Cancellation` is the cancel handle one turn is started with. It is a
+  value, so a port that starts before the cancel still sees the cancel.
 """
 
 from __future__ import annotations
@@ -123,9 +121,8 @@ class ConversationView:
 class ConversationNotification:
     """Base class for the sealed conversation-notification set.
 
-    Go closes the set with an unexported marker method; Python closes it by
-    refusing a subclass declared anywhere but this module, so the runtime's
-    routing cannot be handed a kind it does not know.
+    The set is closed by refusing a subclass declared anywhere but this module,
+    so the runtime's routing cannot be handed a kind it does not know.
     """
 
     __slots__ = ()
@@ -198,11 +195,11 @@ class ConversationError(ConversationNotification):
 
 
 class Channel[T]:
-    """A Go channel: buffered puts, one consumer, and an explicit close.
+    """A queue: buffered puts, one consumer, and an explicit close.
 
-    Go's ``chan ConversationNotification`` is closed by the producer to say "no
-    more will arrive"; a listener command then ends. ``asyncio.Queue`` has no
-    close, so the close is a flag and :meth:`Get` returns ``None`` on it.
+    The producer closes it to say "no more will arrive"; a listener command then
+    ends. ``asyncio.Queue`` has no close, so the close is a flag and
+    :meth:`Get` returns ``None`` on it.
     """
 
     __slots__ = ("_closed", "_items", "_ready")
@@ -243,11 +240,11 @@ class Channel[T]:
 
 
 class Cancellation:
-    """The cancellation of one turn: Go's ``context.Context`` and its cancel.
+    """The cancellation of one turn, as a value rather than a task handle.
 
-    A value rather than a task handle, because the turn's command may not have
-    started when the user cancels: Go's ``ctx.Err()`` is already non-nil by then,
-    and a cancelled ``asyncio.Task`` would simply never run.
+    A value because the turn's command may not have started when the user
+    cancels: the cancel is already visible by then, and a cancelled
+    ``asyncio.Task`` would simply never run.
     """
 
     __slots__ = ("_cancelled", "_event")
@@ -262,7 +259,7 @@ class Cancellation:
         return self._cancelled
 
     def Cancel(self) -> None:
-        """Cancel the turn. Idempotent, like Go's ``CancelFunc``."""
+        """Cancel the turn. Idempotent."""
         self._cancelled = True
         self._event.set()
 

@@ -1,9 +1,8 @@
-"""Claude adapter, ported from ``tests/llm/claude_test.go``.
+"""Claude adapter.
 
-The Go tests stand up an ``httptest`` server and read the request body in the
-handler. These use ``httpx2.MockTransport`` instead: the handler sees the same
-request the SDK would have sent, so the assertions are on the JSON body the
-adapter produced and on the parsed result, and nothing touches the network.
+These use ``httpx2.MockTransport``: the handler sees the same request the SDK
+would have sent, so the assertions are on the JSON body the adapter produced and
+on the parsed result, and nothing touches the network.
 """
 
 from __future__ import annotations
@@ -67,7 +66,7 @@ _MAX_TOKENS_STREAM = (
     (
         "content_block_delta",
         '{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta",'
-        '"partial_json":"{\\"path\\":\\"main.go\\""}}',
+        '"partial_json":"{\\"path\\":\\"main.py\\""}}',
     ),
     (
         "message_delta",
@@ -110,9 +109,8 @@ def _discard(chunk: StreamChunk) -> None:
 async def _transport(monkeypatch: pytest.MonkeyPatch, handler: _Handler) -> AsyncGenerator[None]:
     """Route every request the adapter makes to ``handler``.
 
-    ``llm/claude.py`` reaches the HTTP client through ``llm/openai.py`` because
-    Go keeps one ``httpClient`` for the whole package, so patching that one
-    function covers both adapters.
+    ``llm/claude.py`` reaches the HTTP client through ``llm/openai.py``, so
+    patching that one function covers both adapters.
     """
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
     monkeypatch.setattr(_openai_module, "http_client", lambda: client)

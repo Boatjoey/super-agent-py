@@ -1,9 +1,7 @@
-"""Port of ``tests/tools/lsp_test.go``, plus the framing and reconnect cases.
+"""The LSP tools, plus the framing and reconnect cases.
 
-The Go test spawns its own test binary with ``-test.run`` as a fake language
-server. Here the server is :mod:`tests.helpers.lsp_fake_server`, run as
-``python -m``; every test drives it over a pipe and none of them touches the
-network.
+The server is :mod:`tests.helpers.lsp_fake_server`, run as ``python -m``;
+every test drives it over a pipe and none of them touches the network.
 """
 
 from __future__ import annotations

@@ -36,8 +36,8 @@ class ApprovalStore(Protocol):
 class MemoryApprovalStore:
     """The only store; the port exists so tests can substitute one.
 
-    No lock is needed the way Go needs a ``sync.Mutex``: every caller runs on the
-    same event loop and neither method awaits, so two calls cannot interleave.
+    No lock is needed: every caller runs on the same event loop and neither
+    method awaits, so two calls cannot interleave.
     """
 
     __slots__ = ("_always", "_mode", "_rules")
@@ -72,16 +72,16 @@ def NewApprovalKey(call: ToolCall) -> ApprovalKey:
 def hashCanonicalInput(input: str) -> str:
     """SHA-256 of the input in its canonical JSON form.
 
-    Input that is not JSON is hashed as written, matching Go: ``json.Unmarshal``
-    fails and the raw text is used.
+    Input that is not JSON is hashed as written: parsing fails and the raw text
+    is used.
 
-    The canonical form reproduces Go's ``json.Marshal`` for the JSON data model:
-    sorted object keys, compact separators, raw UTF-8, HTML-escaped ``<``, ``>``,
-    ``&``, and the two line separators, and integral floats written without a
-    fractional part. Two Go quirks are not reproduced and cannot matter here
-    because the value never leaves memory: floats in the ``1e-6``..``1e-7`` band
-    (Go switches to exponent form exactly there) and the control characters that
-    Go escapes as ``\\u0008``/``\\u000c`` where Python uses ``\\b``/``\\f``.
+    The canonical form is the compact, key-sorted encoding for the JSON data
+    model: sorted object keys, compact separators, raw UTF-8, HTML-escaped ``<``,
+    ``>``, ``&``, and the two line separators, and integral floats written without
+    a fractional part. Two encoder quirks are not reproduced and cannot matter
+    here because the value never leaves memory: floats in the ``1e-6``..``1e-7``
+    band (which switch to exponent form exactly there) and the control characters
+    escaped as ``\\u0008``/``\\u000c`` rather than ``\\b``/``\\f``.
     """
     try:
         parsed: Any = json.loads(input)
@@ -109,7 +109,7 @@ def _canonical_json(value: Any) -> str:
 
 
 def _normalise_numbers(value: Any) -> Any:
-    """Write an integral float the way Go does: ``1`` rather than ``1.0``."""
+    """Write an integral float without a fractional part: ``1`` rather than ``1.0``."""
     if isinstance(value, float) and value.is_integer():
         return int(value)
     if isinstance(value, list):

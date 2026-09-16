@@ -1,7 +1,7 @@
 """The process entry point.
 
-Ports ``main.go``. The startup order is part of the contract, because each step
-can only be done once the one before it has succeeded:
+The startup order is part of the contract, because each step can only be done
+once the one before it has succeeded:
 
 1. parse the flags, which is the only step that may exit with status 2;
 2. load ``.env`` from the process working directory, ignoring its failure;
@@ -28,7 +28,7 @@ from super_agent import app, cli, llm, tui
 
 
 def main() -> None:
-    """Run the terminal interface. Mirrors ``main`` in ``main.go``."""
+    """Run the terminal interface."""
     try:
         flags = cli.Parse(sys.argv[1:])
     except cli.FlagError as error:
@@ -83,9 +83,9 @@ async def run(cfg: app.Config) -> int:
         print(error, file=sys.stderr)
         return 1
     finally:
-        # Go defers this, and skips it when the interface fails because os.Exit
-        # does not run deferred calls. Closing here as well is better hygiene and
-        # changes nothing the user saw.
+        # The cleanup runs in a ``finally``, so it also happens on the failure
+        # path. That is better hygiene than skipping it, and it changes nothing
+        # the user saw.
         with contextlib.suppress(Exception):
             await session.Close()
         with contextlib.suppress(Exception):

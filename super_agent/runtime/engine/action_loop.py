@@ -64,7 +64,7 @@ if TYPE_CHECKING:
 
 
 def typeName(value: Any) -> str:
-    """The name Go's ``reflect.TypeOf(value).Name()`` prints, ``nil`` included."""
+    """The value's type name, or ``"nil"`` when it is ``None``."""
     return "nil" if value is None else type(value).__name__
 
 
@@ -73,7 +73,7 @@ def errorString(error: BaseException | None) -> str:
 
 
 def estimateTokens(value: str) -> int:
-    """Four characters per token, the same rough divisor Go's telemetry uses."""
+    """Four characters per token, a deliberately rough divisor."""
     count = len(value)
     if count == 0:
         return 0
@@ -92,7 +92,7 @@ def cloneToolBatch(batch: ToolCallBatch | None) -> ToolCallBatch | None:
 
 
 def millis_since(started: float) -> int:
-    """Elapsed milliseconds, truncated the way Go's ``Milliseconds`` truncates."""
+    """Elapsed milliseconds, truncated toward zero."""
     return int((time.monotonic() - started) * 1000)
 
 
@@ -278,10 +278,9 @@ class ActionLoopMixin:
     async def _dispatch_ignoring_failure(self, ctx: RunContext, event: Event) -> None:
         """Report a terminal event, discarding whatever it reports back.
 
-        Go writes ``_ = e.DispatchEvent(...)`` here. Every exception is
-        suppressed, cancellation included, because the failure the caller must see
-        is the original one — a second error raised from the cleanup path would
-        replace it.
+        Every exception is suppressed, cancellation included, because the failure
+        the caller must see is the original one — a second error raised from the
+        cleanup path would replace it.
         """
         with contextlib.suppress(BaseException):
             await self.DispatchEvent(ctx, event, None)
@@ -382,8 +381,7 @@ class ActionLoopMixin:
         append into a conversation that has already been cleared.
 
         No lock is taken: this method never awaits, so the event loop cannot
-        switch tasks inside it. Go takes its mutex because a goroutine genuinely
-        can be mid-append.
+        switch tasks inside it.
         """
         if not self._runs.IsCurrent(run_id):
             return

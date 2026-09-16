@@ -1,11 +1,9 @@
-"""Port of ``tests/app/mcp_test.go``.
+"""The MCP controller's lifecycle and settings persistence.
 
-The Go test builds its fake server inside the test binary and selects it with an
-environment variable; here the server is :mod:`tests.helpers.mcp_echo_server`, run
-as ``python -m``. That is why the controller's workspace is the repository root:
-``python -m`` resolves the module against the process working directory, and
-``MCPController.Add`` builds a server configuration with no environment of its
-own.
+The server is :mod:`tests.helpers.mcp_echo_server`, run as ``python -m``. That is
+why the controller's workspace is the repository root: ``python -m`` resolves the
+module against the process working directory, and ``MCPController.Add`` builds a
+server configuration with no environment of its own.
 """
 
 from __future__ import annotations
@@ -28,10 +26,9 @@ HELPER = REPO_ROOT / "tests" / "helpers" / "mcp_echo_server.py"
 def test_app_mcp_helper_process() -> None:
     """The fake server the next test connects to is present and runnable.
 
-    Go guards the server with ``SUPER_AGENT_APP_MCP_HELPER`` and lets the test
-    binary exit early otherwise. The Python equivalent is that the module is
-    executed directly, so a missing or renamed helper would otherwise make the
-    controller test fail for a reason that has nothing to do with it.
+    The helper is executed directly rather than imported, so a missing or renamed
+    module would otherwise make the controller test fail for a reason that has
+    nothing to do with it.
     """
     assert HELPER.exists(), f"the fake MCP server is missing: {HELPER}"
 

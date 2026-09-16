@@ -1,12 +1,10 @@
 """Building one session: the composition root's constructor.
 
-Ported from ``app/session.go``. Everything the runtime needs is created here and
-handed over exactly once; after :func:`NewSessionWithExtensions` returns, the
-session owns the extension and language-server processes, the telemetry sink, and
-the durable store.
+Everything the runtime needs is created here and handed over exactly once; after
+:func:`NewSessionWithExtensions` returns, the session owns the extension and
+language-server processes, the telemetry sink, and the durable store.
 
-Three shapes differ from Go, each because Python has no goroutine and no
-``io.Closer`` that can await:
+Three shapes are worth naming:
 
 * the constructor is a coroutine, since connecting MCP and LSP servers is;
 * an asynchronous ``Close`` is adapted to the session's synchronous
@@ -234,9 +232,9 @@ async def NewSessionWithExtensions(cfg: Config) -> tuple[Session, MCPController 
         )
         return session, controller, agents
     except BaseException:
-        # Go's deferred cleanup, which runs only while ownership was never handed
-        # over. Once the session owns a closer the field it was read from is
-        # cleared, so nothing is closed twice.
+        # The cleanup path, which runs only while ownership was never handed over.
+        # Once the session owns a closer the field it was read from is cleared, so
+        # nothing is closed twice.
         if extension is not None:
             with contextlib.suppress(Exception):
                 await extension.Close()
@@ -251,10 +249,10 @@ async def NewSessionWithExtensions(cfg: Config) -> tuple[Session, MCPController 
 class toolHooks:
     """Runs the ``pre_tool`` and ``post_tool`` extension hooks around a call.
 
-    Go installs this as the registry's observer. Python's observer port is a
-    synchronous callable while a hook runs a command, which is asynchronous, so
-    the ordering the observer exists to guarantee is kept by wrapping the runner
-    instead: the pre-hook finishes before the tool starts, a pre-hook failure
+    The observer port is a synchronous callable while a hook runs a command, which
+    is asynchronous, so the ordering the observer exists to guarantee is kept by
+    wrapping the runner instead: the pre-hook finishes before the tool starts, a
+    pre-hook failure
     aborts the call, and a post-hook failure is appended to the output rather than
     turning a finished call into a failed one. Hooks run through ``RunDirect``, so
     a hook cannot re-enter the hooks that invoked it.
@@ -270,7 +268,7 @@ class toolHooks:
         """Install the controller the hooks run through.
 
         Set after construction because the controller reaches these hooks back for
-        its own queries; the pair is a cycle Go closes with a registry observer.
+        its own queries, so the pair is a cycle.
         """
         self._workflows = workflows
 
@@ -313,8 +311,7 @@ def contextForConfig(cfg: Config) -> Context:
 class closerFunc:
     """A plain callable adapted to the session's :class:`Closer` port.
 
-    Go's ``closerFunc``: the telemetry sink closes synchronously and needs no
-    adapter beyond this one.
+    The telemetry sink closes synchronously and needs no adapter beyond this one.
     """
 
     __slots__ = ("_close",)
@@ -333,11 +330,11 @@ _pendingCloses: list[asyncio.Task[None]] = []
 class asyncCloser:
     """An asynchronous ``Close`` adapted to the session's synchronous port.
 
-    Go hands the session one ``io.Closer`` per extension process. Its counterparts
-    here close asynchronously — killing a child and waiting for it — while the
-    session's close loop calls each closer synchronously. The coroutine is
-    therefore scheduled on the running loop and kept, and
-    :func:`waitPendingClosers` awaits it once ``session.Close()`` has returned.
+    Each extension process hands the session a closer that wants to close
+    asynchronously — killing a child and waiting for it — while the session's close
+    loop calls each closer synchronously. The coroutine is therefore scheduled on
+    the running loop and kept, and :func:`waitPendingClosers` awaits it once
+    ``session.Close()`` has returned.
     """
 
     __slots__ = ("_close",)

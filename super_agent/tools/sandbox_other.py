@@ -1,8 +1,8 @@
 """Strict sandbox construction on platforms that have no implementation.
 
-Ported from ``tools/sandbox_other.go``. The refusal is deliberate: strict is the
-default mode, and silently running commands with the user's full authority
-would turn a missing isolation mechanism into an unnoticed privilege change.
+The refusal is deliberate: strict is the default mode, and silently running
+commands with the user's full authority would turn a missing isolation mechanism
+into an unnoticed privilege change.
 """
 
 from __future__ import annotations

@@ -1,9 +1,8 @@
 """Model fakes shared by the engine tests.
 
-Ported alongside ``tests/runtime/engine_test.go``'s ``scriptedModel``,
-``streamingCancelModel``, and ``blockingModel``. They live here rather than in a
-test module because more than one test file drives a model, and because the
-engine tests need to hold a call open while the rest of the loop keeps running.
+They live here rather than in a test module because more than one test file drives
+a model, and because the engine tests need to hold a call open while the rest of
+the loop keeps running.
 """
 
 from __future__ import annotations
@@ -20,9 +19,9 @@ __all__ = ["BlockingModel", "GateModel", "ScriptedModel", "StreamingCancelModel"
 class ScriptedModel:
     """Replays one response per call and records the last message it was sent.
 
-    Mirrors Go's ``scriptedModel``: ``Next`` appends the final input message to
-    ``calls`` and pops the next scripted response, so a test can assert both what
-    the model was shown and how many times it was called.
+    ``Next`` appends the final input message to ``calls`` and pops the next
+    scripted response, so a test can assert both what the model was shown and how
+    many times it was called.
     """
 
     def __init__(self, responses: Sequence[ModelResponse]) -> None:
@@ -43,9 +42,8 @@ class ScriptedModel:
 class StreamingCancelModel:
     """Streams one chunk, then blocks until its context is cancelled.
 
-    Mirrors Go's ``streamingCancelModel``. The chunk is delivered *before* the
-    block, so a cancel while the call is in flight must flush it as an
-    interrupted assistant message.
+    The chunk is delivered *before* the block, so a cancel while the call is in
+    flight must flush it as an interrupted assistant message.
     """
 
     def __init__(self) -> None:
@@ -68,8 +66,8 @@ class StreamingCancelModel:
 class BlockingModel:
     """Blocks every call on ``release``, then returns ``content``.
 
-    Mirrors Go's ``blockingModel``: the point is a call that is still in flight
-    when the test cancels or resets the run.
+    The point is a call that is still in flight when the test cancels or resets
+    the run.
     """
 
     def __init__(self, release: asyncio.Event, content: str = "stale") -> None:

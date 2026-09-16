@@ -1,8 +1,7 @@
 """Invariants, protocol guards, and the transactional applier.
 
-Ported from ``tests/runtime/machine_invariants_test.go``. The engine-level cases
-from that file live in ``tests/runtime/test_engine.py``, because they need the
-engine that milestone M3 builds.
+The engine-level cases live in ``tests/runtime/test_engine.py``, because they need
+the engine that this module does not construct.
 """
 
 from __future__ import annotations
@@ -129,7 +128,7 @@ def test_applier_raises_invariant_error_for_an_unknown_change() -> None:
     ids=["Event", "RuntimeDataChange", "ScheduledAction"],
 )
 def test_variant_sets_are_sealed(base: type[object]) -> None:
-    """The type sets are closed the way Go closes them with unexported markers."""
+    """The type sets are closed, so a class outside the variant set cannot join."""
     with pytest.raises(TypeError, match="sealed"):
 
         class Rogue(base):  # type: ignore[misc, valid-type]

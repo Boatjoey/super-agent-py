@@ -1,12 +1,11 @@
 """Network tools: a web search and a page fetch.
 
-Ported from ``tools/web.go``. Both are risky tools under the common permission
-flow, and the fetch accepts only public HTTP(S) targets, caps redirects,
-response size, and total time, and extracts page text without executing scripts.
+Both are risky tools under the common permission flow, and the fetch accepts only
+public HTTP(S) targets, caps redirects, response size, and total time, and
+extracts page text without executing scripts.
 
 The ``transport`` field on each tool exists so tests can supply an
-:class:`httpx.MockTransport`; production registries construct them empty, as Go
-does.
+:class:`httpx.MockTransport`; production registries construct them empty.
 """
 
 from __future__ import annotations
@@ -104,11 +103,10 @@ async def fetch_public(
 ) -> tuple[bytes, str]:
     """Fetch ``raw_url``, or refuse before any connection is attempted."""
     url = validate_public_url(raw_url)
-    # Go resolves the host itself and refuses when any resolved address is
-    # private, which closes the DNS-rebinding window but needs a custom dialer.
-    # Here the URL is validated and then handed to httpx, which resolves the
-    # name when it connects. That leaves a DNS-rebinding window: a name that
-    # validated can resolve to a private address before the connection is made.
+    # The URL is validated and then handed to httpx, which resolves the name when
+    # it connects. That leaves a DNS-rebinding window: a name that validated can
+    # resolve to a private address before the connection is made. Resolving the
+    # host here instead would close that window but needs a custom dialer.
     async with asyncio.timeout(_total_timeout):
         async with httpx.AsyncClient(
             transport=transport,
@@ -159,9 +157,8 @@ def public_ip(address: str) -> bool:
         parsed = ipaddress.ip_address(address)
     except ValueError:
         return False
-    # Go tests IsGlobalUnicast and rejects private, loopback, and link-local
-    # ranges; Python's is_global is the same statement for the ranges that
-    # matter here.
+    # ``is_global`` rejects private, loopback, and link-local ranges, which is
+    # the statement that matters here.
     return parsed.is_global
 
 
@@ -178,8 +175,7 @@ def extracted_page(raw_url: str, content: bytes) -> str:
     try:
         root: Any = _html.fromstring(content)
     except Exception:
-        # Go's html.Parse never fails, so a parse error becomes plain text
-        # rather than a failed fetch.
+        # A parse error becomes plain text rather than a failed fetch.
         return _page_json(raw_url, content.decode("utf-8", "replace"))
     lines: list[str] = []
     _walk(root, raw_url, lines)

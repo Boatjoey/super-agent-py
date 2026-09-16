@@ -1,13 +1,13 @@
 """The workspace policy every built-in tool test runs against.
 
-Ported from ``tests/tools/workspace_test.go``, which supplies ``testWorkspace``
-to the rest of the package. The real ``super_agent.workspace.Context`` is
-assembled by the composition root and is exercised by the workspace adapter's
-own tests, so its observable behaviour — canonical containment over one or more
-roots, per-root access modes, and resolution through the nearest existing
-ancestor — is reproduced here as a test double.
+This supplies ``testWorkspace`` to the rest of the package. The real
+``super_agent.workspace.Context`` is assembled by the composition root and is
+exercised by the workspace adapter's own tests, so its observable behaviour —
+canonical containment over one or more roots, per-root access modes, and
+resolution through the nearest existing ancestor — is reproduced here as a test
+double.
 
-The tests in this module cover ``tools/workspace.go`` itself: the readable and
+The tests in this module cover ``tools/workspace.py`` itself: the readable and
 writable resolution helpers and the display path they return.
 """
 

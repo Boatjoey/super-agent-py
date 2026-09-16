@@ -1,10 +1,9 @@
 """The session :class:`~super_agent.runtime.session.Repository` over :class:`Store`.
 
-Ported from ``store/repository.go``. This is where the store's own DTOs meet the
-use-case layer's ports: the store keeps timestamps, the turn id, and the
-instruction fingerprint, while the session only needs the fields it acts on, and
-the two metadata shapes are mapped field by field so neither becomes an alias of
-the other.
+This is where the store's own DTOs meet the use-case layer's ports: the store
+keeps timestamps, the turn id, and the instruction fingerprint, while the session
+only needs the fields it acts on, and the two metadata shapes are mapped field by
+field so neither becomes an alias of the other.
 """
 
 from __future__ import annotations
@@ -214,7 +213,7 @@ class Repository:
 
 
 def NewRepository(store: Store) -> Repository:
-    """The repository over ``store``, mirroring Go's ``NewRepository``."""
+    """The repository over ``store``."""
     return Repository(store)
 
 

@@ -1,11 +1,10 @@
 """The shell-command classification table.
 
-There is no Go test module with this name; the Go side exercises the analyzer
-indirectly through the policy tests. This module pins the table directly, because
-the classification is what decides which approval prompt a user sees and which
-policy rule applies — and a whole class of regressions (``git`` matching ``gitk``,
-a package manager being treated as always-network) is invisible from the policy
-level.
+The analyzer is otherwise exercised only indirectly through the policy tests.
+This module pins the table directly, because the classification is what decides
+which approval prompt a user sees and which policy rule applies — and a whole
+class of regressions (``git`` matching ``gitk``, a package manager being treated
+as always-network) is invisible from the policy level.
 """
 
 from __future__ import annotations

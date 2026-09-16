@@ -6,7 +6,7 @@ streaming callback, a per-turn state observer, and the repository calls that mak
 each of them durable.
 
 Python cannot split one class across modules, so the session is assembled from
-mixins that mirror the Go file layout: ``turn.py``, ``history.py``,
+mixins, one per concern: ``turn.py``, ``history.py``,
 ``persistence.py``, ``checkpoint.py``, ``attachments.py``, ``export.py``.
 """
 
@@ -52,11 +52,11 @@ class Closer(Protocol):
 
 
 class SessionBase:
-    """State and lifecycle, mirroring Go's ``session.go``.
+    """State and lifecycle.
 
-    ``_turnActive`` stands in for Go's ``sync.Mutex`` with ``TryLock``: every
-    caller runs on the same event loop and the check-and-set never yields, so a
-    flag gives the same "fail fast when a turn is running" behaviour.
+    ``_turnActive`` is a flag rather than a lock: every caller runs on the same
+    event loop and the check-and-set never yields, so it gives the same "fail
+    fast when a turn is running" behaviour.
     """
 
     def __init__(
@@ -84,7 +84,7 @@ class SessionBase:
     # --- the turn lock -------------------------------------------------------
 
     def _tryLock(self) -> bool:
-        """Go's ``TryLock``: succeed or report that a turn is already running."""
+        """Succeed, or report that a turn is already running."""
         if self._turn_active:
             return False
         self._turn_active = True

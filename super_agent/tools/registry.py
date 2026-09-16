@@ -1,9 +1,8 @@
 """The tool registry: advertisement, dispatch, and lifecycle hooks.
 
-Ported from ``tools/registry.go``. Go guards it with a ``sync.RWMutex``; in
-Python every mutation here is synchronous and the event loop cannot interleave
-it, so ``Add``, ``Remove``, and ``Replace`` are atomic by construction and the
-lock would only be ceremony.
+No lock guards the registry: every mutation here is synchronous and the event loop
+cannot interleave it, so ``Add``, ``Remove``, and ``Replace`` are atomic by
+construction and a lock would only be ceremony.
 """
 
 from __future__ import annotations
@@ -33,8 +32,7 @@ class Tool(Protocol):
         ...
 
 
-#: A lifecycle hook. It reports a failure by raising, which is the Python form
-#: of Go's ``return err``.
+#: A lifecycle hook. It reports a failure by raising.
 type ToolObserver = Callable[[RunContext, str, ToolCall, BaseException | None], None]
 
 #: A checkpoint hook run before a risky tool. It raises to refuse the call.

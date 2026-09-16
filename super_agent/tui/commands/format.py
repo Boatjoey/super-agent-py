@@ -1,7 +1,7 @@
 """The command feature's output formatting.
 
-Ported from the Go ``tui/commands/format.go``. Everything here is a pure
-function from a port's answer to the text the user reads in scrollback.
+Everything here is a pure function from a port's answer to the text the user
+reads in scrollback.
 """
 
 from __future__ import annotations

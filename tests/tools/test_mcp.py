@@ -1,10 +1,9 @@
-"""Port of ``tests/tools/mcp_test.go``, plus the environment and bound cases.
+"""The MCP tools, plus the environment and bound cases.
 
-The Go test spawns its own test binary and builds the server with the official
-SDK. Here the server is :mod:`tests.helpers.mcp_echo_server`, run as
-``python -m``, and it speaks the same hand-written framing the client does. No
-test touches the network; the environment is explicit, which is why the helper
-needs ``PYTHONPATH`` passed as an override.
+The server is :mod:`tests.helpers.mcp_echo_server`, run as ``python -m``, and it
+speaks the same hand-written framing the client does. No test touches the
+network; the environment is explicit, which is why the helper needs
+``PYTHONPATH`` passed as an override.
 """
 
 from __future__ import annotations

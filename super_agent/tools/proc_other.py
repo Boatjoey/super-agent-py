@@ -1,8 +1,7 @@
 """Process termination on platforms without process groups.
 
-Ported from ``tools/proc_other.go``. Killing the direct child is the fallback;
-waiting on the process afterwards still guards against a surviving grandchild
-holding the output pipes open.
+Killing the direct child is the fallback; waiting on the process afterwards still
+guards against a surviving grandchild holding the output pipes open.
 """
 
 from __future__ import annotations

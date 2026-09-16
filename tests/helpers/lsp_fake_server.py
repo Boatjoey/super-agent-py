@@ -1,10 +1,10 @@
 """A fake language server the LSP tests spawn.
 
 Run as ``python -m tests.helpers.lsp_fake_server [--delay SECONDS]
-[--diagnostics-delay SECONDS]``. It mirrors the helper embedded in
-``tests/tools/lsp_test.go``: it answers ``initialize`` and ``shutdown`` with an
-empty capability set, answers every other request with a one-element result, and
-pushes a diagnostic as soon as a document is opened.
+[--diagnostics-delay SECONDS]``. ``tests/tools/test_lsp.py`` spawns it as its
+fake language server: it answers ``initialize`` and ``shutdown`` with an empty
+capability set, answers every other request with a one-element result, and pushes
+a diagnostic as soon as a document is opened.
 
 ``--delay`` postpones every request except the handshake, so a test can cancel a
 request while its reply is still in flight. ``--diagnostics-delay`` postpones

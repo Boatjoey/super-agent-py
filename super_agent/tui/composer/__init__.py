@@ -1,6 +1,6 @@
 """The composer feature.
 
-Go's ``tui/composer`` package surface, re-exported so callers keep writing
+The package surface, re-exported so callers keep writing
 ``composer.Model`` and ``composer.Submit``.
 """
 
@@ -15,7 +15,7 @@ from super_agent.tui.composer.model import (
     NormalizeCommands as NormalizeCommands,
 )
 
-#: Go's package-level intent constants.
+#: The package-level intent constants.
 NoIntent = IntentKind.NoIntent
 Submit = IntentKind.Submit
 Queue = IntentKind.Queue

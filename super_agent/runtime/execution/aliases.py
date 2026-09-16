@@ -1,7 +1,7 @@
 """Location-stable re-exports of the machine and protocol values.
 
-Go's ``execution/aliases.go`` exists so the engine can write ``execution.RunTool``
-and ``execution.ApprovalGranted`` without importing ``runtime/machine`` itself.
+These re-exports let the engine write ``execution.RunTool`` and
+``execution.ApprovalGranted`` without importing ``runtime/machine`` itself.
 The same names live at the same position here.
 """
 
