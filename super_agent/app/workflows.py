@@ -28,11 +28,11 @@ class Runner(Protocol):
     composition code that wraps the registry with the hooks.
     """
 
-    def Specs(self) -> list[ToolSpec]: ...
+    def specs(self) -> list[ToolSpec]: ...
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str: ...
+    async def run(self, ctx: RunContext, call: ToolCall) -> str: ...
 
-    async def RunDirect(self, ctx: RunContext, call: ToolCall) -> str: ...
+    async def run_direct(self, ctx: RunContext, call: ToolCall) -> str: ...
 
 
 class WorkflowController:
@@ -44,33 +44,33 @@ class WorkflowController:
         self.registry = registry
         self.extensions = extensions
 
-    async def GitDiff(self, ctx: RunContext) -> str:
+    async def git_diff(self, ctx: RunContext) -> str:
         """The working tree's diff."""
         if self.registry is None:
             raise ValueError("workflow tools are unavailable")
-        return await self.registry.Run(ctx, ToolCall(Name="git_diff", Input=NO_ARGUMENTS))
+        return await self.registry.run(ctx, ToolCall(name="git_diff", input=NO_ARGUMENTS))
 
-    async def GitStatus(self, ctx: RunContext) -> str:
+    async def git_status(self, ctx: RunContext) -> str:
         """The working tree's short status."""
         if self.registry is None:
             raise ValueError("workflow tools are unavailable")
-        return await self.registry.Run(ctx, ToolCall(Name="git_status", Input=NO_ARGUMENTS))
+        return await self.registry.run(ctx, ToolCall(name="git_status", input=NO_ARGUMENTS))
 
-    async def Diagnostics(self, ctx: RunContext, path: str) -> str:
+    async def diagnostics(self, ctx: RunContext, path: str) -> str:
         """The language server's diagnostics for one file."""
         if self.registry is None:
             raise ValueError("workflow tools are unavailable")
-        return await self.registry.Run(ctx, ToolCall(Name="lsp_diagnostics", Input=jsonutil.dumps({"path": path})))
+        return await self.registry.run(ctx, ToolCall(name="lsp_diagnostics", input=jsonutil.dumps({"path": path})))
 
-    async def RunHook(self, ctx: RunContext, event: str) -> None:
+    async def run_hook(self, ctx: RunContext, event: str) -> None:
         """Run every command configured for ``event``, in order."""
-        for command in self.extensions.Hooks.get(event, ()):
+        for command in self.extensions.hooks.get(event, ()):
             if self.registry is None:
                 raise ValueError("hooks require tools")
             payload = jsonutil.dumps({"command": command})
-            await self.registry.RunDirect(ctx, ToolCall(Name="run_command", Input=payload))
+            await self.registry.run_direct(ctx, ToolCall(name="run_command", input=payload))
 
-    async def RunHooks(self, ctx: RunContext, *events: str) -> None:
+    async def run_hooks(self, ctx: RunContext, *events: str) -> None:
         """Run several events' hooks, joining every failure into one error.
 
         A failure never stops the next event: the hooks are independent, and the
@@ -79,27 +79,27 @@ class WorkflowController:
         failures: list[BaseException] = []
         for event in events:
             try:
-                await self.RunHook(ctx, event)
+                await self.run_hook(ctx, event)
             except Exception as error:
                 failures.append(error)
         if failures:
             raise JoinedError(*failures)
 
-    def CustomCommands(self) -> list[str]:
+    def custom_commands(self) -> list[str]:
         """Every custom command name, sorted."""
-        return sorted(self.extensions.Commands)
+        return sorted(self.extensions.commands)
 
-    def Skills(self) -> list[str]:
+    def skills(self) -> list[str]:
         """Every discovered skill name."""
-        return list(self.extensions.Skills)
+        return list(self.extensions.skills)
 
-    def Plugins(self) -> list[str]:
+    def plugins(self) -> list[str]:
         """Every discovered plugin name."""
-        return list(self.extensions.Plugins)
+        return list(self.extensions.plugins)
 
-    def ExpandCommand(self, name: str, arguments: str) -> str:
+    def expand_command(self, name: str, arguments: str) -> str:
         """Substitute ``$ARGUMENTS``, or append the arguments when there is none."""
-        template = self.extensions.Commands.get(name)
+        template = self.extensions.commands.get(name)
         if template is None:
             raise ValueError("unknown custom command: " + name)
         if "$ARGUMENTS" in template:

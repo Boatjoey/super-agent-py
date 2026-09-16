@@ -26,20 +26,20 @@ from super_agent.tools.files import (
 )
 from super_agent.tools.no_tools import NoTools as NoTools
 from super_agent.tools.registry import (
-    DefaultRegistry as DefaultRegistry,
-    NewRegistry as NewRegistry,
     Registry as Registry,
-    RegistryForWorkspace as RegistryForWorkspace,
-    SandboxedRegistry as SandboxedRegistry,
     Tool as Tool,
+    default_registry as default_registry,
+    new_registry as new_registry,
+    registry_for_workspace as registry_for_workspace,
+    sandboxed_registry as sandboxed_registry,
 )
 from super_agent.tools.sandbox import (
-    DefaultSandboxConfig as DefaultSandboxConfig,
+    SANDBOX_MODE_OFF as SANDBOX_MODE_OFF,
+    SANDBOX_MODE_STRICT as SANDBOX_MODE_STRICT,
     SandboxConfig as SandboxConfig,
     SandboxMode as SandboxMode,
-    SandboxModeOff as SandboxModeOff,
-    SandboxModeStrict as SandboxModeStrict,
-    ValidSandboxMode as ValidSandboxMode,
+    default_sandbox_config as default_sandbox_config,
+    valid_sandbox_mode as valid_sandbox_mode,
 )
 from super_agent.tools.web import (
     BrowserFetchTool as BrowserFetchTool,

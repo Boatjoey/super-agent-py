@@ -24,30 +24,30 @@ from super_agent.app.agents import (
 from super_agent.app.config import (
     AgentSettings as AgentSettings,
     Config as Config,
-    DefaultSettings as DefaultSettings,
     Flags as Flags,
-    LoadConfig as LoadConfig,
-    LoadSettings as LoadSettings,
-    LoadSettingsFile as LoadSettingsFile,
     LSPServerSettings as LSPServerSettings,
     MCPServerSettings as MCPServerSettings,
     PermissionSettings as PermissionSettings,
     SandboxSettings as SandboxSettings,
-    SaveSettingsFile as SaveSettingsFile,
     Settings as Settings,
-    SettingsPath as SettingsPath,
     TelemetrySettings as TelemetrySettings,
+    default_settings as default_settings,
+    load_config as load_config,
+    load_settings as load_settings,
+    load_settings_file as load_settings_file,
+    save_settings_file as save_settings_file,
+    settings_path as settings_path,
 )
 from super_agent.app.extensions import (
     Extensions as Extensions,
     ExtensionSettings as ExtensionSettings,
     PluginManifest as PluginManifest,
 )
-from super_agent.app.instructions import LoadProjectInstructions as LoadProjectInstructions
+from super_agent.app.instructions import load_project_instructions as load_project_instructions
 from super_agent.app.mcp import (
     MCPController as MCPController,
     MCPServerSummary as MCPServerSummary,
-    NewMCPController as NewMCPController,
+    new_mcp_controller as new_mcp_controller,
 )
 
 # --- the session constructors ------------------------------------------------
@@ -55,49 +55,49 @@ from super_agent.app.mcp import (
 # Imported last: ``session`` reaches every other module here, so importing it
 # after its dependencies keeps the chain readable top to bottom.
 from super_agent.app.session import (
-    NewSession as NewSession,
-    NewSessionWithExtensions as NewSessionWithExtensions,
-    NewSessionWithMCP as NewSessionWithMCP,
+    new_session as new_session,
+    new_session_with_extensions as new_session_with_extensions,
+    new_session_with_mcp as new_session_with_mcp,
     waitPendingClosers as waitPendingClosers,
 )
-from super_agent.app.system_prompt import SystemPrompt as SystemPrompt
+from super_agent.app.system_prompt import SYSTEM_PROMPT as SYSTEM_PROMPT
 from super_agent.app.tui_adapter import (
-    NewTUIConversation as NewTUIConversation,
     TUIConversation as TUIConversation,
+    new_tui_conversation as new_tui_conversation,
 )
 from super_agent.app.workflows import WorkflowController as WorkflowController
 
 __all__ = [
+    "SYSTEM_PROMPT",
     "AgentController",
     "AgentProfile",
     "AgentSettings",
     "Config",
-    "DefaultSettings",
     "ExtensionSettings",
     "Extensions",
     "Flags",
     "LSPServerSettings",
-    "LoadConfig",
-    "LoadProjectInstructions",
-    "LoadSettings",
-    "LoadSettingsFile",
     "MCPController",
     "MCPServerSettings",
     "MCPServerSummary",
-    "NewMCPController",
-    "NewSession",
-    "NewSessionWithExtensions",
-    "NewSessionWithMCP",
-    "NewTUIConversation",
     "PermissionSettings",
     "PluginManifest",
     "SandboxSettings",
-    "SaveSettingsFile",
     "Settings",
-    "SettingsPath",
-    "SystemPrompt",
     "TUIConversation",
     "TelemetrySettings",
     "WorkflowController",
+    "default_settings",
+    "load_config",
+    "load_project_instructions",
+    "load_settings",
+    "load_settings_file",
+    "new_mcp_controller",
+    "new_session",
+    "new_session_with_extensions",
+    "new_session_with_mcp",
+    "new_tui_conversation",
+    "save_settings_file",
+    "settings_path",
     "waitPendingClosers",
 ]

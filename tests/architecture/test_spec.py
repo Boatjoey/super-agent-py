@@ -64,7 +64,7 @@ def repository_root() -> Path:
 
 def machine_states() -> tuple[str, ...]:
     """Every state the machine declares, pinned so an addition fails loudly."""
-    states = tuple(str(state) for state in machine.AllStates)
+    states = tuple(str(state) for state in machine.ALL_STATES)
     assert states == EXPECTED_STATES, f"machine states changed: {states} != {EXPECTED_STATES}"
     return states
 
@@ -125,13 +125,13 @@ def parse_state_diagram(document: str) -> list[DocumentedEdge]:
 
 
 def sample_tool_call() -> machine.ToolCall:
-    return machine.ToolCall(ID="call-1", Name="bash", Input="pwd")
+    return machine.ToolCall(id="call-1", name="bash", input="pwd")
 
 
 def sample_tool_calls() -> tuple[machine.ToolCall, ...]:
     return (
-        machine.ToolCall(ID="call-1", Name="first", Input="a"),
-        machine.ToolCall(ID="call-2", Name="second", Input="b"),
+        machine.ToolCall(id="call-1", name="first", input="a"),
+        machine.ToolCall(id="call-2", name="second", input="b"),
     )
 
 
@@ -145,27 +145,27 @@ def well_formed_event(prototype: machine.Event) -> machine.Event:
     """
     call = sample_tool_call()
     if isinstance(prototype, machine.UserMessageSubmitted):
-        return machine.UserMessageSubmitted(Content="hi")
+        return machine.UserMessageSubmitted(content="hi")
     if isinstance(prototype, machine.AssistantMessageReceived):
-        return machine.AssistantMessageReceived(Response=machine.ModelResponse(Content="hi"))
+        return machine.AssistantMessageReceived(response=machine.ModelResponse(content="hi"))
     if isinstance(prototype, machine.ToolBatchReceived):
-        return machine.ToolBatchReceived(Content="thinking", Calls=sample_tool_calls())
+        return machine.ToolBatchReceived(content="thinking", calls=sample_tool_calls())
     if isinstance(prototype, machine.ToolCallNeedsApproval):
-        return machine.ToolCallNeedsApproval(Call=call)
+        return machine.ToolCallNeedsApproval(call=call)
     if isinstance(prototype, machine.ToolCallReadyToRun):
-        return machine.ToolCallReadyToRun(Call=call)
+        return machine.ToolCallReadyToRun(call=call)
     if isinstance(prototype, machine.ToolCallDenied):
-        return machine.ToolCallDenied(Call=call, Reason="plan mode")
+        return machine.ToolCallDenied(call=call, reason="plan mode")
     if isinstance(prototype, machine.ToolResultReceived):
-        return machine.ToolResultReceived(Call=call, Result="ok")
+        return machine.ToolResultReceived(call=call, result="ok")
     if isinstance(prototype, machine.ApprovalGranted):
-        return machine.ApprovalGranted(Call=call)
+        return machine.ApprovalGranted(call=call)
     if isinstance(prototype, machine.ApprovalAlwaysGranted):
-        return machine.ApprovalAlwaysGranted(Call=call)
+        return machine.ApprovalAlwaysGranted(call=call)
     if isinstance(prototype, machine.ApprovalDenied):
-        return machine.ApprovalDenied(Call=call)
+        return machine.ApprovalDenied(call=call)
     if isinstance(prototype, machine.ErrorOccurred):
-        return machine.ErrorOccurred(Err=RuntimeError("boom"))
+        return machine.ErrorOccurred(err=RuntimeError("boom"))
     # EngineReady, ToolBatchFinished, CancelRequested, ResetRequested carry no fields.
     return prototype
 
@@ -184,22 +184,22 @@ def state_snapshot(state_name: str, event: machine.Event) -> machine.MachineSnap
         if isinstance(candidate, machine.ToolCall):
             call = candidate
 
-    data = machine.RuntimeData(State=machine.State(state_name))
-    if data.State == machine.StateAdvancingQueue:
-        data.ToolBatch = machine.ToolCallBatch(Calls=[call])
+    data = machine.RuntimeData(state=machine.State(state_name))
+    if data.state == machine.STATE_ADVANCING_QUEUE:
+        data.tool_batch = machine.ToolCallBatch(calls=[call])
         if isinstance(event, machine.ToolBatchFinished):
             # ToolBatchFinished requires an exhausted queue.
-            data.ToolBatch.Index = 1
-    elif data.State == machine.StateWaitingApproval:
-        data.PendingTool = call
-        data.PendingPermission = machine.PermissionRequest()
-        data.ToolBatch = machine.ToolCallBatch(Calls=[call], Index=1)
-    elif data.State == machine.StateRunningTool:
-        data.CurrentTool = call
-        data.ToolBatch = machine.ToolCallBatch(Calls=[call], Index=1)
+            data.tool_batch.index = 1
+    elif data.state == machine.STATE_WAITING_APPROVAL:
+        data.pending_tool = call
+        data.pending_permission = machine.PermissionRequest()
+        data.tool_batch = machine.ToolCallBatch(calls=[call], index=1)
+    elif data.state == machine.STATE_RUNNING_TOOL:
+        data.current_tool = call
+        data.tool_batch = machine.ToolCallBatch(calls=[call], index=1)
 
     try:
-        return machine.SnapshotFrom(data)
+        return machine.snapshot_from(data)
     except machine.InvariantViolationError as error:  # pragma: no cover - a broken fixture, not a result
         raise AssertionError(f"invalid {state_name} snapshot for {type(event).__name__}: {error}") from error
 
@@ -208,13 +208,13 @@ def observed_edges() -> dict[str, str]:
     """Run every state against every declared event and record the accepted pairs."""
     observed: dict[str, str] = {}
     for state_name in machine_states():
-        for prototype in machine.AllEvents:
+        for prototype in machine.ALL_EVENTS:
             event = well_formed_event(prototype)
             try:
-                result = machine.Transition(state_snapshot(state_name, event), event)
+                result = machine.transition(state_snapshot(state_name, event), event)
             except (machine.UnexpectedEventError, machine.ProtocolViolationError):
                 continue
-            observed[DocumentedEdge(state=state_name, event=type(event).__name__, next="").key] = str(result.NextState)
+            observed[DocumentedEdge(state=state_name, event=type(event).__name__, next="").key] = str(result.next_state)
     return observed
 
 
@@ -239,7 +239,7 @@ def describe(edges: dict[str, str]) -> str:
 def test_event_and_state_counts_are_pinned() -> None:
     """The table documents 6 states x 15 events; a silent change would shrink the sweep."""
     assert len(machine_states()) == 6
-    assert len(machine.AllEvents) == 15, [type(event).__name__ for event in machine.AllEvents]
+    assert len(machine.ALL_EVENTS) == 15, [type(event).__name__ for event in machine.ALL_EVENTS]
 
 
 def test_documented_transition_table_matches_machine() -> None:

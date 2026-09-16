@@ -20,17 +20,17 @@ class CommandClass(str):
         return f"CommandClass({str.__repr__(self)})"
 
 
-CommandClassReadOnly: Final[CommandClass] = CommandClass("read-only")
-CommandClassWrite: Final[CommandClass] = CommandClass("write")
-CommandClassNetwork: Final[CommandClass] = CommandClass("network")
-CommandClassDestructive: Final[CommandClass] = CommandClass("destructive")
-CommandClassUnknown: Final[CommandClass] = CommandClass("unknown")
+COMMAND_CLASS_READ_ONLY: Final[CommandClass] = CommandClass("read-only")
+COMMAND_CLASS_WRITE: Final[CommandClass] = CommandClass("write")
+COMMAND_CLASS_NETWORK: Final[CommandClass] = CommandClass("network")
+COMMAND_CLASS_DESTRUCTIVE: Final[CommandClass] = CommandClass("destructive")
+COMMAND_CLASS_UNKNOWN: Final[CommandClass] = CommandClass("unknown")
 
 #: The zero value for the type. A request nobody classified is not the same as
 #: one classified ``unknown``: ``unknown`` means the command was examined and
 #: found opaque, while the zero value means nothing looked at it. The TUI keeps
 #: the distinction — ``tui/approval`` only prints the class line when it is set.
-ZeroCommandClass: Final[CommandClass] = CommandClass("")
+ZERO_COMMAND_CLASS: Final[CommandClass] = CommandClass("")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -42,10 +42,10 @@ class Request:
     documented fallback for a type with no tags. Nothing persists it either way.
     """
 
-    ToolName: str = ""
-    Command: str = ""
-    CommandClass: CommandClass = ZeroCommandClass
-    CWD: str = ""
-    TouchedPaths: tuple[str, ...] = ()
-    EnvVars: tuple[str, ...] = ()
-    Reason: str = ""
+    tool_name: str = ""
+    command: str = ""
+    command_class: CommandClass = ZERO_COMMAND_CLASS
+    cwd: str = ""
+    touched_paths: tuple[str, ...] = ()
+    env_vars: tuple[str, ...] = ()
+    reason: str = ""

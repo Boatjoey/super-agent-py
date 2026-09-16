@@ -30,24 +30,24 @@ class Role(str):
         return f"Role({str.__repr__(self)})"
 
 
-RoleSystem: Final[Role] = Role("system")
-RoleUser: Final[Role] = Role("user")
-RoleAssistant: Final[Role] = Role("assistant")
-RoleTool: Final[Role] = Role("tool")
+ROLE_SYSTEM: Final[Role] = Role("system")
+ROLE_USER: Final[Role] = Role("user")
+ROLE_ASSISTANT: Final[Role] = Role("assistant")
+ROLE_TOOL: Final[Role] = Role("tool")
 
 #: The zero value for the type, kept so a zero :class:`Message` is constructible
 #: without a role. A message with no role is never produced by a working adapter;
 #: it exists so default construction stays valid.
-ZeroRole: Final[Role] = Role("")
+ZERO_ROLE: Final[Role] = Role("")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Attachment:
     """A file handed to the model alongside a message."""
 
-    Name: str = dataclasses.field(default="", metadata=json_field(name="name"))
-    MIME: str = dataclasses.field(default="", metadata=json_field(name="mime"))
-    Data: str = dataclasses.field(default="", metadata=json_field(name="data"))
+    name: str = dataclasses.field(default="", metadata=json_field(name="name"))
+    mime: str = dataclasses.field(default="", metadata=json_field(name="mime"))
+    data: str = dataclasses.field(default="", metadata=json_field(name="data"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -58,25 +58,27 @@ class ToolCall:
     the model can emit malformed JSON and the tool decides what to do about it.
     """
 
-    ID: str = dataclasses.field(default="", metadata=json_field(name="id"))
-    Name: str = dataclasses.field(default="", metadata=json_field(name="name"))
-    Input: str = dataclasses.field(default="", metadata=json_field(name="input"))
+    id: str = dataclasses.field(default="", metadata=json_field(name="id"))
+    name: str = dataclasses.field(default="", metadata=json_field(name="name"))
+    input: str = dataclasses.field(default="", metadata=json_field(name="input"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Message:
     """One turn of the conversation sent to a model or written to disk."""
 
-    Role: Role = dataclasses.field(default=ZeroRole, metadata=json_field(name="role"))
-    Content: str = dataclasses.field(default="", metadata=json_field(name="content", omitempty=True))
-    ReasoningContent: str = dataclasses.field(default="", metadata=json_field(name="reasoning_content", omitempty=True))
-    ToolCallID: str = dataclasses.field(default="", metadata=json_field(name="tool_call_id", omitempty=True))
-    ToolName: str = dataclasses.field(default="", metadata=json_field(name="tool_name", omitempty=True))
-    ToolCalls: tuple[ToolCall, ...] | None = dataclasses.field(
+    role: Role = dataclasses.field(default=ZERO_ROLE, metadata=json_field(name="role"))
+    content: str = dataclasses.field(default="", metadata=json_field(name="content", omitempty=True))
+    reasoning_content: str = dataclasses.field(
+        default="", metadata=json_field(name="reasoning_content", omitempty=True)
+    )
+    tool_call_id: str = dataclasses.field(default="", metadata=json_field(name="tool_call_id", omitempty=True))
+    tool_name: str = dataclasses.field(default="", metadata=json_field(name="tool_name", omitempty=True))
+    tool_calls: tuple[ToolCall, ...] | None = dataclasses.field(
         default=None, metadata=json_field(name="tool_calls", omitempty=True)
     )
-    Interrupted: bool = dataclasses.field(default=False, metadata=json_field(name="interrupted", omitempty=True))
-    Attachments: tuple[Attachment, ...] = dataclasses.field(
+    interrupted: bool = dataclasses.field(default=False, metadata=json_field(name="interrupted", omitempty=True))
+    attachments: tuple[Attachment, ...] = dataclasses.field(
         default=(), metadata=json_field(name="attachments", omitempty=True)
     )
 
@@ -85,12 +87,12 @@ class Message:
 class ToolSpec:
     """A tool as advertised to the model."""
 
-    Name: str = dataclasses.field(default="", metadata=json_field(name="name"))
-    Description: str = dataclasses.field(default="", metadata=json_field(name="description", omitempty=True))
-    Parameters: dict[str, Any] | None = dataclasses.field(
+    name: str = dataclasses.field(default="", metadata=json_field(name="name"))
+    description: str = dataclasses.field(default="", metadata=json_field(name="description", omitempty=True))
+    parameters: dict[str, Any] | None = dataclasses.field(
         default=None, metadata=json_field(name="parameters", omitempty=True)
     )
-    Risky: bool = dataclasses.field(default=False, metadata=json_field(name="risky", omitempty=True))
+    risky: bool = dataclasses.field(default=False, metadata=json_field(name="risky", omitempty=True))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -101,29 +103,31 @@ class Usage:
     not obtain exact numbers and telemetry should estimate instead.
     """
 
-    InputTokens: int = dataclasses.field(default=0, metadata=json_field(name="input_tokens"))
-    OutputTokens: int = dataclasses.field(default=0, metadata=json_field(name="output_tokens"))
-    TotalTokens: int = dataclasses.field(default=0, metadata=json_field(name="total_tokens"))
+    input_tokens: int = dataclasses.field(default=0, metadata=json_field(name="input_tokens"))
+    output_tokens: int = dataclasses.field(default=0, metadata=json_field(name="output_tokens"))
+    total_tokens: int = dataclasses.field(default=0, metadata=json_field(name="total_tokens"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ModelResponse:
     """What one model call produced."""
 
-    Content: str = dataclasses.field(default="", metadata=json_field(name="content", omitempty=True))
-    ReasoningContent: str = dataclasses.field(default="", metadata=json_field(name="reasoning_content", omitempty=True))
-    ToolCalls: tuple[ToolCall, ...] = dataclasses.field(
+    content: str = dataclasses.field(default="", metadata=json_field(name="content", omitempty=True))
+    reasoning_content: str = dataclasses.field(
+        default="", metadata=json_field(name="reasoning_content", omitempty=True)
+    )
+    tool_calls: tuple[ToolCall, ...] = dataclasses.field(
         default=(), metadata=json_field(name="tool_calls", omitempty=True)
     )
-    Usage: Usage | None = dataclasses.field(default=None, metadata=json_field(name="usage", omitempty=True))
+    usage: Usage | None = dataclasses.field(default=None, metadata=json_field(name="usage", omitempty=True))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class StreamChunk:
     """One incremental piece of a streaming model response."""
 
-    ContentDelta: str = dataclasses.field(default="", metadata=json_field(name="content_delta", omitempty=True))
-    ReasoningContentDelta: str = dataclasses.field(
+    content_delta: str = dataclasses.field(default="", metadata=json_field(name="content_delta", omitempty=True))
+    reasoning_content_delta: str = dataclasses.field(
         default="", metadata=json_field(name="reasoning_content_delta", omitempty=True)
     )
 
@@ -131,7 +135,7 @@ class StreamChunk:
 class Model(Protocol):
     """A chat model that can request tools."""
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
@@ -149,10 +153,10 @@ class Model(Protocol):
 class ToolRunner(Protocol):
     """A set of tools that can be advertised and invoked."""
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         """Every tool this runner exposes."""
         ...
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         """Execute ``call`` and return the text to feed back to the model."""
         ...

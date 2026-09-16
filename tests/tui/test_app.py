@@ -33,6 +33,7 @@ from rich.protocol import is_renderable
 
 from super_agent.tui import (
     NOTIFICATION_KINDS,
+    ROLE_ASSISTANT,
     AgentStatus,
     AgentStatusChanged,
     AgentSummary,
@@ -52,23 +53,22 @@ from super_agent.tui import (
     Message,
     MessageAppended,
     Msg,
-    New,
     Option,
     OutputPrinter,
     PermissionRequest,
     Program,
     Role,
-    RoleAssistant,
     SessionSummary,
     StartupInfo,
     StreamChunkReceived,
     ToolApprovalCleared,
     ToolApprovalRequested,
     ToolCall,
-    Update,
-    View,
     WindowSizeMsg,
-    WithOutputPrinter,
+    new,
+    update,
+    view,
+    with_output_printer,
 )
 
 #: What an update hands back: the commands the runtime should start.
@@ -82,7 +82,7 @@ _MEASURE_WIDTH = 4000
 #: U+203A. Escaped, so the assertions do not read as ambiguous text.
 _USER_GLYPH, _SELECTED_MARKER = "\u276f", "\u203a"
 
-_User = Role("user")
+_USER = Role("user")
 
 
 def render(renderable: object) -> str:
@@ -127,7 +127,7 @@ class FakeConversation:
         run_error: BaseException | None = None,
     ) -> None:
         self.script = list(script)
-        self.custom_commands = custom_commands or {}
+        self.custom_command_map = custom_commands or {}
         self.extra_messages = extra_messages
         self.permission_error = permission_error
         self.mcp_servers = list(mcp_servers)
@@ -136,18 +136,18 @@ class FakeConversation:
         self.queries: list[str] = []
         self.cancelled_at_start: list[bool] = []
         self.cancels = 0
-        self.permission_mode = ""
+        self.current_permission_mode = ""
         self.mcp_added: tuple[str, str, list[str]] | None = None
         self.attached_paths: list[str] = []
         self.pending: list[AttachmentSummary] = []
 
     # -- SnapshotPort and TurnPort -------------------------------------------
 
-    def Snapshot(self) -> ConversationView:
+    def snapshot(self) -> ConversationView:
         assert not self.reject_snapshots, "unexpected Snapshot read"
-        return ConversationView(AgentStatus=AgentStatus(Label="Idle"))
+        return ConversationView(agent_status=AgentStatus(label="Idle"))
 
-    async def RunTurn(
+    async def run_turn(
         self,
         text: str,
         notifications: Channel[ConversationNotification],
@@ -155,134 +155,134 @@ class FakeConversation:
         cancellation: Cancellation,
     ) -> BaseException | None:
         self.queries.append(text)
-        self.cancelled_at_start.append(cancellation.Cancelled)
+        self.cancelled_at_start.append(cancellation.cancelled)
         for notification in self.script:
-            notifications.Put(notification)
+            notifications.put(notification)
         for _ in range(self.extra_messages):
-            notifications.Put(MessageAppended(Message=Message(Role=RoleAssistant, Content="message " * 12)))
-        notifications.Close()
+            notifications.put(MessageAppended(message=Message(role=ROLE_ASSISTANT, content="message " * 12)))
+        notifications.close()
         return self.run_error
 
-    async def Cancel(self) -> BaseException | None:
+    async def cancel(self) -> BaseException | None:
         self.cancels += 1
         return None
 
     # -- SessionPort ----------------------------------------------------------
 
-    async def Reset(self) -> None:
+    async def reset(self) -> None:
         return None
 
-    async def ListSessions(self) -> list[SessionSummary]:
+    async def list_sessions(self) -> list[SessionSummary]:
         return []
 
-    async def Resume(self, session_id: str) -> None:
+    async def resume(self, session_id: str) -> None:
         return None
 
-    async def RenameSession(self, session_id: str, title: str) -> None:
+    async def rename_session(self, session_id: str, title: str) -> None:
         return None
 
-    async def DeleteSession(self, session_id: str) -> None:
+    async def delete_session(self, session_id: str) -> None:
         return None
 
-    async def Compact(self, summary: str) -> None:
+    async def compact(self, summary: str) -> None:
         return None
 
-    async def Undo(self) -> None:
+    async def undo(self) -> None:
         return None
 
-    async def Fork(self, title: str) -> str:
+    async def fork(self, title: str) -> str:
         return "fork"
 
-    async def Export(self, format: str) -> str:
+    async def export(self, format: str) -> str:
         return "/tmp/export"
 
     # -- PermissionPort -------------------------------------------------------
 
-    async def SetPermissionMode(self, mode: str) -> None:
-        self.permission_mode = mode
+    async def set_permission_mode(self, mode: str) -> None:
+        self.current_permission_mode = mode
         if self.permission_error is not None:
             raise self.permission_error
 
-    def PermissionMode(self) -> str:
-        return self.permission_mode
+    def permission_mode(self) -> str:
+        return self.current_permission_mode
 
-    def AutoApproveTools(self) -> bool:
-        return self.permission_mode == "bypass"
+    def auto_approve_tools(self) -> bool:
+        return self.current_permission_mode == "bypass"
 
     # -- MCPPort --------------------------------------------------------------
 
-    def ListMCPServers(self) -> list[MCPServerSummary]:
+    def list_mcp_servers(self) -> list[MCPServerSummary]:
         return list(self.mcp_servers)
 
-    async def AddMCPServer(self, name: str, command: str, args: list[str]) -> None:
+    async def add_mcp_server(self, name: str, command: str, args: list[str]) -> None:
         self.mcp_added = (name, command, list(args))
 
-    async def RemoveMCPServer(self, name: str) -> None:
+    async def remove_mcp_server(self, name: str) -> None:
         return None
 
-    async def RestartMCPServer(self, name: str) -> None:
+    async def restart_mcp_server(self, name: str) -> None:
         return None
 
     # -- AgentPort ------------------------------------------------------------
 
-    def ListAgents(self) -> list[AgentSummary]:
+    def list_agents(self) -> list[AgentSummary]:
         return []
 
-    def CurrentAgent(self) -> AgentSummary:
+    def current_agent(self) -> AgentSummary:
         return AgentSummary()
 
-    async def UseAgent(self, name: str) -> None:
+    async def use_agent(self, name: str) -> None:
         return None
 
     # -- MemoryPort -----------------------------------------------------------
 
-    async def Memories(self) -> list[str]:
+    async def memories(self) -> list[str]:
         return []
 
-    async def Remember(self, text: str) -> None:
+    async def remember(self, text: str) -> None:
         return None
 
-    async def ForgetMemories(self) -> None:
+    async def forget_memories(self) -> None:
         return None
 
     # -- WorkspacePort --------------------------------------------------------
 
-    async def GitDiff(self) -> str:
+    async def git_diff(self) -> str:
         return "diff"
 
-    async def GitStatus(self) -> str:
+    async def git_status(self) -> str:
         return "status"
 
-    async def Diagnostics(self, path: str) -> str:
+    async def diagnostics(self, path: str) -> str:
         return "[]"
 
     # -- ExtensionPort --------------------------------------------------------
 
-    def CustomCommands(self) -> list[str]:
-        return list(self.custom_commands)
+    def custom_commands(self) -> list[str]:
+        return list(self.custom_command_map)
 
-    async def ExpandCustomCommand(self, name: str, arguments: str) -> str:
-        return self.custom_commands[name].replace("$ARGUMENTS", arguments)
+    async def expand_custom_command(self, name: str, arguments: str) -> str:
+        return self.custom_command_map[name].replace("$ARGUMENTS", arguments)
 
-    def Skills(self) -> list[str]:
+    def skills(self) -> list[str]:
         return []
 
-    def Plugins(self) -> list[str]:
+    def plugins(self) -> list[str]:
         return []
 
     # -- attachments.Port -----------------------------------------------------
 
-    async def Attach(self, path: str) -> AttachmentSummary:
+    async def attach(self, path: str) -> AttachmentSummary:
         self.attached_paths.append(path)
-        return AttachmentSummary(Name=path, MIME="text/plain")
+        return AttachmentSummary(name=path, mime="text/plain")
 
-    async def PendingAttachments(self) -> tuple[AttachmentSummary, ...]:
+    async def pending_attachments(self) -> tuple[AttachmentSummary, ...]:
         return tuple(self.pending)
 
 
 def new_app(fake: FakeConversation, info: StartupInfo | None = None, *options: Option) -> App:
     """An app whose only dependencies are the fake and the given startup info."""
-    return New(fake, info if info is not None else StartupInfo(ModelName="test-model"), *options)
+    return new(fake, info if info is not None else StartupInfo(model_name="test-model"), *options)
 
 
 def recording_printer(printed: list[str]) -> OutputPrinter:
@@ -297,25 +297,25 @@ def recording_printer(printed: list[str]) -> OutputPrinter:
 
 async def send(app: App, message: Msg) -> tuple[App, Commands]:
     """One update round: the model and the commands it asked for."""
-    return await Update(app, message)
+    return await update(app, message)
 
 
 async def resize(app: App, width: int, height: int) -> App:
     """Give the app a terminal size, as the first window-size message does."""
-    resized, _ = await send(app, WindowSizeMsg(Width=width, Height=height))
+    resized, _ = await send(app, WindowSizeMsg(width=width, height=height))
     return resized
 
 
 async def type_text(app: App, text: str) -> App:
     """Type ``text`` one key at a time, as a terminal would deliver it."""
     for character in text:
-        app, _ = await send(app, KeyMsg(Key=character))
+        app, _ = await send(app, KeyMsg(key=character))
     return app
 
 
 async def press(app: App, key: str) -> tuple[App, Commands]:
     """One key press, with the commands it produced."""
-    return await send(app, KeyMsg(Key=key))
+    return await send(app, KeyMsg(key=key))
 
 
 async def drain(app: App, listener: Listener[Msg]) -> App:
@@ -326,7 +326,7 @@ async def drain(app: App, listener: Listener[Msg]) -> App:
     channel nothing has written to yet.
     """
     current: Command[Msg] | None = listener
-    while current is not None and app.notifications.Closed:
+    while current is not None and app.notifications.closed:
         message = await current()
         if message is None:
             return app
@@ -358,7 +358,7 @@ async def settle(app: App, listener: Listener[Msg], run: Command[Msg]) -> tuple[
 
 def notification(app: App, value: ConversationNotification) -> ConversationNotificationMsg:
     """A notification tagged with the turn in flight, as the listener delivers it."""
-    return ConversationNotificationMsg(Notification=value, Turn=app.turn)
+    return ConversationNotificationMsg(notification=value, turn=app.turn)
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +372,7 @@ async def test_submit_shows_busy_presentation_while_model_command_starts() -> No
     app = await resize(new_app(fake), 80, 24)
     app, listener, run = await start_turn(app, "hello")
 
-    assert "Thinking..." in render(View(app)), "a submitted turn must present as busy"
+    assert "Thinking..." in render(view(app)), "a submitted turn must present as busy"
 
     app, _ = await settle(app, listener, run)
     assert fake.queries == ["hello"]
@@ -392,13 +392,13 @@ async def test_question_mark_can_be_typed_in_prompt() -> None:
 async def test_tab_completes_unique_slash_command() -> None:
     printed: list[str] = []
     fake = FakeConversation()
-    info = StartupInfo(ModelName="test-model", InstructionPaths=("/repo/AGENTS.md",))
-    app = await resize(New(fake, info, WithOutputPrinter(recording_printer(printed))), 80, 24)
+    info = StartupInfo(model_name="test-model", instruction_paths=("/repo/AGENTS.md",))
+    app = await resize(new(fake, info, with_output_printer(recording_printer(printed))), 80, 24)
     app = await type_text(app, "/ins")
     app, _ = await press(app, "tab")
     app, _ = await press(app, "enter")
 
-    assert "Instructions" in render(View(app))
+    assert "Instructions" in render(view(app))
     assert any("Loaded instruction sources" in item for item in printed), printed
 
 
@@ -409,13 +409,13 @@ async def test_workflow_commands_show_diff_and_branch_status() -> None:
 
     app = await type_text(app, "/diff")
     app, commands = await press(app, "enter")
-    assert "Patch preview" in render(View(app))
+    assert "Patch preview" in render(view(app))
     assert len(commands) == 1, "the patch goes to scrollback rather than the live view"
     await commands[0]()  # the scrollback command, with no console attached
 
     app = await type_text(app, "/branch")
     app, _ = await press(app, "enter")
-    assert "Branch status" in render(View(app))
+    assert "Branch status" in render(view(app))
 
 
 @pytest.mark.asyncio
@@ -433,22 +433,22 @@ async def test_slash_palette_selects_command_with_arrows_and_enter() -> None:
     fake = FakeConversation()
     app = await resize(new_app(fake), 80, 24)
     app = await type_text(app, "/")
-    palette = render(View(app))
+    palette = render(view(app))
     assert f"{_SELECTED_MARKER} /clear" in palette
     assert "/compact" in palette and "Reset the conversation" in palette
 
     app, _ = await press(app, "down")
     app, _ = await press(app, "enter")
-    assert f"{_SELECTED_MARKER} /compact" in render(View(app)), "the selection is completed into the composer"
+    assert f"{_SELECTED_MARKER} /compact" in render(view(app)), "the selection is completed into the composer"
 
     app, commands = await press(app, "enter")
-    assert "Compacting conversation" in render(View(app))
+    assert "Compacting conversation" in render(view(app))
     assert len(commands) == 1, commands
 
     message = await commands[0]()
     assert message is not None
     app, _ = await send(app, message)
-    assert "Compacted conversation" in render(View(app))
+    assert "Compacted conversation" in render(view(app))
 
 
 @pytest.mark.asyncio
@@ -459,7 +459,7 @@ async def test_small_window_keeps_selected_slash_command_visible() -> None:
     for _ in range(4):
         app, _ = await press(app, "down")
 
-    palette = render(View(app))
+    palette = render(view(app))
     assert f"{_SELECTED_MARKER} /instructions" in palette
     assert "Show loaded instruction files" not in palette, "a short terminal uses the compact palette"
 
@@ -471,7 +471,7 @@ async def test_escape_clears_input_without_quitting() -> None:
     app, commands = await press(app, "esc")
 
     assert commands == (), "escape clears input, it does not quit"
-    assert "Input cleared" in render(View(app))
+    assert "Input cleared" in render(view(app))
 
     app, commands = await press(app, "enter")
     assert commands == (), "a cleared input must not submit"
@@ -486,7 +486,7 @@ async def test_tab_queues_prompt_while_turn_runs() -> None:
     app = await type_text(app, "second")
     app, commands = await press(app, "tab")
     assert commands == (), "queueing must not start a concurrent turn"
-    queued = render(View(app))
+    queued = render(view(app))
     assert "Message queued" in queued and "Queued (1)" in queued and "1. second" in queued
 
     app, commands = await settle(app, listener, run)
@@ -505,10 +505,10 @@ async def test_queue_preview_is_bounded() -> None:
         app = await type_text(app, prompt)
         app, _ = await press(app, "tab")
 
-    view = render(View(app))
+    rendered = render(view(app))
     for wanted in ("Queued (4)", "1. one", "2. two", "3. three", "… 1 more"):
-        assert wanted in view, f"{wanted!r} missing from {view!r}"
-    assert "4. four" not in view, "the preview shows at most three items"
+        assert wanted in rendered, f"{wanted!r} missing from {rendered!r}"
+    assert "4. four" not in rendered, "the preview shows at most three items"
 
 
 @pytest.mark.asyncio
@@ -520,9 +520,9 @@ async def test_small_window_collapses_queue_details() -> None:
         app = await type_text(app, prompt)
         app, _ = await press(app, "tab")
 
-    view = render(View(app))
-    assert "Queued (4)" in view and "… 4 more" in view
-    assert "1. one" not in view, "a short terminal hides the queue details"
+    rendered = render(view(app))
+    assert "Queued (4)" in rendered and "… 4 more" in rendered
+    assert "1. one" not in rendered, "a short terminal hides the queue details"
 
 
 # ---------------------------------------------------------------------------
@@ -532,40 +532,40 @@ async def test_small_window_collapses_queue_details() -> None:
 
 @pytest.mark.asyncio
 async def test_narrow_window_clamps_every_rendered_line() -> None:
-    info = StartupInfo(ModelName="test-model", CWD="/segment" * 30)
+    info = StartupInfo(model_name="test-model", cwd="/segment" * 30)
     app = await resize(new_app(FakeConversation(), info), 30, 12)
-    assert_lines_fit_width(View(app), 30)
+    assert_lines_fit_width(view(app), 30)
 
 
 @pytest.mark.asyncio
 async def test_info_bar_keeps_mode_when_working_directory_is_long() -> None:
-    info = StartupInfo(ModelName="test-model", CWD="/segment" * 30)
+    info = StartupInfo(model_name="test-model", cwd="/segment" * 30)
     app = await resize(new_app(FakeConversation(), info), 40, 24)
-    view = View(app)
-    assert "ask · test-model · tools on" in render(view)
-    assert_lines_fit_width(view, 40)
+    rendered = view(app)
+    assert "ask · test-model · tools on" in render(rendered)
+    assert_lines_fit_width(rendered, 40)
 
 
 @pytest.mark.asyncio
 async def test_overlong_error_is_clamped_not_wrapped() -> None:
     fake = FakeConversation(permission_error=ValueError("boom" * 40))
-    info = StartupInfo(ModelName="test-model", PermissionMode="ask")
+    info = StartupInfo(model_name="test-model", permission_mode="ask")
     app = await resize(new_app(fake, info), 40, 24)
     app = await type_text(app, "/permissions mode root")
     app, _ = await press(app, "enter")
 
-    view = View(app)
-    assert "!! error:" in render(view)
-    assert_lines_fit_width(view, 40)
+    rendered = view(app)
+    assert "!! error:" in render(rendered)
+    assert_lines_fit_width(rendered, 40)
 
 
 @pytest.mark.asyncio
 async def test_narrow_window_keeps_composer_visible() -> None:
-    info = StartupInfo(ModelName="test-model", CWD="/segment" * 30)
+    info = StartupInfo(model_name="test-model", cwd="/segment" * 30)
     app = await resize(new_app(FakeConversation(), info), 30, 10)
-    view = View(app)
-    assert "Ask me anything" in render(view), "the composer survives the height window"
-    assert_lines_fit_width(view, 30)
+    rendered = view(app)
+    assert "Ask me anything" in render(rendered), "the composer survives the height window"
+    assert_lines_fit_width(rendered, 30)
 
 
 @pytest.mark.asyncio
@@ -575,40 +575,40 @@ async def test_queued_preview_is_clamped_to_terminal_width() -> None:
     app = await type_text(app, "queued prompt " * 6)
     app, _ = await press(app, "tab")
 
-    assert_lines_fit_width(View(app), 24)
+    assert_lines_fit_width(view(app), 24)
 
 
 @pytest.mark.asyncio
 async def test_help_overlay_is_clamped_to_terminal_width() -> None:
     app = await resize(new_app(FakeConversation()), 20, 8)
     app, _ = await press(app, "?")
-    assert_lines_fit_width(View(app), 20)
+    assert_lines_fit_width(view(app), 20)
 
 
 @pytest.mark.asyncio
 async def test_resize_recomputes_clamped_budget() -> None:
-    info = StartupInfo(ModelName="test-model", CWD="/segment" * 30)
+    info = StartupInfo(model_name="test-model", cwd="/segment" * 30)
     app = await resize(new_app(FakeConversation(), info), 24, 14)
-    assert_lines_fit_width(View(app), 24)
+    assert_lines_fit_width(view(app), 24)
     app = await resize(app, 60, 20)
-    assert_lines_fit_width(View(app), 60)
+    assert_lines_fit_width(view(app), 60)
 
 
 @pytest.mark.asyncio
 async def test_welcome_is_part_of_managed_transcript() -> None:
-    info = StartupInfo(ModelName="test-model", CWD="/repo", InstructionPaths=("/repo/AGENTS.md",))
+    info = StartupInfo(model_name="test-model", cwd="/repo", instruction_paths=("/repo/AGENTS.md",))
     app = await resize(new_app(FakeConversation(), info), 80, 24)
-    view = render(View(app))
-    assert "Super Agent" in view
-    assert "test-model · /repo · AGENTS.md" in view
+    rendered = render(view(app))
+    assert "Super Agent" in rendered
+    assert "test-model · /repo · AGENTS.md" in rendered
 
 
 @pytest.mark.asyncio
 async def test_status_line_keeps_model_and_mode() -> None:
     app = await resize(new_app(FakeConversation()), 50, 24)
-    view = View(app)
-    assert "ask · test-model · tools on" in render(view)
-    assert_lines_fit_width(view, 50)
+    rendered = view(app)
+    assert "ask · test-model · tools on" in render(rendered)
+    assert_lines_fit_width(rendered, 50)
 
 
 # ---------------------------------------------------------------------------
@@ -626,7 +626,7 @@ async def test_esc_cancels_turn_and_clears_queued_follow_ups() -> None:
     app, commands = await press(app, "esc")
 
     assert commands == ()
-    cancelled = render(View(app))
+    cancelled = render(view(app))
     assert "Turn canceled" in cancelled and "Queued (1)" not in cancelled
 
     message = await run()
@@ -645,7 +645,7 @@ async def test_enter_steers_by_canceling_current_turn_and_running_prompt_next() 
     app = await type_text(app, "steer")
     app, commands = await press(app, "enter")
     assert commands == (), "steering waits for the cancelled turn to finish"
-    assert "Steering current turn" in render(View(app))
+    assert "Steering current turn" in render(view(app))
 
     message = await run()
     assert message is not None
@@ -678,9 +678,9 @@ async def test_history_navigation_restores_unsubmitted_draft() -> None:
 
     app = await type_text(app, "draft")
     app, _ = await press(app, "up")
-    assert f"{_USER_GLYPH} previous" in render(View(app))
+    assert f"{_USER_GLYPH} previous" in render(view(app))
     app, _ = await press(app, "down")
-    assert f"{_USER_GLYPH} draft" in render(View(app)), "the unsubmitted draft must come back"
+    assert f"{_USER_GLYPH} draft" in render(view(app)), "the unsubmitted draft must come back"
 
 
 # ---------------------------------------------------------------------------
@@ -691,10 +691,10 @@ async def test_history_navigation_restores_unsubmitted_draft() -> None:
 def approval_request(tool: str = "bash", command: str = "printf ok") -> ToolApprovalRequested:
     """The notification the runtime sends when a tool call needs a decision."""
     return ToolApprovalRequested(
-        ToolCall=ToolCall(Name=tool, Input=command),
-        Request=PermissionRequest(ToolName=tool, CommandClass="read-only", CWD="/repo", Reason="risky"),
-        BatchIndex=1,
-        BatchTotal=1,
+        tool_call=ToolCall(name=tool, input=command),
+        request=PermissionRequest(tool_name=tool, command_class="read-only", cwd="/repo", reason="risky"),
+        batch_index=1,
+        batch_total=1,
     )
 
 
@@ -711,11 +711,11 @@ async def test_approval_uses_shortcut_keys() -> None:
     fake = FakeConversation()
     app = await resize(new_app(fake), 80, 24)
     app = await open_approval(app, fake)
-    assert "ACTION REQUIRED" in render(View(app))
+    assert "ACTION REQUIRED" in render(view(app))
 
     app, commands = await press(app, "y")
     assert commands == ()
-    decision = await asyncio.wait_for(app.approvals.Get(), timeout=1)
+    decision = await asyncio.wait_for(app.approvals.get(), timeout=1)
     assert decision == "once", decision
 
 
@@ -728,9 +728,9 @@ async def test_tool_run_clears_approval_presentation() -> None:
 
     app, commands = await send(app, notification(app, ToolApprovalCleared()))
     assert commands, "the listener must be re-armed"
-    view = render(View(app))
-    assert "ACTION REQUIRED" not in view, "the menu closes once the runtime moves on"
-    assert "Thinking..." in view, "the busy placeholder returns while the tool runs"
+    rendered = render(view(app))
+    assert "ACTION REQUIRED" not in rendered, "the menu closes once the runtime moves on"
+    assert "Thinking..." in rendered, "the busy placeholder returns while the tool runs"
 
 
 @pytest.mark.asyncio
@@ -741,11 +741,11 @@ async def test_approval_menu_uses_arrows_and_enter() -> None:
 
     app, _ = await press(app, "down")
     app, _ = await press(app, "down")
-    assert f"{_SELECTED_MARKER} 3. No, deny" in render(View(app))
+    assert f"{_SELECTED_MARKER} 3. No, deny" in render(view(app))
 
     app, _ = await press(app, "enter")
-    assert "Decision submitted" in render(View(app))
-    decision = await asyncio.wait_for(app.approvals.Get(), timeout=1)
+    assert "Decision submitted" in render(view(app))
+    decision = await asyncio.wait_for(app.approvals.get(), timeout=1)
     assert decision == "deny", decision
 
 
@@ -759,7 +759,7 @@ async def test_esc_cancels_pending_approval() -> None:
     assert commands == (), "escape cancels the turn rather than returning a command"
     assert fake.cancels == 1, "the runtime is told to drop the pending request"
     assert app.cancellation is not None
-    assert app.cancellation.Cancelled
+    assert app.cancellation.cancelled
 
 
 @pytest.mark.asyncio
@@ -770,7 +770,7 @@ async def test_approval_latch_ignores_repeated_keys() -> None:
 
     app, _ = await press(app, "y")
     app, _ = await press(app, "n")
-    decision = await asyncio.wait_for(app.approvals.Get(), timeout=1)
+    decision = await asyncio.wait_for(app.approvals.get(), timeout=1)
     assert decision == "once", "a submitted decision ignores later keys"
 
 
@@ -783,10 +783,10 @@ async def test_approval_latch_ignores_repeated_keys() -> None:
 async def test_tui_renders_session_notifications_without_snapshot_reads() -> None:
     fake = FakeConversation(
         script=[
-            AgentStatusChanged(Status=AgentStatus(Label="WaitingLLM", Busy=True)),
-            MessageAppended(Message=Message(Role=_User, Content="hello")),
-            MessageAppended(Message=Message(Role=RoleAssistant, Content="from notification")),
-            AgentStatusChanged(Status=AgentStatus(Label="Idle")),
+            AgentStatusChanged(status=AgentStatus(label="WaitingLLM", busy=True)),
+            MessageAppended(message=Message(role=_USER, content="hello")),
+            MessageAppended(message=Message(role=ROLE_ASSISTANT, content="from notification")),
+            AgentStatusChanged(status=AgentStatus(label="Idle")),
         ]
     )
     app = await resize(new_app(fake), 80, 24)
@@ -794,7 +794,7 @@ async def test_tui_renders_session_notifications_without_snapshot_reads() -> Non
     app, listener, run = await start_turn(app, "hello")
     app, _ = await settle(app, listener, run)
 
-    assert "from notification" in render(View(app))
+    assert "from notification" in render(view(app))
 
 
 def test_conversation_declares_six_notification_kinds() -> None:
@@ -815,13 +815,13 @@ async def test_stale_notification_is_dropped_and_the_listener_re_armed() -> None
     app = await resize(new_app(fake), 80, 24)
     app, _listener, _run = await start_turn(app, "hello")
     stale = ConversationNotificationMsg(
-        Notification=MessageAppended(Message=Message(Role=RoleAssistant, Content="stale")),
-        Turn=app.turn - 1,
+        notification=MessageAppended(message=Message(role=ROLE_ASSISTANT, content="stale")),
+        turn=app.turn - 1,
     )
 
     app, commands = await send(app, stale)
     assert len(commands) == 1, "the listener is re-armed on the current channel"
-    assert "stale" not in render(View(app)), "a notification from a replaced turn is dropped"
+    assert "stale" not in render(view(app)), "a notification from a replaced turn is dropped"
 
 
 @pytest.mark.asyncio
@@ -830,21 +830,21 @@ async def test_default_printer_commits_messages_to_terminal_output() -> None:
     console = Console(width=80, file=output, force_terminal=False, color_system=None)
     fake = FakeConversation(
         script=[
-            MessageAppended(Message=Message(Role=_User, Content="hi")),
-            MessageAppended(Message=Message(Role=RoleAssistant, Content="from notification")),
+            MessageAppended(message=Message(role=_USER, content="hi")),
+            MessageAppended(message=Message(role=ROLE_ASSISTANT, content="from notification")),
         ]
     )
-    program: Program[App, Msg] = Program(model=new_app(fake), update=Update, view=View, console=console, input_fd=-1)
-    program.send(WindowSizeMsg(Width=80, Height=24))
+    program: Program[App, Msg] = Program(model=new_app(fake), update=update, view=view, console=console, input_fd=-1)
+    program.send(WindowSizeMsg(width=80, height=24))
     await program.step()
     for character in "hi":
-        program.send(KeyMsg(Key=character))
-    program.send(KeyMsg(Key="enter"))
+        program.send(KeyMsg(key=character))
+    program.send(KeyMsg(key="enter"))
     await _pump(program)
 
     assert f"{_USER_GLYPH} hi" in output.getvalue(), output.getvalue()
     assert "from notification" in output.getvalue(), output.getvalue()
-    await program.Shutdown()
+    await program.shutdown()
 
 
 @pytest.mark.asyncio
@@ -852,8 +852,8 @@ async def test_new_listener_cancels_the_one_it_replaces() -> None:
     """A replaced turn's listener must not linger on the channel it was armed for."""
     console = Console(width=80, file=io.StringIO(), force_terminal=False, color_system=None)
     app = await resize(new_app(FakeConversation()), 80, 24)
-    program: Program[App, Msg] = Program(model=app, update=Update, view=View, console=console)
-    message = notification(app, MessageAppended(Message=Message(Role=RoleAssistant, Content="one")))
+    program: Program[App, Msg] = Program(model=app, update=update, view=view, console=console)
+    message = notification(app, MessageAppended(message=Message(role=ROLE_ASSISTANT, content="one")))
 
     await program.dispatch(message)
     first = program.listener
@@ -863,7 +863,7 @@ async def test_new_listener_cancels_the_one_it_replaces() -> None:
     with contextlib.suppress(asyncio.CancelledError):
         await first
     assert first.cancelled(), "the listener of the previous turn is cancelled"
-    await program.Shutdown()
+    await program.shutdown()
 
 
 async def _pump(program: Program[App, Msg], rounds: int = 200) -> None:
@@ -878,23 +878,23 @@ async def _pump(program: Program[App, Msg], rounds: int = 200) -> None:
 async def test_tool_calls_are_summarized_and_expand_on_demand() -> None:
     fake = FakeConversation(
         script=[
-            MessageAppended(Message=Message(Role=_User, Content="inspect")),
+            MessageAppended(message=Message(role=_USER, content="inspect")),
             MessageAppended(
-                Message=Message(
-                    Role=RoleAssistant,
-                    Content="Answer",
-                    ReasoningContent="private reasoning",
-                    ToolCalls=(
-                        ToolCall(Name="read_file", Input='{"path": "tui/app.py"}'),
-                        ToolCall(Name="read_file", Input='{"path": "tui/update.py"}'),
+                message=Message(
+                    role=ROLE_ASSISTANT,
+                    content="Answer",
+                    reasoning_content="private reasoning",
+                    tool_calls=(
+                        ToolCall(name="read_file", input='{"path": "tui/app.py"}'),
+                        ToolCall(name="read_file", input='{"path": "tui/update.py"}'),
                     ),
                 )
             ),
             MessageAppended(
-                Message=Message(
-                    Role=RoleAssistant,
-                    ReasoningContent="patch reasoning",
-                    ToolCalls=(ToolCall(Name="apply_patch", Input='{"path": "tui/view.py"}'),),
+                message=Message(
+                    role=ROLE_ASSISTANT,
+                    reasoning_content="patch reasoning",
+                    tool_calls=(ToolCall(name="apply_patch", input='{"path": "tui/view.py"}'),),
                 )
             ),
         ]
@@ -903,28 +903,28 @@ async def test_tool_calls_are_summarized_and_expand_on_demand() -> None:
     app, listener, run = await start_turn(app, "inspect")
     app, _ = await settle(app, listener, run)
 
-    view = render(View(app))
-    assert "● Read 2 files" in view and "● Edited tui/view.py" in view
-    assert "private reasoning" not in view, "reasoning stays collapsed by default"
-    assert '{"path"' not in view, "raw tool inputs stay hidden"
+    rendered = render(view(app))
+    assert "● Read 2 files" in rendered and "● Edited tui/view.py" in rendered
+    assert "private reasoning" not in rendered, "reasoning stays collapsed by default"
+    assert '{"path"' not in rendered, "raw tool inputs stay hidden"
 
     app, _ = await press(app, "ctrl+o")
-    latest = render(View(app))
+    latest = render(view(app))
     assert "tui/view.py" in latest and "tui/app.py" not in latest, "only the latest group expands"
 
     app, _ = await press(app, "alt+o")
-    expanded = render(View(app))
+    expanded = render(view(app))
     assert "tui/app.py" in expanded and "tui/view.py" in expanded
     assert expanded.index("● Read") < expanded.index("tui/app.py") < expanded.index("● Edited"), (
         "expanded details stay below their tool call"
     )
 
     app, _ = await press(app, "ctrl+t")
-    latest_thinking = render(View(app))
+    latest_thinking = render(view(app))
     assert "patch reasoning" in latest_thinking and "private reasoning" not in latest_thinking
 
     app, _ = await press(app, "alt+t")
-    all_thinking = render(View(app))
+    all_thinking = render(view(app))
     assert "patch reasoning" in all_thinking and "private reasoning" in all_thinking
 
 
@@ -953,11 +953,11 @@ async def test_page_keys_do_not_replace_terminal_scrollback() -> None:
     app, listener, run = await start_turn(app, "hello")
     app, _ = await settle(app, listener, run)
 
-    before = render(View(app))
+    before = render(view(app))
     app, _ = await press(app, "pgup")
-    assert render(View(app)) == before, "page keys belong to the terminal"
+    assert render(view(app)) == before, "page keys belong to the terminal"
     app, _ = await press(app, "pgdown")
-    assert render(View(app)) == before
+    assert render(view(app)) == before
 
 
 @pytest.mark.asyncio
@@ -966,10 +966,10 @@ async def test_stream_chunk_replaces_the_streaming_message() -> None:
     app = await resize(new_app(fake), 80, 24)
     app, _listener, _run = await start_turn(app, "hello")
 
-    stream = StreamChunkReceived(Message=Message(Role=RoleAssistant, Content="streaming"))
+    stream = StreamChunkReceived(message=Message(role=ROLE_ASSISTANT, content="streaming"))
     app, commands = await send(app, notification(app, stream))
     assert len(commands) == 1
-    assert "streaming" in render(View(app))
+    assert "streaming" in render(view(app))
 
 
 # ---------------------------------------------------------------------------
@@ -980,8 +980,8 @@ async def test_stream_chunk_replaces_the_streaming_message() -> None:
 @pytest.mark.asyncio
 async def test_instructions_command_displays_loaded_sources() -> None:
     printed: list[str] = []
-    info = StartupInfo(ModelName="test-model", InstructionPaths=("/repo/AGENTS.md", "/repo/pkg/CLAUDE.md"))
-    app = await resize(New(FakeConversation(), info, WithOutputPrinter(recording_printer(printed))), 80, 24)
+    info = StartupInfo(model_name="test-model", instruction_paths=("/repo/AGENTS.md", "/repo/pkg/CLAUDE.md"))
+    app = await resize(new(FakeConversation(), info, with_output_printer(recording_printer(printed))), 80, 24)
     app = await type_text(app, "/instructions")
     app, _ = await press(app, "enter")
 
@@ -993,25 +993,25 @@ async def test_instructions_command_displays_loaded_sources() -> None:
 @pytest.mark.asyncio
 async def test_permissions_mode_command_rejects_invalid_mode() -> None:
     fake = FakeConversation(permission_error=ValueError("invalid permission mode: root"))
-    info = StartupInfo(ModelName="test-model", PermissionMode="ask")
+    info = StartupInfo(model_name="test-model", permission_mode="ask")
     app = await resize(new_app(fake, info), 80, 24)
     app = await type_text(app, "/permissions mode root")
     app, _ = await press(app, "enter")
 
-    view = render(View(app))
-    assert "Permissions failed: invalid permission mode: root" in view
-    assert "mode:root" not in view, "the mode stays as it was"
-    assert fake.permission_mode == "root", "the port was asked, and refused"
+    rendered = render(view(app))
+    assert "Permissions failed: invalid permission mode: root" in rendered
+    assert "mode:root" not in rendered, "the mode stays as it was"
+    assert fake.permission_mode() == "root", "the port was asked, and refused"
 
 
 @pytest.mark.asyncio
 async def test_permissions_mode_keeps_displayed_model() -> None:
     fake = FakeConversation()
-    app = await resize(new_app(fake, StartupInfo(ModelName="test-model", PermissionMode="ask")), 80, 24)
+    app = await resize(new_app(fake, StartupInfo(model_name="test-model", permission_mode="ask")), 80, 24)
     app = await type_text(app, "/permissions mode plan")
     app, _ = await press(app, "enter")
 
-    assert "plan · test-model · tools on" in render(View(app))
+    assert "plan · test-model · tools on" in render(view(app))
 
 
 @pytest.mark.asyncio
@@ -1025,20 +1025,20 @@ async def test_attach_command_routes_through_the_attachments_feature() -> None:
     message = await commands[0]()
     assert message is not None
     app, _ = await send(app, message)
-    view = render(View(app))
-    assert "Attachments: notes.md" in view
-    assert "Attached notes.md (text/plain)" in view
+    rendered = render(view(app))
+    assert "Attachments: notes.md" in rendered
+    assert "Attached notes.md (text/plain)" in rendered
     assert fake.attached_paths == ["notes.md"]
 
 
 @pytest.mark.asyncio
 async def test_mcp_commands_list_and_add_server() -> None:
     printed: list[str] = []
-    fake = FakeConversation(mcp_servers=[MCPServerSummary(Name="files", Tools=("read_remote",))])
-    app = New(
+    fake = FakeConversation(mcp_servers=[MCPServerSummary(name="files", tools=("read_remote",))])
+    app = new(
         fake,
-        StartupInfo(ModelName="test-model"),
-        WithOutputPrinter(recording_printer(printed)),
+        StartupInfo(model_name="test-model"),
+        with_output_printer(recording_printer(printed)),
     )
     app = await resize(app, 80, 24)
 
@@ -1054,4 +1054,4 @@ async def test_mcp_commands_list_and_add_server() -> None:
     assert message is not None
     app, _ = await send(app, message)
     assert fake.mcp_added == ("local", "helper", ["--stdio"])
-    assert "Added MCP server local" in render(View(app))
+    assert "Added MCP server local" in render(view(app))

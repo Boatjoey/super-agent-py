@@ -32,20 +32,20 @@ from datetime import UTC, datetime
 from typing import Any, Final, cast
 
 from super_agent import jsonutil
-from super_agent.runtime.protocol.types import Message, RoleSystem, RoleTool, ToolCall
+from super_agent.runtime.protocol.types import ROLE_SYSTEM, ROLE_TOOL, Message, ToolCall
 
 #: The record kinds the log can hold. ``messagesFromRecords`` turns five of them
 #: into model context; the rest exist for audit and never reach a model.
-EventSessionStarted: Final[str] = "session_started"
-EventMessageAppended: Final[str] = "message_appended"
-EventApprovalDecision: Final[str] = "approval_decision"
-EventToolResult: Final[str] = "tool_result"
-EventCancel: Final[str] = "cancel"
-EventReset: Final[str] = "reset"
-EventError: Final[str] = "error"
-EventCheckpoint: Final[str] = "checkpoint"
-EventCompact: Final[str] = "compact"
-EventContextReplaced: Final[str] = "context_replaced"
+EVENT_SESSION_STARTED: Final[str] = "session_started"
+EVENT_MESSAGE_APPENDED: Final[str] = "message_appended"
+EVENT_APPROVAL_DECISION: Final[str] = "approval_decision"
+EVENT_TOOL_RESULT: Final[str] = "tool_result"
+EVENT_CANCEL: Final[str] = "cancel"
+EVENT_RESET: Final[str] = "reset"
+EVENT_ERROR: Final[str] = "error"
+EVENT_CHECKPOINT: Final[str] = "checkpoint"
+EVENT_COMPACT: Final[str] = "compact"
+EVENT_CONTEXT_REPLACED: Final[str] = "context_replaced"
 
 #: The zero time, which serialises as ``0001-01-01T00:00:00Z``. Kept as a real
 #: value so a zero metadata timestamp round-trips exactly.
@@ -78,17 +78,17 @@ class TurnID(str):
 class WorkspaceRootSpec:
     """One root a session may reach, as stored. ``Access`` is ``read`` or ``read_write``."""
 
-    Path: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="path"))
-    Access: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="access"))
+    path: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="path"))
+    access: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="access"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class WorkspaceSpec:
     """The durable workspace description stored beside session metadata."""
 
-    PrimaryRoot: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="primary_root"))
-    CWD: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="cwd"))
-    Roots: tuple[WorkspaceRootSpec, ...] = dataclasses.field(default=(), metadata=jsonutil.json_field(name="roots"))
+    primary_root: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="primary_root"))
+    cwd: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="cwd"))
+    roots: tuple[WorkspaceRootSpec, ...] = dataclasses.field(default=(), metadata=jsonutil.json_field(name="roots"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -99,28 +99,28 @@ class Metadata:
     them.
     """
 
-    ID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="id"))
-    Title: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="title"))
-    CreatedAt: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="created_at"))
-    UpdatedAt: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="updated_at"))
-    Provider: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="provider"))
-    Model: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="model"))
-    CWD: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="cwd"))
-    InstructionFingerprint: str = dataclasses.field(
+    id: SessionID = dataclasses.field(default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="id"))
+    title: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="title"))
+    created_at: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="created_at"))
+    updated_at: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="updated_at"))
+    provider: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="provider"))
+    model: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="model"))
+    cwd: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="cwd"))
+    instruction_fingerprint: str = dataclasses.field(
         default="", metadata=jsonutil.json_field(name="instruction_fingerprint")
     )
-    InstructionSources: tuple[str, ...] = dataclasses.field(
+    instruction_sources: tuple[str, ...] = dataclasses.field(
         default=(), metadata=jsonutil.json_field(name="instruction_sources", omitempty=True)
     )
-    CurrentTurnID: TurnID = dataclasses.field(
+    current_turn_id: TurnID = dataclasses.field(
         default_factory=lambda: TurnID(""), metadata=jsonutil.json_field(name="current_turn_id")
     )
-    ParentID: SessionID = dataclasses.field(
+    parent_id: SessionID = dataclasses.field(
         default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="parent_id", omitempty=True)
     )
-    ProjectID: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="project_id", omitempty=True))
-    ConfigRoot: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="config_root", omitempty=True))
-    Workspace: WorkspaceSpec | None = dataclasses.field(
+    project_id: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="project_id", omitempty=True))
+    config_root: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="config_root", omitempty=True))
+    workspace: WorkspaceSpec | None = dataclasses.field(
         default=None, metadata=jsonutil.json_field(name="workspace", omitempty=True)
     )
 
@@ -129,30 +129,30 @@ class Metadata:
 class FileSnapshot:
     """One file captured before a mutating tool call."""
 
-    Path: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="path"))
-    Exists: bool = dataclasses.field(default=False, metadata=jsonutil.json_field(name="exists"))
-    Content: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="content", omitempty=True))
-    Mode: int = dataclasses.field(default=0, metadata=jsonutil.json_field(name="mode", omitempty=True))
+    path: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="path"))
+    exists: bool = dataclasses.field(default=False, metadata=jsonutil.json_field(name="exists"))
+    content: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="content", omitempty=True))
+    mode: int = dataclasses.field(default=0, metadata=jsonutil.json_field(name="mode", omitempty=True))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Checkpoint:
     """A named set of file snapshots recorded before a write."""
 
-    ID: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="id"))
-    Files: tuple[FileSnapshot, ...] = dataclasses.field(default=(), metadata=jsonutil.json_field(name="files"))
-    Reason: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="reason"))
+    id: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="id"))
+    files: tuple[FileSnapshot, ...] = dataclasses.field(default=(), metadata=jsonutil.json_field(name="files"))
+    reason: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="reason"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Compact:
     """A compaction: the summary, what it replaced, and what survived."""
 
-    Summary: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="summary"))
-    OriginalMessages: tuple[Message, ...] = dataclasses.field(
+    summary: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="summary"))
+    original_messages: tuple[Message, ...] = dataclasses.field(
         default=(), metadata=jsonutil.json_field(name="original_messages")
     )
-    KeptMessages: tuple[Message, ...] = dataclasses.field(
+    kept_messages: tuple[Message, ...] = dataclasses.field(
         default=(), metadata=jsonutil.json_field(name="kept_messages")
     )
 
@@ -166,30 +166,30 @@ class Record:
     a given ``Type`` needs are set.
     """
 
-    Type: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="type"))
-    SessionID: SessionID = dataclasses.field(
+    type: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="type"))
+    session_id: SessionID = dataclasses.field(
         default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="session_id")
     )
-    TurnID: TurnID = dataclasses.field(
+    turn_id: TurnID = dataclasses.field(
         default_factory=lambda: TurnID(""), metadata=jsonutil.json_field(name="turn_id", omitempty=True)
     )
-    Time: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="time"))
-    Message: Message | None = dataclasses.field(
+    time: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="time"))
+    message: Message | None = dataclasses.field(
         default=None, metadata=jsonutil.json_field(name="message", omitempty=True)
     )
-    ToolCall: ToolCall | None = dataclasses.field(
+    tool_call: ToolCall | None = dataclasses.field(
         default=None, metadata=jsonutil.json_field(name="tool_call", omitempty=True)
     )
-    Decision: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="decision", omitempty=True))
-    Result: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="result", omitempty=True))
-    Error: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="error", omitempty=True))
-    Checkpoint: Checkpoint | None = dataclasses.field(
+    decision: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="decision", omitempty=True))
+    result: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="result", omitempty=True))
+    error: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="error", omitempty=True))
+    checkpoint: Checkpoint | None = dataclasses.field(
         default=None, metadata=jsonutil.json_field(name="checkpoint", omitempty=True)
     )
-    Compact: Compact | None = dataclasses.field(
+    compact: Compact | None = dataclasses.field(
         default=None, metadata=jsonutil.json_field(name="compact", omitempty=True)
     )
-    Messages: tuple[Message, ...] = dataclasses.field(
+    messages: tuple[Message, ...] = dataclasses.field(
         default=(), metadata=jsonutil.json_field(name="messages", omitempty=True)
     )
 
@@ -198,38 +198,38 @@ class Record:
 class Summary:
     """One row of the session list."""
 
-    ID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="id"))
-    Title: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="title"))
-    UpdatedAt: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="updated_at"))
-    Provider: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="provider"))
-    Model: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="model"))
-    CWD: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="cwd"))
-    ParentID: SessionID = dataclasses.field(
+    id: SessionID = dataclasses.field(default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="id"))
+    title: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="title"))
+    updated_at: datetime = dataclasses.field(default=ZERO_TIME, metadata=jsonutil.json_field(name="updated_at"))
+    provider: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="provider"))
+    model: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="model"))
+    cwd: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="cwd"))
+    parent_id: SessionID = dataclasses.field(
         default_factory=lambda: SessionID(""), metadata=jsonutil.json_field(name="parent_id", omitempty=True)
     )
 
 
-def DefaultRoot() -> str:
+def default_root() -> str:
     """``~/.superagent/sessions``, the directory every store is rooted at by default."""
     return os.path.join(os.path.expanduser("~"), ".superagent", "sessions")
 
 
-def New(root: str) -> Store:
+def new(root: str) -> Store:
     """A store rooted at ``root``; the directory is created lazily."""
     return Store(root)
 
 
-def OpenDefault() -> Store:
+def open_default() -> Store:
     """A store at :func:`DefaultRoot`."""
-    return Store(DefaultRoot())
+    return Store(default_root())
 
 
-def NewID(now: datetime) -> SessionID:
+def new_id(now: datetime) -> SessionID:
     """A session identifier: nine fractional digits, without the dot."""
     return SessionID(_idText(now, keep_dot=False))
 
 
-def NewTurnID(now: datetime) -> TurnID:
+def new_turn_id(now: datetime) -> TurnID:
     """A turn identifier: the same instant, but the fraction keeps its dot."""
     return TurnID(_idText(now, keep_dot=True))
 
@@ -252,13 +252,13 @@ def validateID(session_id: SessionID) -> None:
         raise ValueError("invalid session id: " + name)
 
 
-def Fingerprint(messages: Sequence[Message]) -> str:
+def fingerprint(messages: Sequence[Message]) -> str:
     """A digest of the system messages, so a session's instructions can be identified."""
     digest = hashlib.sha256()
     for message in messages:
-        if message.Role != RoleSystem:
+        if message.role != ROLE_SYSTEM:
             continue
-        digest.update(message.Content.encode("utf-8"))
+        digest.update(message.content.encode("utf-8"))
         digest.update(b"\x00")
     return digest.hexdigest()
 
@@ -273,32 +273,32 @@ def messagesFromRecords(records: Sequence[Record]) -> list[Message]:
     """
     messages: list[Message] = []
     for record in records:
-        if record.Type == EventMessageAppended:
-            if record.Message is not None:
-                messages.append(record.Message)
-        elif record.Type == EventToolResult:
-            if record.ToolCall is not None:
+        if record.type == EVENT_MESSAGE_APPENDED:
+            if record.message is not None:
+                messages.append(record.message)
+        elif record.type == EVENT_TOOL_RESULT:
+            if record.tool_call is not None:
                 messages.append(
                     Message(
-                        Role=RoleTool,
-                        Content=record.Result,
-                        ToolCallID=record.ToolCall.ID,
-                        ToolName=record.ToolCall.Name,
+                        role=ROLE_TOOL,
+                        content=record.result,
+                        tool_call_id=record.tool_call.id,
+                        tool_name=record.tool_call.name,
                     )
                 )
-        elif record.Type == EventReset:
+        elif record.type == EVENT_RESET:
             messages = systemMessages(messages)
-        elif record.Type == EventCompact:
-            if record.Compact is not None:
-                messages = list(record.Compact.KeptMessages)
-        elif record.Type == EventContextReplaced:
-            messages = list(record.Messages)
+        elif record.type == EVENT_COMPACT:
+            if record.compact is not None:
+                messages = list(record.compact.kept_messages)
+        elif record.type == EVENT_CONTEXT_REPLACED:
+            messages = list(record.messages)
     return messages
 
 
 def systemMessages(messages: Sequence[Message]) -> list[Message]:
     """Only the ``system`` messages, in order; the rule reset and replay share."""
-    return [message for message in messages if message.Role == RoleSystem]
+    return [message for message in messages if message.role == ROLE_SYSTEM]
 
 
 class Store:
@@ -310,7 +310,7 @@ class Store:
 
     # --- creation and append -------------------------------------------------
 
-    def Create(self, meta: Metadata, messages: Sequence[Message]) -> Metadata:
+    def create(self, meta: Metadata, messages: Sequence[Message]) -> Metadata:
         """Create a session, or remove the directory it started and raise.
 
         The transcript is written first and ``meta.json`` last: sessions become
@@ -318,36 +318,36 @@ class Store:
         the directory instead of leaving an orphan session behind.
         """
         with self._lock:
-            if meta.ID == "":
-                meta = dataclasses.replace(meta, ID=NewID(datetime.now(UTC)))
-            validateID(meta.ID)
+            if meta.id == "":
+                meta = dataclasses.replace(meta, id=new_id(datetime.now(UTC)))
+            validateID(meta.id)
             now = datetime.now(UTC)
-            if _isZeroTime(meta.CreatedAt):
-                meta = dataclasses.replace(meta, CreatedAt=now)
-            meta = dataclasses.replace(meta, UpdatedAt=now)
-            if meta.Title == "":
-                meta = dataclasses.replace(meta, Title="Untitled")
-            if meta.InstructionFingerprint == "":
-                meta = dataclasses.replace(meta, InstructionFingerprint=Fingerprint(messages))
-            self._ensure_dir(self._session_dir(meta.ID))
+            if _isZeroTime(meta.created_at):
+                meta = dataclasses.replace(meta, created_at=now)
+            meta = dataclasses.replace(meta, updated_at=now)
+            if meta.title == "":
+                meta = dataclasses.replace(meta, title="Untitled")
+            if meta.instruction_fingerprint == "":
+                meta = dataclasses.replace(meta, instruction_fingerprint=fingerprint(messages))
+            self._ensure_dir(self._session_dir(meta.id))
             try:
-                self._append_unlocked(meta.ID, Record(Type=EventSessionStarted))
+                self._append_unlocked(meta.id, Record(type=EVENT_SESSION_STARTED))
                 for message in messages:
-                    self._append_unlocked(meta.ID, Record(Type=EventMessageAppended, Message=message))
+                    self._append_unlocked(meta.id, Record(type=EVENT_MESSAGE_APPENDED, message=message))
                 self._write_meta(meta)
             except Exception:
-                self._remove_session_dir(meta.ID)
+                self._remove_session_dir(meta.id)
                 raise
             return meta
 
-    def Append(self, session_id: SessionID, record: Record) -> None:
+    def append(self, session_id: SessionID, record: Record) -> None:
         """Append one record, refreshing the session's ``UpdatedAt`` best effort."""
         with self._lock:
             validateID(session_id)
             self._append_unlocked(session_id, record)
 
     def _append_unlocked(self, session_id: SessionID, record: Record) -> None:
-        if record.Type == "":
+        if record.type == "":
             raise ValueError("record type is required")
         try:
             meta = self._metadata_unlocked(session_id)
@@ -356,18 +356,18 @@ class Store:
         else:
             record = dataclasses.replace(
                 record,
-                SessionID=session_id,
-                TurnID=record.TurnID if record.TurnID != "" else meta.CurrentTurnID,
+                session_id=session_id,
+                turn_id=record.turn_id if record.turn_id != "" else meta.current_turn_id,
             )
             # Best effort: the UpdatedAt refresh is cosmetic, and refusing to
             # append the record over a failed refresh would lose the transcript
             # entry the record exists for.
             with contextlib.suppress(Exception):
-                self._write_meta(dataclasses.replace(meta, UpdatedAt=datetime.now(UTC)))
-        if record.SessionID == "":
-            record = dataclasses.replace(record, SessionID=session_id)
-        if _isZeroTime(record.Time):
-            record = dataclasses.replace(record, Time=datetime.now(UTC))
+                self._write_meta(dataclasses.replace(meta, updated_at=datetime.now(UTC)))
+        if record.session_id == "":
+            record = dataclasses.replace(record, session_id=session_id)
+        if _isZeroTime(record.time):
+            record = dataclasses.replace(record, time=datetime.now(UTC))
         self._ensure_dir(self._session_dir(session_id))
         encoded = (jsonutil.dumps(record) + "\n").encode("utf-8")
         descriptor = os.open(self._events_path(session_id), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
@@ -381,7 +381,7 @@ class Store:
 
     # --- metadata ------------------------------------------------------------
 
-    def Metadata(self, session_id: SessionID) -> Metadata:
+    def metadata(self, session_id: SessionID) -> Metadata:
         """Read one session's ``meta.json``."""
         with self._lock:
             validateID(session_id)
@@ -391,15 +391,15 @@ class Store:
         with open(self._meta_path(session_id), encoding="utf-8") as handle:
             return jsonutil.loads(handle.read(), Metadata)
 
-    def SetCurrentTurn(self, session_id: SessionID, turn: TurnID) -> None:
+    def set_current_turn(self, session_id: SessionID, turn: TurnID) -> None:
         """Point the session at a fresh turn id."""
         with self._lock:
             validateID(session_id)
             meta = self._metadata_unlocked(session_id)
-            meta = dataclasses.replace(meta, CurrentTurnID=turn, UpdatedAt=datetime.now(UTC))
+            meta = dataclasses.replace(meta, current_turn_id=turn, updated_at=datetime.now(UTC))
             self._write_meta(meta)
 
-    def SaveWorkspaceDescription(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
+    def save_workspace_description(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
         """Persist the durable workspace description and its canonical cwd.
 
         Only those fields of the metadata are rewritten, so the one-time upgrade
@@ -407,11 +407,11 @@ class Store:
         """
         with self._lock:
             meta = self._metadata_unlocked(session_id)
-            cloned = WorkspaceSpec(PrimaryRoot=spec.PrimaryRoot, CWD=spec.CWD, Roots=tuple(spec.Roots))
-            meta = dataclasses.replace(meta, Workspace=cloned, CWD=spec.CWD, UpdatedAt=datetime.now(UTC))
+            cloned = WorkspaceSpec(primary_root=spec.primary_root, cwd=spec.cwd, roots=tuple(spec.roots))
+            meta = dataclasses.replace(meta, workspace=cloned, cwd=spec.cwd, updated_at=datetime.now(UTC))
             self._write_meta(meta)
 
-    def RenameSession(self, session_id: SessionID, title: str) -> None:
+    def rename_session(self, session_id: SessionID, title: str) -> None:
         """Change a session's title, rejecting an empty one."""
         with self._lock:
             validateID(session_id)
@@ -419,16 +419,16 @@ class Store:
             if title == "":
                 raise ValueError("title is required")
             meta = self._metadata_unlocked(session_id)
-            meta = dataclasses.replace(meta, Title=title, UpdatedAt=datetime.now(UTC))
+            meta = dataclasses.replace(meta, title=title, updated_at=datetime.now(UTC))
             self._write_meta(meta)
 
-    def Delete(self, session_id: SessionID) -> None:
+    def delete(self, session_id: SessionID) -> None:
         """Remove a session directory and everything in it."""
         with self._lock:
             validateID(session_id)
             self._remove_session_dir(session_id)
 
-    def List(self) -> list[Summary]:
+    def list(self) -> list[Summary]:
         """Every discoverable session, most recently updated first."""
         with self._lock:
             try:
@@ -445,21 +445,21 @@ class Store:
                     continue
                 summaries.append(
                     Summary(
-                        ID=meta.ID,
-                        Title=meta.Title,
-                        UpdatedAt=meta.UpdatedAt,
-                        Provider=meta.Provider,
-                        Model=meta.Model,
-                        CWD=meta.CWD,
-                        ParentID=meta.ParentID,
+                        id=meta.id,
+                        title=meta.title,
+                        updated_at=meta.updated_at,
+                        provider=meta.provider,
+                        model=meta.model,
+                        cwd=meta.cwd,
+                        parent_id=meta.parent_id,
                     )
                 )
-            summaries.sort(key=lambda summary: summary.UpdatedAt, reverse=True)
+            summaries.sort(key=lambda summary: summary.updated_at, reverse=True)
             return summaries
 
     # --- the event log -------------------------------------------------------
 
-    def Records(self, session_id: SessionID) -> list[Record]:
+    def records(self, session_id: SessionID) -> list[Record]:
         """Every record in the log, after healing a torn tail."""
         with self._lock:
             validateID(session_id)
@@ -496,20 +496,20 @@ class Store:
             good += len(line) + 1
         return records
 
-    def Messages(self, session_id: SessionID) -> list[Message]:
+    def messages(self, session_id: SessionID) -> list[Message]:
         """The model context rebuilt from the log."""
         with self._lock:
             return messagesFromRecords(self._records_unlocked(session_id))
 
-    def LastCheckpoint(self, session_id: SessionID) -> Checkpoint | None:
+    def last_checkpoint(self, session_id: SessionID) -> Checkpoint | None:
         """The most recent checkpoint with files, or ``None``."""
         try:
-            checkpoint, _messages, _index = self.CheckpointUndo(session_id)
+            checkpoint, _messages, _index = self.checkpoint_undo(session_id)
         except FileNotFoundError:
             return None
         return checkpoint
 
-    def CheckpointUndo(self, session_id: SessionID) -> tuple[Checkpoint, list[Message], int]:
+    def checkpoint_undo(self, session_id: SessionID) -> tuple[Checkpoint, list[Message], int]:
         """The newest checkpoint with files, the transcript as of it, and its index.
 
         Checkpoints without files (tools that do not track paths) are skipped so
@@ -521,14 +521,14 @@ class Store:
             for index in range(len(records) - 1, -1, -1):
                 record = records[index]
                 if (
-                    record.Type == EventCheckpoint
-                    and record.Checkpoint is not None
-                    and len(record.Checkpoint.Files) > 0
+                    record.type == EVENT_CHECKPOINT
+                    and record.checkpoint is not None
+                    and len(record.checkpoint.files) > 0
                 ):
-                    return record.Checkpoint, messagesFromRecords(records[:index]), index
+                    return record.checkpoint, messagesFromRecords(records[:index]), index
             raise FileNotFoundError("no checkpoint to undo")
 
-    def TruncateAfter(self, session_id: SessionID, keep: int) -> None:
+    def truncate_after(self, session_id: SessionID, keep: int) -> None:
         """Drop every record after ``keep``, keeping the record at ``keep`` itself.
 
         The rewrite goes through a temporary file so a failed write cannot corrupt
@@ -551,7 +551,7 @@ class Store:
 
     # --- cross-session memory ------------------------------------------------
 
-    def LoadMemory(self) -> list[str]:
+    def load_memory(self) -> list[str]:
         """The cross-session memory list, empty when the file does not exist."""
         with self._lock:
             try:
@@ -564,7 +564,7 @@ class Store:
                 raise TypeError(f"memory must be a JSON array, got {type(data).__name__}")
             return [str(item) for item in cast("list[Any]", data)]
 
-    def SaveMemory(self, items: Sequence[str]) -> None:
+    def save_memory(self, items: Sequence[str]) -> None:
         """Replace the cross-session memory list atomically."""
         with self._lock:
             self._ensure_dir(self.root)
@@ -592,10 +592,10 @@ class Store:
         write must never leave a half-written file behind: write, fsync, and
         atomically rename a temporary file.
         """
-        validateID(meta.ID)
-        self._ensure_dir(self._session_dir(meta.ID))
+        validateID(meta.id)
+        self._ensure_dir(self._session_dir(meta.id))
         content = (jsonutil.dumps(meta, indent=2) + "\n").encode("utf-8")
-        self._atomic_write(self._meta_path(meta.ID), content, ".meta-", ".json")
+        self._atomic_write(self._meta_path(meta.id), content, ".meta-", ".json")
 
     def _atomic_write(self, path: str, content: bytes, prefix: str, suffix: str) -> None:
         """Same-directory temp file, mode ``0600``, fsync, then ``os.replace``."""

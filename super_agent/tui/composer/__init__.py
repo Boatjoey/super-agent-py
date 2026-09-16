@@ -11,27 +11,27 @@ from super_agent.tui.composer.model import (
     Intent as Intent,
     IntentKind as IntentKind,
     Model as Model,
-    New as New,
-    NormalizeCommands as NormalizeCommands,
+    new as new,
+    normalize_commands as normalize_commands,
 )
 
 #: The package-level intent constants.
-NoIntent = IntentKind.NoIntent
-Submit = IntentKind.Submit
-Queue = IntentKind.Queue
-Steer = IntentKind.Steer
-Clear = IntentKind.Clear
+NO_INTENT = IntentKind.NO_INTENT
+SUBMIT = IntentKind.SUBMIT
+QUEUE = IntentKind.QUEUE
+STEER = IntentKind.STEER
+CLEAR = IntentKind.CLEAR
 
 __all__ = [
-    "Clear",
+    "CLEAR",
+    "NO_INTENT",
+    "QUEUE",
+    "STEER",
+    "SUBMIT",
     "Command",
     "Intent",
     "IntentKind",
     "Model",
-    "New",
-    "NoIntent",
-    "NormalizeCommands",
-    "Queue",
-    "Steer",
-    "Submit",
+    "new",
+    "normalize_commands",
 ]

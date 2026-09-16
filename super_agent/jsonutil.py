@@ -29,7 +29,7 @@ from enum import Enum
 from functools import cache
 from typing import Any, Union, cast, get_args, get_origin, get_type_hints
 
-from super_agent.timeutil import FormatRFC3339Nano, ParseRFC3339Nano
+from super_agent.timeutil import format_rfc3339_nano, parse_rfc3339_nano
 
 _METADATA_KEY = "json"
 
@@ -79,7 +79,7 @@ def to_json_value(value: Any) -> Any:
     if isinstance(value, datetime):
         # Datetimes are stored as RFC3339Nano, the format the on-disk artefacts
         # use.
-        return FormatRFC3339Nano(value)
+        return format_rfc3339_nano(value)
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, Mapping):
@@ -150,7 +150,7 @@ def _decode(value: Any, annotation: Any) -> Any:
     if isinstance(annotation, type):
         concrete: type[Any] = annotation
         if issubclass(concrete, datetime):
-            return ParseRFC3339Nano(value)
+            return parse_rfc3339_nano(value)
         if issubclass(concrete, Enum):
             return concrete(value)
         if dataclasses.is_dataclass(concrete):

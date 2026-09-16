@@ -17,26 +17,26 @@ from super_agent.runtime.execution import (
     ActionResultResolver,
     ApprovalStore,
     ModelReplied,
-    NewPolicy,
     PermissionMode,
     PermissionRules,
     QueuedAction,
     RunController,
     ScheduledActionInput,
     ScheduledActionRunner,
-    ValidPermissionMode,
+    new_policy,
+    valid_permission_mode,
 )
 from super_agent.runtime.machine import (
+    ROLE_USER,
+    STATE_IDLE,
     CallModel,
     CancelRequested,
     EngineReady,
     Event,
     Message,
     ResetRequested,
-    RoleUser,
-    StateIdle,
 )
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.protocol.types import StreamChunk
 
 if TYPE_CHECKING:
@@ -66,16 +66,16 @@ class CommandsMixin:
         _runs: RunController
         lock: asyncio.Lock
 
-        async def DispatchEvent(
+        async def dispatch_event(
             self, ctx: RunContext, event: Event, on_stream_chunk: Callable[[StreamChunk], None] | None
         ) -> None: ...
-        def Messages(self) -> list[Message]: ...
+        def messages(self) -> list[Message]: ...
 
-    async def Ready(self) -> None:
+    async def ready(self) -> None:
         """Move the machine out of ``Initializing``."""
-        await self.DispatchEvent(LiveContext(), EngineReady(), None)
+        await self.dispatch_event(live_context(), EngineReady(), None)
 
-    async def Cancel(self) -> None:
+    async def cancel(self) -> None:
         """Retire the current run, then tell the machine the run was cancelled.
 
         The order matters: the run id is bumped first, so any completion already in
@@ -83,16 +83,16 @@ class CommandsMixin:
         transition's own answer to the outstanding tool calls is the only one
         applied.
         """
-        self._runs.CancelRun()
-        await self.DispatchEvent(LiveContext(), CancelRequested(), None)
+        self._runs.cancel_run()
+        await self.dispatch_event(live_context(), CancelRequested(), None)
 
-    async def Reset(self) -> None:
+    async def reset(self) -> None:
         """Cancel the run and clear the conversation, keeping system messages."""
-        self._runs.CancelRun()
-        self._runs.InvalidateCurrentRun()
-        await self.DispatchEvent(LiveContext(), ResetRequested(), None)
+        self._runs.cancel_run()
+        self._runs.invalidate_current_run()
+        await self.dispatch_event(live_context(), ResetRequested(), None)
 
-    async def ReplaceMessages(self, messages: list[Message]) -> None:
+    async def replace_messages(self, messages: list[Message]) -> None:
         """Replace the conversation wholesale, without a transition.
 
         Used by resume and compaction, which already have the messages they want
@@ -100,47 +100,47 @@ class CommandsMixin:
         action queue is what keeps a late action from a conversation that no
         longer exists out of the replacement.
         """
-        self._runs.CancelRun()
-        self._runs.InvalidateCurrentRun()
+        self._runs.cancel_run()
+        self._runs.invalidate_current_run()
         async with self.lock:
             data = self._runtime_data
-            data.Messages = list(messages)
-            data.PendingTool = None
-            data.PendingPermission = None
-            data.CurrentTool = None
-            data.ToolBatch = None
-            data.StreamingContent = ""
-            data.StreamingReasoning = ""
-            data.State = StateIdle
-            self._action_queue.Clear()
+            data.messages = list(messages)
+            data.pending_tool = None
+            data.pending_permission = None
+            data.current_tool = None
+            data.tool_batch = None
+            data.streaming_content = ""
+            data.streaming_reasoning = ""
+            data.state = STATE_IDLE
+            self._action_queue.clear()
 
-    async def SetPermissionPolicy(self, mode: PermissionMode, rules: PermissionRules) -> None:
+    async def set_permission_policy(self, mode: PermissionMode, rules: PermissionRules) -> None:
         """Swap the policy, refusing a mode the settings loader would reject too."""
         async with self.lock:
-            if not ValidPermissionMode(mode):
+            if not valid_permission_mode(mode):
                 raise ValueError("invalid permission mode: " + str(mode))
             if not isinstance(self._resolver, PolicySetter):
                 raise ValueError("action result resolver does not support policy updates")
-            self._resolver.SetPolicy(NewPolicy(mode, rules))
+            self._resolver.set_policy(new_policy(mode, rules))
             if isinstance(self._approvals, PolicyStore):
-                self._approvals.SetPermissionPolicy(mode, rules)
+                self._approvals.set_permission_policy(mode, rules)
 
-    async def CompactSummary(self, ctx: RunContext) -> str:
+    async def compact_summary(self, ctx: RunContext) -> str:
         """Ask the model for a summary of the conversation so far."""
-        messages = self.Messages()
+        messages = self.messages()
         if not messages:
             return ""
-        completion: ActionCompletion = await self._runner.Run(
+        completion: ActionCompletion = await self._runner.run(
             ctx,
-            QueuedAction(Action=CallModel()),
-            ScheduledActionInput(Messages=(*messages, Message(Role=RoleUser, Content=COMPACT_SUMMARY_PROMPT))),
+            QueuedAction(action=CallModel()),
+            ScheduledActionInput(messages=(*messages, Message(role=ROLE_USER, content=COMPACT_SUMMARY_PROMPT))),
             discard_chunk,
         )
-        if not isinstance(completion.Result, ModelReplied):
+        if not isinstance(completion.result, ModelReplied):
             raise ValueError("compact summary did not return a model response")
-        summary = completion.Result.Response.Content.strip()
+        summary = completion.result.response.content.strip()
         if summary == "":
-            summary = completion.Result.Response.ReasoningContent.strip()
+            summary = completion.result.response.reasoning_content.strip()
         if summary == "":
             raise ValueError("compact summary is empty")
         return summary

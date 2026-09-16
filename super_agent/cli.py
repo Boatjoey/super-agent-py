@@ -24,7 +24,7 @@ from typing import Final
 
 from super_agent.app.config import Flags
 
-__all__ = ["FLAGS", "Flag", "FlagError", "Parse", "Usage"]
+__all__ = ["FLAGS", "Flag", "FlagError", "parse", "usage"]
 
 #: The two sets of boolean spellings accepted, and nothing else.
 TRUE_VALUES: Final[frozenset[str]] = frozenset({"1", "t", "T", "TRUE", "true", "True"})
@@ -35,17 +35,17 @@ FALSE_VALUES: Final[frozenset[str]] = frozenset({"0", "f", "F", "FALSE", "false"
 class Flag:
     """One flag declaration."""
 
-    Name: str
-    IsBool: bool
-    Usage: str
+    name: str
+    is_bool: bool
+    usage: str
 
 
 #: Every flag this program defines. They are sorted by name when printed.
 FLAGS: Final[tuple[Flag, ...]] = (
-    Flag(Name="yolo", IsBool=True, Usage="Auto-approve tool execution"),
-    Flag(Name="no-tools", IsBool=True, Usage="Disable tool calling"),
-    Flag(Name="approval-mode", IsBool=False, Usage="Permission mode: ask, accept-edits, plan, bypass"),
-    Flag(Name="cwd", IsBool=False, Usage="Project directory (defaults to nearest Git root)"),
+    Flag(name="yolo", is_bool=True, usage="Auto-approve tool execution"),
+    Flag(name="no-tools", is_bool=True, usage="Disable tool calling"),
+    Flag(name="approval-mode", is_bool=False, usage="Permission mode: ask, accept-edits, plan, bypass"),
+    Flag(name="cwd", is_bool=False, usage="Project directory (defaults to nearest Git root)"),
 )
 
 
@@ -64,7 +64,7 @@ class FlagError(Exception):
         self.showUsage = showUsage
 
 
-def Usage() -> str:
+def usage() -> str:
     """The flag set's name, then every flag by name.
 
     `` (default ...)`` would be appended only for a flag whose default is not the
@@ -73,18 +73,18 @@ def Usage() -> str:
     being printed.
     """
     lines = [f"Usage of {sys.argv[0]}:"]
-    for flag in sorted(FLAGS, key=lambda item: item.Name):
-        name = "" if flag.IsBool else " string"
+    for flag in sorted(FLAGS, key=lambda item: item.name):
+        name = "" if flag.is_bool else " string"
         # Four spaces then a tab: the alignment used for a flag name longer than
         # one character, which every flag here is.
-        lines.append(f"  -{flag.Name}{name}\n    \t{flag.Usage}")
+        lines.append(f"  -{flag.name}{name}\n    \t{flag.usage}")
     return "\n".join(lines) + "\n"
 
 
-def Parse(argv: Sequence[str]) -> Flags:
+def parse(argv: Sequence[str]) -> Flags:
     """Parse ``argv``, or raise :class:`FlagError`."""
-    byName = {flag.Name: flag for flag in FLAGS}
-    values: dict[str, str] = {flag.Name: ("false" if flag.IsBool else "") for flag in FLAGS}
+    byName = {flag.name: flag for flag in FLAGS}
+    values: dict[str, str] = {flag.name: ("false" if flag.is_bool else "") for flag in FLAGS}
     index = 0
     while index < len(argv):
         argument = argv[index]
@@ -108,7 +108,7 @@ def Parse(argv: Sequence[str]) -> Flags:
             if name in ("help", "h"):  # the one special case the parser has
                 raise FlagError("", status=0)
             raise FlagError(f"flag provided but not defined: -{name}")
-        if flag.IsBool:
+        if flag.is_bool:
             if not hasValue:
                 value = "true"
         else:
@@ -120,10 +120,10 @@ def Parse(argv: Sequence[str]) -> Flags:
                 raise FlagError(f"flag needs an argument: -{name}")
         values[name] = value
     return Flags(
-        AutoApproveTools=_boolValue(values["yolo"], "yolo"),
-        NoTools=_boolValue(values["no-tools"], "no-tools"),
-        PermissionMode=values["approval-mode"],
-        CWD=values["cwd"],
+        auto_approve_tools=_boolValue(values["yolo"], "yolo"),
+        no_tools=_boolValue(values["no-tools"], "no-tools"),
+        permission_mode=values["approval-mode"],
+        cwd=values["cwd"],
     )
 
 

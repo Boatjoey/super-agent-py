@@ -31,7 +31,7 @@ from rich.text import Text
 from super_agent.tui import approval as approval_feature, attachments, commands, composer, runtime, transcript
 from super_agent.tui.actions import (
     ClipboardDone as ClipboardDone,
-    ExtractCodeBlocks as ExtractCodeBlocks,
+    extract_code_blocks as extract_code_blocks,
     finishCopy as finishCopy,
 )
 from super_agent.tui.app import (
@@ -43,19 +43,19 @@ from super_agent.tui.app import (
     OutputPrinter as OutputPrinter,
     StartupInfo as StartupInfo,
     SubmitDone as SubmitDone,
-    WithClipboardWriter as WithClipboardWriter,
-    WithOutputPrinter as WithOutputPrinter,
     compactStatus as compactStatus,
     composerCommands as composerCommands,
     displayCWD as displayCWD,
     printCommand as printCommand,
     scrollbackPrinter as scrollbackPrinter,
+    with_clipboard_writer as with_clipboard_writer,
+    with_output_printer as with_output_printer,
 )
 from super_agent.tui.approval import (
-    ApproveAlways as ApproveAlways,
-    ApproveOnce as ApproveOnce,
+    APPROVE_ALWAYS as APPROVE_ALWAYS,
+    APPROVE_ONCE as APPROVE_ONCE,
+    DENY as DENY_APPROVAL,
     Decision as ApprovalDecision,
-    Deny as DenyApproval,
 )
 from super_agent.tui.commands import (
     AgentSummary as AgentSummary,
@@ -64,6 +64,7 @@ from super_agent.tui.commands import (
 )
 from super_agent.tui.conversation import (
     NOTIFICATION_KINDS as NOTIFICATION_KINDS,
+    ROLE_ASSISTANT as ROLE_ASSISTANT,
     AgentStatus as AgentStatus,
     AgentStatusChanged as AgentStatusChanged,
     AttachmentSummary as AttachmentSummary,
@@ -78,7 +79,6 @@ from super_agent.tui.conversation import (
     MessageAttachment as MessageAttachment,
     PermissionRequest as PermissionRequest,
     Role as Role,
-    RoleAssistant as RoleAssistant,
     SnapshotPort as SnapshotPort,
     StreamChunkReceived as StreamChunkReceived,
     ToolApprovalCleared as ToolApprovalCleared,
@@ -87,27 +87,26 @@ from super_agent.tui.conversation import (
     TurnPort as TurnPort,
 )
 from super_agent.tui.runtime import (
-    ClearScreen as ClearScreen,
+    CLEAR_SCREEN as CLEAR_SCREEN,
+    QUIT as QUIT,
     ClearScreenMsg as ClearScreenMsg,
     Command as Command,
     KeyDecoder as KeyDecoder,
     KeyMsg as KeyMsg,
     Listener as Listener,
     Program as Program,
-    Quit as Quit,
     QuitMsg as QuitMsg,
     Scrollback as Scrollback,
     WindowSizeMsg as WindowSizeMsg,
     batch as batch,
 )
 from super_agent.tui.styles import (
-    DefaultStyles as DefaultStyles,
     MarkdownRenderer as MarkdownRenderer,
     Styles as Styles,
+    default_styles as default_styles,
 )
 from super_agent.tui.transcript import MarkdownRenderer as TranscriptMarkdownRenderer, Styles as TranscriptStyles
 from super_agent.tui.update import (
-    Update as Update,
     finishSubmit as finishSubmit,
     pendingAttachments as pendingAttachments,
     queueInput as queueInput,
@@ -115,30 +114,34 @@ from super_agent.tui.update import (
     steerInput as steerInput,
     submitPrompt as submitPrompt,
     submitText as submitText,
+    update as update,
     updateConversationNotification as updateConversationNotification,
     updateKey as updateKey,
     waitForNotification as waitForNotification,
 )
 from super_agent.tui.view import (
-    View as View,
     clampLines as clampLines,
     fitDynamicArea as fitDynamicArea,
     helpView as helpView,
+    view as view,
 )
 
 __all__ = [
+    "APPROVE_ALWAYS",
+    "APPROVE_ONCE",
+    "CLEAR_SCREEN",
+    "DENY_APPROVAL",
     "NOTIFICATION_KINDS",
+    "QUIT",
+    "ROLE_ASSISTANT",
     "AgentStatus",
     "AgentStatusChanged",
     "AgentSummary",
     "App",
     "ApprovalDecision",
-    "ApproveAlways",
-    "ApproveOnce",
     "AttachmentSummary",
     "Cancellation",
     "Channel",
-    "ClearScreen",
     "ClearScreenMsg",
     "ClipboardDone",
     "ClipboardWriter",
@@ -148,9 +151,6 @@ __all__ = [
     "ConversationNotification",
     "ConversationNotificationMsg",
     "ConversationView",
-    "DefaultStyles",
-    "DenyApproval",
-    "ExtractCodeBlocks",
     "KeyDecoder",
     "KeyMsg",
     "Listener",
@@ -160,15 +160,12 @@ __all__ = [
     "MessageAppended",
     "MessageAttachment",
     "Msg",
-    "New",
     "Option",
     "OutputPrinter",
     "PermissionRequest",
     "Program",
-    "Quit",
     "QuitMsg",
     "Role",
-    "RoleAssistant",
     "Scrollback",
     "SessionSummary",
     "SnapshotPort",
@@ -182,23 +179,22 @@ __all__ = [
     "TranscriptMarkdownRenderer",
     "TranscriptStyles",
     "TurnPort",
-    "Update",
-    "View",
     "WindowSizeMsg",
-    "WithClipboardWriter",
-    "WithOutputPrinter",
     "applyOutcome",
     "batch",
     "clampLines",
     "compactStatus",
     "composerCommands",
+    "default_styles",
     "displayCWD",
+    "extract_code_blocks",
     "finishCopy",
     "finishSubmit",
     "fitDynamicArea",
     "footerView",
     "helpView",
     "infoBar",
+    "new",
     "pendingAttachments",
     "printCommand",
     "queueInput",
@@ -208,48 +204,52 @@ __all__ = [
     "steerInput",
     "submitPrompt",
     "submitText",
+    "update",
     "updateConversationNotification",
     "updateKey",
+    "view",
     "waitForNotification",
     "welcomeString",
+    "with_clipboard_writer",
+    "with_output_printer",
 ]
 
 
-def New(session: Conversation, info: StartupInfo, *options: Option) -> App:
+def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
     """Build the model and wire every feature to the port."""
-    styles = DefaultStyles()
-    command_model = commands.New(
-        commands.Config(CWD=info.CWD, InstructionPaths=info.InstructionPaths, NoTools=info.NoTools),
+    styles = default_styles()
+    command_model = commands.new(
+        commands.Config(cwd=info.cwd, instruction_paths=info.instruction_paths, no_tools=info.no_tools),
         commands.Ports(
-            Sessions=session,
-            Permissions=session,
-            MCP=session,
-            Agents=session,
-            Memory=session,
-            Workspace=session,
-            Extensions=session,
+            sessions=session,
+            permissions=session,
+            mcp=session,
+            agents=session,
+            memory=session,
+            workspace=session,
+            extensions=session,
         ),
     )
     app = App(
         snapshot=session,
         turnPort=session,
         commands=command_model,
-        composer=composer.New(composerCommands(command_model.Palette())),
+        composer=composer.new(composerCommands(command_model.palette())),
         approval=approval_feature.Model(),
-        attachments=attachments.New(session),
+        attachments=attachments.new(session),
         transcript=transcript.Model(welcome=""),
         styles=styles,
         info=info,
     )
-    app.transcript = transcript.New(
+    app.transcript = transcript.new(
         welcomeString(app),
         TranscriptStyles(
-            Status=styles.Status,
-            UserLabel=styles.UserLabel,
-            ToolLabel=styles.ToolLabel,
-            Thinking=styles.Thinking,
-            Footer=styles.Footer,
-            MarkdownRenderer=styles.MarkdownRenderer,
+            status=styles.status,
+            user_label=styles.user_label,
+            tool_label=styles.tool_label,
+            thinking=styles.thinking,
+            footer=styles.footer,
+            markdown_renderer=styles.markdown_renderer,
         ),
     )
     for option in options:
@@ -259,23 +259,23 @@ def New(session: Conversation, info: StartupInfo, *options: Option) -> App:
 
 def infoBar(app: App) -> Text:
     """The bottom status line: permission mode, model, and whether tools are on."""
-    tools = "tools off" if app.info.NoTools else "tools on"
-    parts = [app.info.PermissionMode or "ask", app.info.ModelName, tools]
+    tools = "tools off" if app.info.no_tools else "tools on"
+    parts = [app.info.permission_mode or "ask", app.info.model_name, tools]
     rendered = Text()
     for index, part in enumerate(parts):
         if index:
-            rendered.append(" · ", style=app.styles.Footer)
-        rendered.append(part, style=app.styles.Footer)
+            rendered.append(" · ", style=app.styles.footer)
+        rendered.append(part, style=app.styles.footer)
     return clampLines(app.width, rendered)
 
 
 def welcomeString(app: App) -> str:
     """The compact welcome block: product, model, working directory, instructions."""
-    parts = [app.info.ModelName]
-    if location := displayCWD(app.info.CWD):
+    parts = [app.info.model_name]
+    if location := displayCWD(app.info.cwd):
         parts.append(location)
-    if app.info.InstructionPaths:
-        parts.append(os.path.basename(app.info.InstructionPaths[-1]))
+    if app.info.instruction_paths:
+        parts.append(os.path.basename(app.info.instruction_paths[-1]))
     return "Super Agent\n" + " · ".join(parts)
 
 
@@ -283,15 +283,15 @@ def footerView(app: App) -> Text:
     """The error or status line, then the attachment, approval, and input rows."""
     rendered = Text()
     if app.err:
-        rendered.append(" !! error: " + app.err, style=app.styles.Error)
+        rendered.append(" !! error: " + app.err, style=app.styles.error)
     elif app.status:
-        rendered.append(" " + compactStatus(app.status, 3), style=app.styles.Status)
-    for view in (app.attachments.View(), app.approval.View(app.info.CWD)):
-        if view.plain:
+        rendered.append(" " + compactStatus(app.status, 3), style=app.styles.status)
+    for part in (app.attachments.view(), app.approval.view(app.info.cwd)):
+        if part.plain:
             rendered.append("\n")
-            rendered.append_text(view)
+            rendered.append_text(part)
     rendered.append("\n")
-    rendered.append_text(app.composer.View())
+    rendered.append_text(app.composer.view())
     rendered.append("\n")
     rendered.append_text(infoBar(app))
     return clampLines(app.width, rendered)
@@ -299,26 +299,26 @@ def footerView(app: App) -> Text:
 
 def refreshSnapshot(app: App) -> None:
     """Re-read conversation state after a command replaced or shrank the transcript."""
-    snapshot = app.snapshot.Snapshot()
-    app.agentStatus = snapshot.AgentStatus
-    app.transcript.Replace(snapshot.Messages)
-    app.transcript.SetBusy(snapshot.AgentStatus.Busy)
-    app.approval.Clear()
-    call, request = snapshot.PendingTool, snapshot.PendingPermission
+    snapshot = app.snapshot.snapshot()
+    app.agentStatus = snapshot.agent_status
+    app.transcript.replace(snapshot.messages)
+    app.transcript.set_busy(snapshot.agent_status.busy)
+    app.approval.clear()
+    call, request = snapshot.pending_tool, snapshot.pending_permission
     if call is not None and request is not None:
-        app.approval.Open(
+        app.approval.open(
             approval_feature.Request(
-                ToolName=call.Name,
-                Input=call.Input,
-                CommandClass=request.CommandClass,
-                CWD=request.CWD,
-                TouchedPaths=request.TouchedPaths,
-                Reason=request.Reason,
-                BatchIndex=snapshot.PendingToolBatchIndex,
-                BatchTotal=snapshot.PendingToolBatchTotal,
+                tool_name=call.name,
+                input=call.input,
+                command_class=request.command_class,
+                cwd=request.cwd,
+                touched_paths=request.touched_paths,
+                reason=request.reason,
+                batch_index=snapshot.pending_tool_batch_index,
+                batch_total=snapshot.pending_tool_batch_total,
             )
         )
-    app.transcript.SetStreaming(snapshot.StreamingMessage)
+    app.transcript.set_streaming(snapshot.streaming_message)
 
 
 async def applyOutcome(
@@ -335,26 +335,26 @@ async def applyOutcome(
     """
     if outcome is None:
         return app, command
-    if outcome.Err:
-        app.err = outcome.Err
+    if outcome.err:
+        app.err = outcome.err
     else:
         app.err = ""
-        if outcome.Status:
-            app.status = outcome.Status
-    if outcome.StatusBar is not None:
-        if outcome.StatusBar.ModelName:
-            app.info = dataclasses.replace(app.info, ModelName=outcome.StatusBar.ModelName)
-        app.info = dataclasses.replace(app.info, PermissionMode=outcome.StatusBar.PermissionMode)
-    if outcome.RefreshSnapshot:
+        if outcome.status:
+            app.status = outcome.status
+    if outcome.status_bar is not None:
+        if outcome.status_bar.model_name:
+            app.info = dataclasses.replace(app.info, model_name=outcome.status_bar.model_name)
+        app.info = dataclasses.replace(app.info, permission_mode=outcome.status_bar.permission_mode)
+    if outcome.refresh_snapshot:
         refreshSnapshot(app)
-    if outcome.Quit:
-        return app, (runtime.Quit,)
-    if outcome.ShowHelp:
+    if outcome.quit:
+        return app, (runtime.QUIT,)
+    if outcome.show_help:
         app.showHelp = True
-    if outcome.AttachPath:
-        return app, (app.attachments.Attach(outcome.AttachPath),)
-    if outcome.Prompt:
-        return submitPrompt(app, outcome.Prompt)
-    if outcome.Output:
-        return app, runtime.batch(printCommand(app, outcome.Output))
+    if outcome.attach_path:
+        return app, (app.attachments.attach(outcome.attach_path),)
+    if outcome.prompt:
+        return submitPrompt(app, outcome.prompt)
+    if outcome.output:
+        return app, runtime.batch(printCommand(app, outcome.output))
     return app, command

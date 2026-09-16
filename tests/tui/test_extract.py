@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from super_agent.tui import ExtractCodeBlocks
+from super_agent.tui import extract_code_blocks
 
 _CASES: tuple[tuple[str, str, list[str]], ...] = (
     ("no blocks", "hello world", []),
@@ -23,4 +23,4 @@ _CASES: tuple[tuple[str, str, list[str]], ...] = (
 
 @pytest.mark.parametrize(("name", "content", "wanted"), _CASES, ids=[case[0] for case in _CASES])
 def test_extract_code_blocks(name: str, content: str, wanted: list[str]) -> None:
-    assert ExtractCodeBlocks(content) == wanted, name
+    assert extract_code_blocks(content) == wanted, name

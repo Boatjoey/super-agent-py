@@ -11,8 +11,8 @@ workspace working directory changes.
 from __future__ import annotations
 
 from super_agent.tools.lsp.client import (
-    Connect as Connect,
     Manager as Manager,
     ServerConfig as ServerConfig,
     Tool as Tool,
+    connect as connect,
 )

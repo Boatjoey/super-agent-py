@@ -14,14 +14,14 @@ from super_agent import workspace
 def test_context_allows_relative_and_absolute_paths_inside_workspace(tmp_path: Path) -> None:
     root = tmp_path / "root"
     root.mkdir()
-    context = new_context(str(root), workspace.Root(Path=str(root), Access=workspace.AccessReadWrite))
+    context = new_context(str(root), workspace.Root(path=str(root), access=workspace.ACCESS_READ_WRITE))
 
-    relative = context.ResolvePath("src/index.ts")
+    relative = context.resolve_path("src/index.ts")
     want = os.path.join(real(root), "src", "index.ts")
 
     assert relative == want
-    assert context.CanRead("src/index.ts")
-    assert context.CanWrite(want)
+    assert context.can_read("src/index.ts")
+    assert context.can_write(want)
 
 
 def test_context_rejects_traversal_prefix_collision_and_outside_path(tmp_path: Path) -> None:
@@ -31,11 +31,11 @@ def test_context_rejects_traversal_prefix_collision_and_outside_path(tmp_path: P
     outside = parent / "outside"
     for directory in (root, secret, outside):
         directory.mkdir()
-    context = new_context(str(root), workspace.Root(Path=str(root), Access=workspace.AccessReadWrite))
+    context = new_context(str(root), workspace.Root(path=str(root), access=workspace.ACCESS_READ_WRITE))
 
     for path in ("../project-secret/file", str(secret / "file"), str(outside)):
-        assert not context.CanRead(path), path
-        assert not context.CanWrite(path), path
+        assert not context.can_read(path), path
+        assert not context.can_write(path), path
 
 
 def test_context_honors_read_only_read_write_and_additional_roots(tmp_path: Path) -> None:
@@ -46,18 +46,18 @@ def test_context_honors_read_only_read_write_and_additional_roots(tmp_path: Path
         directory.mkdir()
     context = new_context(
         str(primary),
-        workspace.Root(Path=str(primary), Access=workspace.AccessReadWrite),
-        workspace.Root(Path=str(read_only), Access=workspace.AccessRead),
-        workspace.Root(Path=str(additional), Access=workspace.AccessReadWrite),
+        workspace.Root(path=str(primary), access=workspace.ACCESS_READ_WRITE),
+        workspace.Root(path=str(read_only), access=workspace.ACCESS_READ),
+        workspace.Root(path=str(additional), access=workspace.ACCESS_READ_WRITE),
     )
 
-    assert context.CanRead(str(read_only / "file"))
-    assert not context.CanWrite(str(read_only / "file"))
-    assert context.CanRead(str(additional / "file"))
-    assert context.CanWrite(str(additional / "file"))
-    assert context.GetPrimaryRoot() == real(primary)
-    assert context.GetCWD() == real(primary)
-    assert len(context.GetRoots()) == 3
+    assert context.can_read(str(read_only / "file"))
+    assert not context.can_write(str(read_only / "file"))
+    assert context.can_read(str(additional / "file"))
+    assert context.can_write(str(additional / "file"))
+    assert context.get_primary_root() == real(primary)
+    assert context.get_cwd() == real(primary)
+    assert len(context.get_roots()) == 3
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="symlinks commonly need elevated privileges on Windows")
@@ -67,15 +67,15 @@ def test_context_rejects_symlink_escape(tmp_path: Path) -> None:
     for directory in (root, outside):
         directory.mkdir()
     os.symlink(outside, root / "link")
-    context = new_context(str(root), workspace.Root(Path=str(root), Access=workspace.AccessReadWrite))
+    context = new_context(str(root), workspace.Root(path=str(root), access=workspace.ACCESS_READ_WRITE))
 
-    assert not context.CanRead("link/secret")
-    assert not context.CanWrite("link/new-file")
+    assert not context.can_read("link/secret")
+    assert not context.can_write("link/new-file")
 
 
 def new_context(primary: str, *roots: workspace.Root) -> workspace.Context:
     """Build a context whose primary root is also its cwd."""
-    return workspace.NewContext(primary, primary, roots)
+    return workspace.new_context(primary, primary, roots)
 
 
 def real(path: Path) -> str:

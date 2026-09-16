@@ -26,7 +26,7 @@ _ACCENT_SELECTED = Style(color="color(6)", bold=True)
 _DIM = Style(color="color(8)", italic=True)
 _PROMPT = Style(color="color(6)", bold=True)
 
-__all__ = ["Command", "Intent", "IntentKind", "Model", "New", "NormalizeCommands"]
+__all__ = ["Command", "Intent", "IntentKind", "Model", "new", "normalize_commands"]
 
 #: How many lines of a long prompt stay visible, matching the textarea's height.
 _MAX_VISIBLE_LINES = 5
@@ -44,26 +44,26 @@ _DESCRIPTION_COLUMN = 17
 class Command:
     """One palette entry: the name the composer completes and the hint it shows."""
 
-    Name: str = ""
-    Description: str = ""
+    name: str = ""
+    description: str = ""
 
 
 class IntentKind(enum.Enum):
     """What the composer asks the root to do with the submitted text."""
 
-    NoIntent = "no-intent"
-    Submit = "submit"
-    Queue = "queue"
-    Steer = "steer"
-    Clear = "clear"
+    NO_INTENT = "no-intent"
+    SUBMIT = "submit"
+    QUEUE = "queue"
+    STEER = "steer"
+    CLEAR = "clear"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Intent:
     """One request from the composer to the root."""
 
-    Kind: IntentKind = IntentKind.NoIntent
-    Text: str = ""
+    kind: IntentKind = IntentKind.NO_INTENT
+    text: str = ""
 
 
 @dataclasses.dataclass(slots=True)
@@ -82,50 +82,50 @@ class Model:
     compactPalette: bool = False
     width: int = 76
 
-    def Init(self) -> None:
+    def init(self) -> None:
         """Nothing to start: Rich does not blink the cursor."""
         return None
 
-    def SetWidth(self, width: int) -> None:
+    def set_width(self, width: int) -> None:
         """The terminal got narrower or wider."""
         self.width = max(1, width - 4)
 
-    def SetCompactPalette(self, compact: bool) -> None:
+    def set_compact_palette(self, compact: bool) -> None:
         """Short terminals show palette names without descriptions."""
         self.compactPalette = compact
 
-    def SetTurnRunning(self, running: bool) -> None:
+    def set_turn_running(self, running: bool) -> None:
         """Whether Enter steers and Tab queues instead of submitting."""
         self.turnRunning = running
 
-    def Value(self) -> str:
+    def draft(self) -> str:
         """The current draft."""
         return self.value
 
-    def ClearInput(self) -> None:
+    def clear_input(self) -> None:
         """Empty the draft."""
         self.value = ""
         self.cursor = 0
 
-    def ClearQueue(self) -> None:
+    def clear_queue(self) -> None:
         """Drop every queued follow-up."""
         self.queued = []
 
-    def Enqueue(self, text: str) -> None:
+    def enqueue(self, text: str) -> None:
         """Append a follow-up to the queue."""
         self.queued.append(text)
 
-    def Prepend(self, text: str) -> None:
+    def prepend(self, text: str) -> None:
         """Put a steering prompt at the head of the queue."""
         self.queued.insert(0, text)
 
-    def NextQueued(self) -> tuple[str, bool]:
+    def next_queued(self) -> tuple[str, bool]:
         """Take the oldest queued follow-up, if there is one."""
         if not self.queued:
             return "", False
         return self.queued.pop(0), True
 
-    def Update(self, key: str) -> tuple[Model, Intent | None]:
+    def update(self, key: str) -> tuple[Model, Intent | None]:
         """Apply one key press.
 
         Keys are the canonical names the runtime decodes (``enter``, ``tab``,
@@ -135,16 +135,16 @@ class Model:
             case "esc" | "ctrl+u":
                 if self.value == "":
                     return self, None
-                self.ClearInput()
+                self.clear_input()
                 self.historyIndex = len(self.history)
                 self.historyDraft = ""
-                return self, Intent(Kind=IntentKind.Clear)
+                return self, Intent(kind=IntentKind.CLEAR)
             case "ctrl+j" | "shift+enter" | "alt+enter":
                 self._insert("\n")
                 return self, None
             case "tab":
                 if self.turnRunning:
-                    return self._action(IntentKind.Queue)
+                    return self._action(IntentKind.QUEUE)
                 if self.completeSelected() or self.completeUnique():
                     return self, None
             case "up":
@@ -176,8 +176,8 @@ class Model:
                 if not self.turnRunning and self.completeSelected():
                     return self, None
                 if self.turnRunning:
-                    return self._action(IntentKind.Steer)
-                return self._action(IntentKind.Submit)
+                    return self._action(IntentKind.STEER)
+                return self._action(IntentKind.SUBMIT)
             case "backspace":
                 self._delete(-1)
             case "delete":
@@ -196,7 +196,7 @@ class Model:
                     self._insert(key)
         return self, None
 
-    def View(self) -> Text:
+    def view(self) -> Text:
         """The queued preview, the palette, and the input box."""
         sections: list[Text] = []
         if queue := self.queueView():
@@ -250,9 +250,9 @@ class Model:
             prefix, style = "  ", _DIM
             if index == self.selection:
                 prefix, style = _SELECTED_MARKER + " ", _ACCENT_SELECTED
-            label = matches[index].Name
+            label = matches[index].name
             if not self.compactPalette:
-                label = f"{label:<{_DESCRIPTION_COLUMN}} {matches[index].Description}"
+                label = f"{label:<{_DESCRIPTION_COLUMN}} {matches[index].description}"
             if index > start:
                 rendered.append("\n")
             rendered.append(prefix + label, style=style)
@@ -265,7 +265,7 @@ class Model:
             return False
         if self.selection >= len(matches):
             self.selection = len(matches) - 1
-        selected = matches[self.selection].Name
+        selected = matches[self.selection].name
         if self.value == selected:
             return False
         self._setValue(selected)
@@ -275,9 +275,9 @@ class Model:
     def completeUnique(self) -> bool:
         """Complete a lone match, which is what Tab does for ``/ins``."""
         matches = self.matches()
-        if len(matches) != 1 or matches[0].Name == self.value:
+        if len(matches) != 1 or matches[0].name == self.value:
             return False
-        self._setValue(matches[0].Name)
+        self._setValue(matches[0].name)
         self.selection = 0
         return True
 
@@ -290,14 +290,14 @@ class Model:
         value = self.value
         if not value.startswith("/") or any(character in value for character in " \t\n"):
             return ()
-        return tuple(command for command in self.commands if command.Name.startswith(value))
+        return tuple(command for command in self.commands if command.name.startswith(value))
 
     def _action(self, kind: IntentKind) -> tuple[Model, Intent | None]:
         text = self.value.strip()
         if text == "":
             return self, None
         self._remember(text)
-        return self, Intent(Kind=kind, Text=text)
+        return self, Intent(kind=kind, text=text)
 
     def _remember(self, text: str) -> None:
         if not self.history or self.history[-1] != text:
@@ -342,14 +342,14 @@ class Model:
         return rendered
 
 
-def NormalizeCommands(commands: tuple[Command, ...] | list[Command]) -> tuple[Command, ...]:
+def normalize_commands(commands: tuple[Command, ...] | list[Command]) -> tuple[Command, ...]:
     """A copy of ``commands``, so the palette cannot be mutated by a caller."""
     return tuple(commands)
 
 
-def New(commands: tuple[Command, ...] | list[Command]) -> Model:
+def new(commands: tuple[Command, ...] | list[Command]) -> Model:
     """Build the model with a normalised palette."""
-    return Model(commands=NormalizeCommands(commands))
+    return Model(commands=normalize_commands(commands))
 
 
 def _join(sections: list[Text]) -> Text:

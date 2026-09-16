@@ -13,11 +13,11 @@ from dataclasses import replace
 from typing import Any, cast
 
 from super_agent.runtime.permission.types import (
-    CommandClassDestructive,
-    CommandClassNetwork,
-    CommandClassReadOnly,
-    CommandClassUnknown,
-    CommandClassWrite,
+    COMMAND_CLASS_DESTRUCTIVE,
+    COMMAND_CLASS_NETWORK,
+    COMMAND_CLASS_READ_ONLY,
+    COMMAND_CLASS_UNKNOWN,
+    COMMAND_CLASS_WRITE,
     Request as PermissionRequest,
 )
 from super_agent.runtime.protocol.types import ToolCall
@@ -39,30 +39,30 @@ _READ_ONLY_GIT_PREFIXES = ("git status", "git diff", "git show", "git log", "git
 
 def analyzeCommandRequest(request: PermissionRequest) -> PermissionRequest:
     """Fill in the class, reason, touched paths, and environment of a command."""
-    command = request.Command.strip()
-    touched = (*request.TouchedPaths, *commandPaths(command))
+    command = request.command.strip()
+    touched = (*request.touched_paths, *commandPaths(command))
     env = commandEnv(command)
 
     if command == "":
-        command_class, reason = CommandClassUnknown, "empty command"
+        command_class, reason = COMMAND_CLASS_UNKNOWN, "empty command"
     elif hasAnyToken(command, _DESTRUCTIVE_TOKENS) or "rm -rf" in command:
-        command_class, reason = CommandClassDestructive, "destructive shell command"
+        command_class, reason = COMMAND_CLASS_DESTRUCTIVE, "destructive shell command"
     elif containsNetworkIntent(command):
-        command_class, reason = CommandClassNetwork, "network-capable shell command"
+        command_class, reason = COMMAND_CLASS_NETWORK, "network-capable shell command"
     elif commandMayWrite(command):
         if isReadOnlyGitCommand(command):
-            command_class, reason = CommandClassReadOnly, "read-only git command"
+            command_class, reason = COMMAND_CLASS_READ_ONLY, "read-only git command"
         else:
-            command_class, reason = CommandClassWrite, "shell command may write files"
+            command_class, reason = COMMAND_CLASS_WRITE, "shell command may write files"
     else:
-        command_class, reason = CommandClassReadOnly, "read-only shell command"
+        command_class, reason = COMMAND_CLASS_READ_ONLY, "read-only shell command"
 
     return replace(
         request,
-        CommandClass=command_class,
-        TouchedPaths=touched,
-        EnvVars=env,
-        Reason=reason,
+        command_class=command_class,
+        touched_paths=touched,
+        env_vars=env,
+        reason=reason,
     )
 
 
@@ -119,7 +119,7 @@ def commandEnv(command: str) -> tuple[str, ...]:
 
 def toolPaths(call: ToolCall) -> tuple[str, ...]:
     """The paths a structured tool call names, from ``path``/``cwd``/``paths``/``files``."""
-    parsed = _parseInput(call.Input)
+    parsed = _parseInput(call.input)
     if parsed is None:
         return ()
     paths: list[str] = []

@@ -19,11 +19,11 @@ from typing import Protocol
 from super_agent.errors import JoinedError
 from super_agent.runtime.engine import Engine, EngineView
 from super_agent.runtime.execution import (
+    PERMISSION_MODE_ASK,
+    PERMISSION_MODE_BYPASS,
     PermissionMode,
-    PermissionModeAsk,
-    PermissionModeBypass,
     PermissionRules,
-    ValidPermissionMode,
+    valid_permission_mode,
 )
 from super_agent.runtime.machine import Message
 from super_agent.runtime.protocol.types import Attachment
@@ -48,7 +48,7 @@ from super_agent.runtime.session.turn import TurnMixin
 class Closer(Protocol):
     """Something released when the session closes, such as the telemetry sink."""
 
-    def Close(self) -> None: ...
+    def close(self) -> None: ...
 
 
 class SessionBase:
@@ -95,37 +95,37 @@ class SessionBase:
 
     # --- lifecycle -----------------------------------------------------------
 
-    def AddCloser(self, closer: Closer | None) -> None:
+    def add_closer(self, closer: Closer | None) -> None:
         """Register something to release when the session closes."""
         if closer is None:
             return
         self._closers.append(closer)
 
-    async def Close(self) -> None:
+    async def close(self) -> None:
         """Cancel the turn, then release every closer in reverse order.
 
         Errors are aggregated rather than dropped: a sink that failed to flush is
         worth reporting even when three others closed cleanly.
         """
-        await self.Cancel()
+        await self.cancel()
         closers = self._closers
         self._closers = []
         failures: list[BaseException] = []
         for closer in reversed(closers):
             try:
-                closer.Close()
+                closer.close()
             except Exception as error:
                 failures.append(error)
         if failures:
             raise JoinedError(*failures)
 
-    async def Cancel(self) -> None:
+    async def cancel(self) -> None:
         """Cancel the run, and record that the user asked for it."""
-        await self.engine.Cancel()
+        await self.engine.cancel()
         if self.repository is not None:
-            self.repository.SaveCancel(self.metaID())
+            self.repository.save_cancel(self.metaID())
 
-    async def Reset(self) -> None:
+    async def reset(self) -> None:
         """Clear the conversation, persisting the reset before mutating.
 
         Reset stays available while a turn runs: the engine drops stale results
@@ -133,18 +133,18 @@ class SessionBase:
         the conversation without racing the turn.
         """
         if self.repository is not None:
-            self.repository.SaveReset(self.metaID())
-        await self.engine.Reset()
-        self.emitter.reset(len(self.engine.Snapshot().Messages))
+            self.repository.save_reset(self.metaID())
+        await self.engine.reset()
+        self.emitter.reset(len(self.engine.snapshot().messages))
 
-    async def ReplaceConversation(self, messages: list[Message]) -> None:
+    async def replace_conversation(self, messages: list[Message]) -> None:
         """Activate a new system context and clear prior turns."""
         if not self._tryLock():
             raise RuntimeError("session is already running a turn")
         try:
             if self.repository is not None:
-                self.repository.SaveConversationReplacement(self.metaID(), messages)
-            await self.engine.ReplaceMessages(messages)
+                self.repository.save_conversation_replacement(self.metaID(), messages)
+            await self.engine.replace_messages(messages)
             self.emitter.reset(len(messages))
         finally:
             self._unlock()
@@ -157,53 +157,53 @@ class SessionBase:
         ``Cancel`` runs lock-free, so this reads through the same field it would
         otherwise race with during a resume.
         """
-        return self.meta.ID
+        return self.meta.id
 
-    def Metadata(self) -> Metadata:
+    def metadata(self) -> Metadata:
         return self.meta
 
-    def Snapshot(self) -> EngineView:
-        return self.engine.Snapshot()
+    def snapshot(self) -> EngineView:
+        return self.engine.snapshot()
 
-    def ConfigurePermissions(self, mode: PermissionMode, rules: PermissionRules) -> None:
+    def configure_permissions(self, mode: PermissionMode, rules: PermissionRules) -> None:
         self.permissionMode = mode
         self.permissionRules = rules
 
-    def PermissionMode(self) -> PermissionMode:
+    def permission_mode(self) -> PermissionMode:
         """The active policy mode, for display and queries."""
         return self.permissionMode
 
-    def AutoApproveTools(self) -> bool:
+    def auto_approve_tools(self) -> bool:
         """Whether the active policy approves tools without prompting.
 
         A runtime decision, not something the TUI derives from the mode string.
         """
-        return self.permissionMode == PermissionModeBypass
+        return self.permissionMode == PERMISSION_MODE_BYPASS
 
-    async def SetPermissionMode(self, mode: PermissionMode) -> None:
+    async def set_permission_mode(self, mode: PermissionMode) -> None:
         if mode == "":
-            mode = PermissionModeAsk
-        if not ValidPermissionMode(mode):
+            mode = PERMISSION_MODE_ASK
+        if not valid_permission_mode(mode):
             raise ValueError("invalid permission mode: " + str(mode))
-        await self.engine.SetPermissionPolicy(mode, self.permissionRules)
+        await self.engine.set_permission_policy(mode, self.permissionRules)
         self.permissionMode = mode
 
     async def emitSnapshot(self, notifications: asyncio.Queue[SessionNotification]) -> None:
         """Push the current snapshot through the emitter."""
-        await self.emitter.emit(notifications, self.Snapshot(), self.persistMessage)
+        await self.emitter.emit(notifications, self.snapshot(), self.persistMessage)
 
     def persistMessage(self, message: Message) -> None:
         """Persist one appended message. Overridden by :class:`PersistenceMixin`."""
         if self.repository is not None:
-            self.repository.SaveMessage(self.metaID(), message)
+            self.repository.save_message(self.metaID(), message)
 
 
-def NewSession(engine: Engine) -> Session:
+def new_session(engine: Engine) -> Session:
     """A session with no persistence: the conversation lives only in memory."""
     return Session(engine)
 
 
-def NewPersistentSession(
+def new_persistent_session(
     engine: Engine,
     repository: Repository | None,
     workspace: Workspace | None,
@@ -211,11 +211,11 @@ def NewPersistentSession(
 ) -> Session:
     """A session over an existing stored conversation."""
     emitter = SnapshotEmitter()
-    emitter.emittedMessages = len(engine.Snapshot().Messages)
+    emitter.emittedMessages = len(engine.snapshot().messages)
     return Session(engine, repository, workspace, meta, emitter)
 
 
-def CreatePersistentSession(
+def create_persistent_session(
     engine: Engine,
     repository: Repository,
     workspace: Workspace | None,
@@ -229,27 +229,27 @@ def CreatePersistentSession(
     """
     if workspace is None:
         raise ValueError("workspace is not configured")
-    spec = workspace.Spec()
-    workspace.Validate(spec)
-    created = repository.Create(
+    spec = workspace.spec()
+    workspace.validate(spec)
+    created = repository.create(
         _with_workspace(meta, spec),
         initial,
     )
-    return NewPersistentSession(engine, repository, workspace, created)
+    return new_persistent_session(engine, repository, workspace, created)
 
 
 def _with_workspace(meta: Metadata, spec: WorkspaceSpec) -> Metadata:
     return Metadata(
-        ID=meta.ID,
-        Title=meta.Title,
-        Provider=meta.Provider,
-        Model=meta.Model,
-        CWD=spec.CWD,
-        InstructionSources=meta.InstructionSources,
-        ParentID=meta.ParentID,
-        ProjectID=meta.ProjectID,
-        ConfigRoot=meta.ConfigRoot,
-        WorkspaceSpec=workspaceSpecPointer(spec),
+        id=meta.id,
+        title=meta.title,
+        provider=meta.provider,
+        model=meta.model,
+        cwd=spec.cwd,
+        instruction_sources=meta.instruction_sources,
+        parent_id=meta.parent_id,
+        project_id=meta.project_id,
+        config_root=meta.config_root,
+        workspace_spec=workspaceSpecPointer(spec),
     )
 
 

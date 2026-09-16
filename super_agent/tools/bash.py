@@ -31,13 +31,13 @@ class BashTool:
     runner: command_runner | None = None
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="bash",
-                Description="Run a bash command after user approval.",
-                Risky=True,
-                Parameters={
+                name="bash",
+                description="Run a bash command after user approval.",
+                risky=True,
+                parameters={
                     "type": "object",
                     "properties": {"command": {"type": "string"}},
                     "required": ["command"],
@@ -45,8 +45,8 @@ class BashTool:
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        command = bash_command(call.Input)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        command = bash_command(call.input)
         if command == "":
             raise RuntimeError("invalid bash command input: must be JSON with 'command' field")
         cwd = command_cwd(self.workspace, "")
@@ -62,7 +62,7 @@ class BashTool:
         )
         if error is None:
             return output
-        ctx.RaiseIfCancelled()
+        ctx.raise_if_cancelled()
         if isinstance(error, command_exit_error):
             # A non-zero exit status is a normal result rather than a tool
             # failure: the output and status already read as a diagnosis for the

@@ -13,9 +13,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ToolCall
-from super_agent.tools import BrowserFetchTool, DefaultRegistry
+from super_agent.tools import BrowserFetchTool, default_registry
 from tests.tools.test_workspace import workspace_for
 
 
@@ -28,16 +28,16 @@ async def test_browser_rejects_private_and_non_http_addresses() -> None:
         '{"url":"file:///etc/passwd"}',
     ):
         with pytest.raises((ValueError, RuntimeError)) as caught:
-            await tool.Run(LiveContext(), ToolCall(Input=raw))
+            await tool.run(live_context(), ToolCall(input=raw))
         message = str(caught.value)
         assert "blocked" in message or "HTTP(S)" in message
 
 
 def test_web_tools_are_risky_network_tools(tmp_path: Path) -> None:
     seen = {
-        spec.Name: spec.Risky
-        for spec in DefaultRegistry(workspace_for(tmp_path)).Specs()
-        if spec.Name in ("web_search", "browser_fetch")
+        spec.name: spec.risky
+        for spec in default_registry(workspace_for(tmp_path)).specs()
+        if spec.name in ("web_search", "browser_fetch")
     }
 
     assert seen["web_search"]
@@ -54,7 +54,7 @@ async def test_browser_fetch_extracts_text_and_resolves_links() -> None:
 
     tool = BrowserFetchTool(transport=httpx.MockTransport(handler))
 
-    output = await tool.Run(LiveContext(), ToolCall(Input='{"url":"https://example.com/page"}'))
+    output = await tool.run(live_context(), ToolCall(input='{"url":"https://example.com/page"}'))
 
     payload = json.loads(output)
     assert payload["url"] == "https://example.com/page"
@@ -71,4 +71,4 @@ async def test_browser_fetch_rejects_a_redirect_to_a_private_address() -> None:
     tool = BrowserFetchTool(transport=httpx.MockTransport(handler))
 
     with pytest.raises(ValueError, match="blocked"):
-        await tool.Run(LiveContext(), ToolCall(Input='{"url":"https://example.com/start"}'))
+        await tool.run(live_context(), ToolCall(input='{"url":"https://example.com/start"}'))

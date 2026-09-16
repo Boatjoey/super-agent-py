@@ -23,20 +23,20 @@ class ActionQueue:
         self._queue: list[QueuedAction] = []
         self._next = 0
 
-    def Queue(self, run_id: RunID, action: ScheduledAction) -> QueuedAction:
+    def queue(self, run_id: RunID, action: ScheduledAction) -> QueuedAction:
         """Append ``action`` under ``run_id`` and return the stamped entry."""
         self._next += 1
-        queued = QueuedAction(RunID=run_id, ActionID=ActionID(f"action-{self._next}"), Action=action)
+        queued = QueuedAction(run_id=run_id, action_id=ActionID(f"action-{self._next}"), action=action)
         self._queue.append(queued)
         return queued
 
-    def Pop(self) -> QueuedAction | None:
+    def pop(self) -> QueuedAction | None:
         """Remove and return the oldest entry, or ``None`` when empty."""
         if not self._queue:
             return None
         return self._queue.pop(0)
 
-    def Clear(self) -> None:
+    def clear(self) -> None:
         """Drop every queued entry.
 
         The counter is not reset: action ids stay unique for the life of the
@@ -45,5 +45,5 @@ class ActionQueue:
         """
         self._queue = []
 
-    def Len(self) -> int:
+    def len(self) -> int:
         return len(self._queue)

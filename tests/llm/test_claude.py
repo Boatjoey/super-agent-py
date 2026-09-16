@@ -19,10 +19,10 @@ from super_agent import llm
 from super_agent.llm import openai as _openai_module
 from super_agent.runtime.protocol.run_context import RunContext
 from super_agent.runtime.protocol.types import (
+    ROLE_SYSTEM,
+    ROLE_USER,
     Attachment,
     Message,
-    RoleSystem,
-    RoleUser,
     StreamChunk,
     ToolSpec,
 )
@@ -121,11 +121,11 @@ async def _transport(monkeypatch: pytest.MonkeyPatch, handler: _Handler) -> Asyn
 
 
 def _model(cfg: llm.ProviderConfig) -> llm.ClaudeModel:
-    return llm.NewClaude(cfg)
+    return llm.new_claude(cfg)
 
 
 def _config() -> llm.ProviderConfig:
-    return llm.ProviderConfig(BaseURL="https://claude.test", APIKey="test-key", Model="test-model")
+    return llm.ProviderConfig(base_url="https://claude.test", api_key="test-key", model="test-model")
 
 
 def _body(request: httpx2.Request) -> dict[str, Any]:
@@ -141,11 +141,11 @@ async def test_claude_model_sends_system_message(monkeypatch: pytest.MonkeyPatch
         return _response(_sse(*_OK_STREAM))
 
     async with _transport(monkeypatch, handler):
-        await _model(_config()).Next(
+        await _model(_config()).next(
             RunContext(),
             [
-                Message(Role=RoleSystem, Content="project instructions"),
-                Message(Role=RoleUser, Content="hi"),
+                Message(role=ROLE_SYSTEM, content="project instructions"),
+                Message(role=ROLE_USER, content="hi"),
             ],
             [],
             _discard,
@@ -164,13 +164,13 @@ async def test_claude_model_sends_image_attachment(monkeypatch: pytest.MonkeyPat
         return _response(_sse(*_SIMPLE_STREAM))
 
     async with _transport(monkeypatch, handler):
-        await _model(_config()).Next(
+        await _model(_config()).next(
             RunContext(),
             [
                 Message(
-                    Role=RoleUser,
-                    Content="inspect",
-                    Attachments=(Attachment(Name="pixel.png", MIME="image/png", Data="aW1hZ2U="),),
+                    role=ROLE_USER,
+                    content="inspect",
+                    attachments=(Attachment(name="pixel.png", mime="image/png", data="aW1hZ2U="),),
                 )
             ],
             [],
@@ -188,10 +188,10 @@ async def test_claude_model_fails_on_max_tokens_stop(monkeypatch: pytest.MonkeyP
 
     async with _transport(monkeypatch, handler):
         with pytest.raises(RuntimeError, match="truncated"):
-            await _model(_config()).Next(
+            await _model(_config()).next(
                 RunContext(),
-                [Message(Role=RoleUser, Content="write the file")],
-                [ToolSpec(Name="write_file", Risky=True)],
+                [Message(role=ROLE_USER, content="write the file")],
+                [ToolSpec(name="write_file", risky=True)],
                 _discard,
             )
 
@@ -202,17 +202,17 @@ async def test_claude_model_reports_usage(monkeypatch: pytest.MonkeyPatch) -> No
         return _response(_sse(*_USAGE_STREAM))
 
     async with _transport(monkeypatch, handler):
-        response = await _model(_config()).Next(
+        response = await _model(_config()).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="hi")],
+            [Message(role=ROLE_USER, content="hi")],
             [],
             _discard,
         )
 
-    assert response.Usage is not None
-    assert response.Usage.InputTokens == 11
-    assert response.Usage.OutputTokens == 7
-    assert response.Usage.TotalTokens == 18
+    assert response.usage is not None
+    assert response.usage.input_tokens == 11
+    assert response.usage.output_tokens == 7
+    assert response.usage.total_tokens == 18
 
 
 @pytest.mark.asyncio
@@ -224,9 +224,9 @@ async def test_claude_model_passes_through_schema_extras(monkeypatch: pytest.Mon
         return _response(_sse(*_SIMPLE_STREAM))
 
     spec = ToolSpec(
-        Name="mcp_tool",
-        Risky=True,
-        Parameters={
+        name="mcp_tool",
+        risky=True,
+        parameters={
             "type": "object",
             "$defs": {
                 "filters": {
@@ -240,9 +240,9 @@ async def test_claude_model_passes_through_schema_extras(monkeypatch: pytest.Mon
     )
 
     async with _transport(monkeypatch, handler):
-        await _model(_config()).Next(
+        await _model(_config()).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="hi")],
+            [Message(role=ROLE_USER, content="hi")],
             [spec],
             _discard,
         )

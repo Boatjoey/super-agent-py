@@ -44,35 +44,35 @@ max_search_line_bytes: Final[int] = 1 << 20
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ReadFileArgs:
-    Path: str = dataclasses.field(default="", metadata=json_field(name="path"))
-    StartLine: int = dataclasses.field(default=0, metadata=json_field(name="start_line"))
-    EndLine: int = dataclasses.field(default=0, metadata=json_field(name="end_line"))
+    path: str = dataclasses.field(default="", metadata=json_field(name="path"))
+    start_line: int = dataclasses.field(default=0, metadata=json_field(name="start_line"))
+    end_line: int = dataclasses.field(default=0, metadata=json_field(name="end_line"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ListFilesArgs:
-    Path: str = dataclasses.field(default="", metadata=json_field(name="path"))
-    Pattern: str = dataclasses.field(default="", metadata=json_field(name="pattern"))
+    path: str = dataclasses.field(default="", metadata=json_field(name="path"))
+    pattern: str = dataclasses.field(default="", metadata=json_field(name="pattern"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _SearchArgs:
-    Query: str = dataclasses.field(default="", metadata=json_field(name="query"))
-    Path: str = dataclasses.field(default="", metadata=json_field(name="path"))
+    query: str = dataclasses.field(default="", metadata=json_field(name="query"))
+    path: str = dataclasses.field(default="", metadata=json_field(name="path"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ApplyPatchArgs:
-    Path: str = dataclasses.field(default="", metadata=json_field(name="path"))
-    OldText: str = dataclasses.field(default="", metadata=json_field(name="old_text"))
-    NewText: str = dataclasses.field(default="", metadata=json_field(name="new_text"))
-    ReplaceAll: bool = dataclasses.field(default=False, metadata=json_field(name="replace_all"))
+    path: str = dataclasses.field(default="", metadata=json_field(name="path"))
+    old_text: str = dataclasses.field(default="", metadata=json_field(name="old_text"))
+    new_text: str = dataclasses.field(default="", metadata=json_field(name="new_text"))
+    replace_all: bool = dataclasses.field(default=False, metadata=json_field(name="replace_all"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _WriteFileArgs:
-    Path: str = dataclasses.field(default="", metadata=json_field(name="path"))
-    Content: str = dataclasses.field(default="", metadata=json_field(name="content"))
+    path: str = dataclasses.field(default="", metadata=json_field(name="path"))
+    content: str = dataclasses.field(default="", metadata=json_field(name="content"))
 
 
 def decode_args[T](text: str, cls: type[T]) -> T:
@@ -119,12 +119,12 @@ class ReadFileTool:
 
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="read_file",
-                Description="Read a workspace file, optionally with start_line and end_line.",
-                Parameters=object_schema(
+                name="read_file",
+                description="Read a workspace file, optionally with start_line and end_line.",
+                parameters=object_schema(
                     {
                         "path": {"type": "string"},
                         "start_line": {"type": "integer"},
@@ -135,13 +135,13 @@ class ReadFileTool:
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _ReadFileArgs)
-        path, rel = resolve_readable(self.workspace, args.Path)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _ReadFileArgs)
+        path, rel = resolve_readable(self.workspace, args.path)
         content = read_file_capped(path, max_read_file_bytes)
         if is_binary(content):
             raise RuntimeError(f"refusing to read binary file: {rel}")
-        return numbered_lines(content.decode("utf-8", "replace"), args.StartLine, args.EndLine)
+        return numbered_lines(content.decode("utf-8", "replace"), args.start_line, args.end_line)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -150,23 +150,23 @@ class ListFilesTool:
 
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="list_files",
-                Description="List workspace files under path, optionally filtered by glob pattern.",
-                Parameters=object_schema(
+                name="list_files",
+                description="List workspace files under path, optionally filtered by glob pattern.",
+                parameters=object_schema(
                     {"path": {"type": "string"}, "pattern": {"type": "string"}},
                     [],
                 ),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = _ListFilesArgs() if call.Input == "" else decode_args(call.Input, _ListFilesArgs)
-        path = args.Path or "."
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = _ListFilesArgs() if call.input == "" else decode_args(call.input, _ListFilesArgs)
+        path = args.path or "."
         root, _ = resolve_readable(self.workspace, path)
-        files = collect_files(self.workspace, root, args.Pattern)
+        files = collect_files(self.workspace, root, args.pattern)
         return "\n".join(limit_lines(files))
 
 
@@ -176,24 +176,24 @@ class SearchTool:
 
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="search",
-                Description="Search text in workspace files. Query is a regular expression.",
-                Parameters=object_schema(
+                name="search",
+                description="Search text in workspace files. Query is a regular expression.",
+                parameters=object_schema(
                     {"query": {"type": "string"}, "path": {"type": "string"}},
                     ["query"],
                 ),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _SearchArgs)
-        if args.Query == "":
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _SearchArgs)
+        if args.query == "":
             raise RuntimeError("query is required")
-        path = args.Path or "."
-        pattern = re.compile(args.Query)
+        path = args.path or "."
+        pattern = re.compile(args.query)
         root, _ = resolve_readable(self.workspace, path)
         matches = search_files(self.workspace, root, pattern)
         return "\n".join(limit_lines(matches))
@@ -205,13 +205,13 @@ class ApplyPatchTool:
 
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="apply_patch",
-                Description="Replace old_text with new_text in a workspace file.",
-                Risky=True,
-                Parameters=object_schema(
+                name="apply_patch",
+                description="Replace old_text with new_text in a workspace file.",
+                risky=True,
+                parameters=object_schema(
                     {
                         "path": {"type": "string"},
                         "old_text": {"type": "string"},
@@ -223,15 +223,15 @@ class ApplyPatchTool:
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _ApplyPatchArgs)
-        path, rel = resolve_writable(self.workspace, args.Path)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _ApplyPatchArgs)
+        path, rel = resolve_writable(self.workspace, args.path)
         content = read_file_capped(path, max_read_file_bytes)
         text = content.decode("utf-8", "replace")
-        if args.OldText not in text:
+        if args.old_text not in text:
             raise RuntimeError("old_text not found")
-        count = -1 if args.ReplaceAll else 1
-        updated = text.replace(args.OldText, args.NewText, count)
+        count = -1 if args.replace_all else 1
+        updated = text.replace(args.old_text, args.new_text, count)
         write_file_no_follow(path, updated.encode("utf-8"), 0o644)
         return "patched " + rel
 
@@ -242,24 +242,24 @@ class WriteFileTool:
 
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="write_file",
-                Description="Write content to a workspace file, creating parent directories.",
-                Risky=True,
-                Parameters=object_schema(
+                name="write_file",
+                description="Write content to a workspace file, creating parent directories.",
+                risky=True,
+                parameters=object_schema(
                     {"path": {"type": "string"}, "content": {"type": "string"}},
                     ["path", "content"],
                 ),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _WriteFileArgs)
-        path, rel = resolve_writable(self.workspace, args.Path)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _WriteFileArgs)
+        path, rel = resolve_writable(self.workspace, args.path)
         os.makedirs(os.path.dirname(path) or ".", mode=0o755, exist_ok=True)
-        write_file_no_follow(path, args.Content.encode("utf-8"), 0o644)
+        write_file_no_follow(path, args.content.encode("utf-8"), 0o644)
         return "wrote " + rel
 
 

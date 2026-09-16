@@ -27,18 +27,18 @@ class PersistenceMixin:
     def persistTurnBoundary(self) -> None:
         """Start a new turn id, so a resumed transcript can be grouped by turn."""
         if self.repository is not None:
-            self.repository.AssignNewTurnID(self.metaID())
+            self.repository.assign_new_turn_id(self.metaID())
 
     def persistMessage(self, message: Message) -> None:
         if self.repository is not None:
-            self.repository.SaveMessage(self.metaID(), message)
+            self.repository.save_message(self.metaID(), message)
 
     def persistApproval(self, decision: ApprovalDecision, call: ToolCall) -> None:
         """Approval decisions are audited and never sent to a model."""
         if self.repository is None:
             return
-        self.repository.SaveApproval(self.metaID(), decision, call)
+        self.repository.save_approval(self.metaID(), decision, call)
 
     def persistError(self, error: BaseException | None) -> None:
         if self.repository is not None and error is not None:
-            self.repository.SaveError(self.metaID(), error)
+            self.repository.save_error(self.metaID(), error)

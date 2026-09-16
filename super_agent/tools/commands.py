@@ -70,27 +70,27 @@ class command_exit_error(Exception):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _RunCommandArgs:
-    Command: str = dataclasses.field(default="", metadata=json_field(name="command"))
-    CWD: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
-    TimeoutSeconds: int = dataclasses.field(default=0, metadata=json_field(name="timeout_seconds"))
-    MaxOutputBytes: int = dataclasses.field(default=0, metadata=json_field(name="max_output_bytes"))
-    ContinueOnError: bool = dataclasses.field(default=False, metadata=json_field(name="continue_on_error"))
+    command: str = dataclasses.field(default="", metadata=json_field(name="command"))
+    cwd: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
+    timeout_seconds: int = dataclasses.field(default=0, metadata=json_field(name="timeout_seconds"))
+    max_output_bytes: int = dataclasses.field(default=0, metadata=json_field(name="max_output_bytes"))
+    continue_on_error: bool = dataclasses.field(default=False, metadata=json_field(name="continue_on_error"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _GoTestArgs:
-    Packages: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="packages"))
-    CWD: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
+    packages: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="packages"))
+    cwd: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _FormatArgs:
-    Files: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="files"))
+    files: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="files"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _GitDiffArgs:
-    Paths: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="paths"))
+    paths: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="paths"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -100,13 +100,13 @@ class RunCommandTool:
     runner: command_runner | None = None
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="run_command",
-                Description="Run a workspace command with cwd, timeout_seconds, and max_output_bytes.",
-                Risky=True,
-                Parameters=object_schema(
+                name="run_command",
+                description="Run a workspace command with cwd, timeout_seconds, and max_output_bytes.",
+                risky=True,
+                parameters=object_schema(
                     {
                         "command": {"type": "string"},
                         "cwd": {"type": "string"},
@@ -119,20 +119,20 @@ class RunCommandTool:
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _RunCommandArgs)
-        if args.Command == "":
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _RunCommandArgs)
+        if args.command == "":
             raise RuntimeError("command is required")
-        cwd = command_cwd(self.workspace, args.CWD)
+        cwd = command_cwd(self.workspace, args.cwd)
         output, error = await run_shell(
             runner_or_default(self.runner),
             ctx,
             cwd,
-            args.TimeoutSeconds,
-            args.MaxOutputBytes,
-            args.Command,
+            args.timeout_seconds,
+            args.max_output_bytes,
+            args.command,
         )
-        if error is not None and not args.ContinueOnError:
+        if error is not None and not args.continue_on_error:
             raise error
         return output
 
@@ -144,13 +144,13 @@ class GoTestTool:
     runner: command_runner | None = None
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="go_test",
-                Description="Run go test for workspace packages.",
-                Risky=True,
-                Parameters=object_schema(
+                name="go_test",
+                description="Run go test for workspace packages.",
+                risky=True,
+                parameters=object_schema(
                     {
                         "packages": {"type": "array", "items": {"type": "string"}},
                         "cwd": {"type": "string"},
@@ -160,10 +160,10 @@ class GoTestTool:
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = _GoTestArgs() if call.Input == "" else decode_args(call.Input, _GoTestArgs)
-        packages = args.Packages or ["./..."]
-        cwd = command_cwd(self.workspace, args.CWD)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = _GoTestArgs() if call.input == "" else decode_args(call.input, _GoTestArgs)
+        packages = args.packages or ["./..."]
+        cwd = command_cwd(self.workspace, args.cwd)
         for package in packages:
             if package.startswith("-"):
                 raise RuntimeError("package paths must not start with '-': " + package)
@@ -189,24 +189,24 @@ class FormatTool:
     runner: command_runner | None = None
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="format",
-                Description="Run gofmt -w on workspace Go files.",
-                Risky=True,
-                Parameters=object_schema(
+                name="format",
+                description="Run gofmt -w on workspace Go files.",
+                risky=True,
+                parameters=object_schema(
                     {"files": {"type": "array", "items": {"type": "string"}}},
                     ["files"],
                 ),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _FormatArgs)
-        if not args.Files:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _FormatArgs)
+        if not args.files:
             raise RuntimeError("files is required")
-        files = [resolve_writable(self.workspace, name)[0] for name in args.Files]
+        files = [resolve_writable(self.workspace, name)[0] for name in args.files]
         cwd = command_cwd(self.workspace, "")
         _, error = await run_exec(
             runner_or_default(self.runner),
@@ -231,18 +231,18 @@ class GitStatusTool:
     runner: command_runner | None = None
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="git_status",
-                Description="Show the branch and short git status for the workspace.",
-                Parameters=object_schema({}, []),
+                name="git_status",
+                description="Show the branch and short git status for the workspace.",
+                parameters=object_schema({}, []),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        if call.Input not in ("", "{}"):
-            decode_json_object(call.Input)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        if call.input not in ("", "{}"):
+            decode_json_object(call.input)
         cwd = command_cwd(self.workspace, "")
         output, error = await run_exec(
             runner_or_default(self.runner),
@@ -267,22 +267,22 @@ class GitDiffTool:
     runner: command_runner | None = None
     workspace: WorkspaceContext | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="git_diff",
-                Description="Show git diff for optional workspace paths.",
-                Parameters=object_schema(
+                name="git_diff",
+                description="Show git diff for optional workspace paths.",
+                parameters=object_schema(
                     {"paths": {"type": "array", "items": {"type": "string"}}},
                     [],
                 ),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = _GitDiffArgs() if call.Input == "" else decode_args(call.Input, _GitDiffArgs)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = _GitDiffArgs() if call.input == "" else decode_args(call.input, _GitDiffArgs)
         cmd_args = ["diff", "--"]
-        for path in args.Paths:
+        for path in args.paths:
             _, rel = resolve_readable(self.workspace, path)
             cmd_args.append(rel)
         cwd = command_cwd(self.workspace, "")
@@ -308,7 +308,7 @@ def command_cwd(workspace: WorkspaceContext | None, cwd: str) -> str:
     if workspace is None:
         raise RuntimeError("workspace is not configured")
     if cwd == "":
-        cwd = workspace.GetCWD()
+        cwd = workspace.get_cwd()
     path, _ = resolve_readable(workspace, cwd)
     return path
 
@@ -377,7 +377,7 @@ async def run_exec(
     if runner.sandbox is not None:
         workspace_root = ""
         if runner.workspace is not None:
-            workspace_root = runner.workspace.GetPrimaryRoot()
+            workspace_root = runner.workspace.get_primary_root()
         name, args_list, cwd = runner.sandbox.wrap(workspace_root, cwd, name, args_list)
     process = await asyncio.create_subprocess_exec(
         name,
@@ -393,17 +393,17 @@ async def run_exec(
     )
     sink = capped_buffer(limit=max_bytes)
     reader = asyncio.create_task(_consume(process, sink))
-    cancelled = asyncio.create_task(ctx.Done().wait())
+    cancelled = asyncio.create_task(ctx.done().wait())
     waiting: set[asyncio.Task[Any]] = {reader, cancelled}
     try:
         done, _pending = await asyncio.wait(waiting, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
         if reader in done:
             await reader
             return _finish(sink, process.returncode)
-        reason: BaseException = ctx.Err() or TimeoutError(f"command timed out after {timeout} seconds")
+        reason: BaseException = ctx.err() or TimeoutError(f"command timed out after {timeout} seconds")
         await terminate_process_tree(process)
         await _settle(reader)
-        return sink.String(), reason
+        return sink.string(), reason
     finally:
         await _settle(cancelled)
 
@@ -423,7 +423,7 @@ async def _consume(process: asyncio.subprocess.Process, sink: capped_buffer) -> 
 
 def _finish(sink: capped_buffer, returncode: int | None) -> tuple[str, BaseException | None]:
     """The result of a process that ran to completion."""
-    result = sink.String()
+    result = sink.string()
     if not returncode:
         return result, None
     error = command_exit_error(_exit_status_message(returncode))

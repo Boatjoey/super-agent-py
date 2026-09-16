@@ -36,18 +36,18 @@ class SessionNotification:
 class StateChanged(SessionNotification):
     kind: ClassVar[str] = "StateChanged"
 
-    State: State
+    state: State
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolApprovalRequested(SessionNotification):
     kind: ClassVar[str] = "ToolApprovalRequested"
 
-    ToolCall: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
-    BatchID: str = ""
-    BatchIndex: int = 0
-    BatchTotal: int = 0
+    tool_call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
+    batch_id: str = ""
+    batch_index: int = 0
+    batch_total: int = 0
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -59,24 +59,24 @@ class ToolApprovalCleared(SessionNotification):
 class StreamChunkReceived(SessionNotification):
     kind: ClassVar[str] = "StreamChunkReceived"
 
-    Chunk: StreamChunk = dataclasses.field(default_factory=StreamChunk)
+    chunk: StreamChunk = dataclasses.field(default_factory=StreamChunk)
     #: The whole accumulated streaming message, not just this delta, so a consumer
     #: that drops an intermediate chunk still converges on the same text.
-    Message: Message | None = None
+    message: Message | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MessageAppended(SessionNotification):
     kind: ClassVar[str] = "MessageAppended"
 
-    Message: Message = dataclasses.field(default_factory=Message)
+    message: Message = dataclasses.field(default_factory=Message)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class SessionError(SessionNotification):
     kind: ClassVar[str] = "SessionError"
 
-    Err: BaseException | None = None
+    err: BaseException | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

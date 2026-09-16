@@ -18,23 +18,23 @@ class State(str):
         return f"State({str.__repr__(self)})"
 
 
-StateInitializing: Final[State] = State("Initializing")
-StateIdle: Final[State] = State("Idle")
-StateWaitingLLM: Final[State] = State("WaitingLLM")
-StateWaitingApproval: Final[State] = State("WaitingApproval")
-StateRunningTool: Final[State] = State("RunningTool")
-StateAdvancingQueue: Final[State] = State("AdvancingQueue")
+STATE_INITIALIZING: Final[State] = State("Initializing")
+STATE_IDLE: Final[State] = State("Idle")
+STATE_WAITING_LLM: Final[State] = State("WaitingLLM")
+STATE_WAITING_APPROVAL: Final[State] = State("WaitingApproval")
+STATE_RUNNING_TOOL: Final[State] = State("RunningTool")
+STATE_ADVANCING_QUEUE: Final[State] = State("AdvancingQueue")
 
 #: Every state, in declaration order.
-AllStates: Final[tuple[State, ...]] = (
-    StateInitializing,
-    StateIdle,
-    StateWaitingLLM,
-    StateWaitingApproval,
-    StateRunningTool,
-    StateAdvancingQueue,
+ALL_STATES: Final[tuple[State, ...]] = (
+    STATE_INITIALIZING,
+    STATE_IDLE,
+    STATE_WAITING_LLM,
+    STATE_WAITING_APPROVAL,
+    STATE_RUNNING_TOOL,
+    STATE_ADVANCING_QUEUE,
 )
 
 #: The zero value of the type, used as the registry key for events that every
 #: state accepts. Not a legal running state; see ``transition.py``.
-ZeroState: Final[State] = State("")
+ZERO_STATE: Final[State] = State("")

@@ -10,8 +10,8 @@ import pytest
 
 from super_agent import workspace
 from super_agent.runtime.session import (
-    WorkspaceAccessRead,
-    WorkspaceAccessReadWrite,
+    WORKSPACE_ACCESS_READ,
+    WORKSPACE_ACCESS_READ_WRITE,
     WorkspaceRootSpec,
     WorkspaceSpec,
 )
@@ -22,23 +22,23 @@ def test_workspace_spec_round_trips_through_validated_runtime(tmp_path: Path) ->
     read_only = tmp_path / "readonly"
     for directory in (primary, read_only):
         directory.mkdir()
-    context = workspace.NewContext(
+    context = workspace.new_context(
         str(primary),
         str(primary),
         [
-            workspace.Root(Path=str(primary), Access=workspace.AccessReadWrite),
-            workspace.Root(Path=str(read_only), Access=workspace.AccessRead),
+            workspace.Root(path=str(primary), access=workspace.ACCESS_READ_WRITE),
+            workspace.Root(path=str(read_only), access=workspace.ACCESS_READ),
         ],
     )
-    runtime_workspace = workspace.New(context)
+    runtime_workspace = workspace.new(context)
 
-    spec = runtime_workspace.Spec()
-    runtime_workspace.Activate(spec)
+    spec = runtime_workspace.spec()
+    runtime_workspace.activate(spec)
 
-    assert runtime_workspace.GetCWD() == spec.CWD
-    assert runtime_workspace.CanWrite(str(primary / "new"))
-    assert runtime_workspace.CanRead(str(read_only / "file"))
-    assert not runtime_workspace.CanWrite(str(read_only / "file"))
+    assert runtime_workspace.get_cwd() == spec.cwd
+    assert runtime_workspace.can_write(str(primary / "new"))
+    assert runtime_workspace.can_read(str(read_only / "file"))
+    assert not runtime_workspace.can_write(str(read_only / "file"))
 
 
 def test_workspace_activation_rejects_invalid_saved_paths_without_changing_current_context(
@@ -46,55 +46,55 @@ def test_workspace_activation_rejects_invalid_saved_paths_without_changing_curre
 ) -> None:
     current = tmp_path / "current"
     current.mkdir()
-    context = workspace.NewDefaultContext(str(current))
-    runtime_workspace = workspace.New(context)
+    context = workspace.new_default_context(str(current))
+    runtime_workspace = workspace.new(context)
 
     missing = tmp_path / "missing"
     invalid = WorkspaceSpec(
-        PrimaryRoot=str(missing),
-        CWD=str(missing),
-        Roots=(WorkspaceRootSpec(Path=str(missing), Access=WorkspaceAccessReadWrite),),
+        primary_root=str(missing),
+        cwd=str(missing),
+        roots=(WorkspaceRootSpec(path=str(missing), access=WORKSPACE_ACCESS_READ_WRITE),),
     )
     with pytest.raises((OSError, ValueError)):
-        runtime_workspace.Activate(invalid)
-    assert runtime_workspace.GetCWD() == context.GetCWD()
+        runtime_workspace.activate(invalid)
+    assert runtime_workspace.get_cwd() == context.get_cwd()
 
     outside_cwd = tmp_path / "outside"
     outside_cwd.mkdir()
     outside = WorkspaceSpec(
-        PrimaryRoot=str(current),
-        CWD=str(outside_cwd),
-        Roots=(WorkspaceRootSpec(Path=str(current), Access=WorkspaceAccessReadWrite),),
+        primary_root=str(current),
+        cwd=str(outside_cwd),
+        roots=(WorkspaceRootSpec(path=str(current), access=WORKSPACE_ACCESS_READ_WRITE),),
     )
     with pytest.raises(ValueError, match="cwd is not readable"):
-        runtime_workspace.Activate(outside)
+        runtime_workspace.activate(outside)
 
 
 def test_workspace_activation_rejects_missing_additional_root(tmp_path: Path) -> None:
     primary = tmp_path / "primary"
     primary.mkdir()
     missing = tmp_path / "missing"
-    context = workspace.NewDefaultContext(str(primary))
-    runtime_workspace = workspace.New(context)
+    context = workspace.new_default_context(str(primary))
+    runtime_workspace = workspace.new(context)
 
     spec = WorkspaceSpec(
-        PrimaryRoot=str(primary),
-        CWD=str(primary),
-        Roots=(
-            WorkspaceRootSpec(Path=str(primary), Access=WorkspaceAccessReadWrite),
-            WorkspaceRootSpec(Path=str(missing), Access=WorkspaceAccessRead),
+        primary_root=str(primary),
+        cwd=str(primary),
+        roots=(
+            WorkspaceRootSpec(path=str(primary), access=WORKSPACE_ACCESS_READ_WRITE),
+            WorkspaceRootSpec(path=str(missing), access=WORKSPACE_ACCESS_READ),
         ),
     )
     with pytest.raises((OSError, ValueError)):
-        runtime_workspace.Activate(spec)
+        runtime_workspace.activate(spec)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="symlinks commonly need elevated privileges on Windows")
 def test_workspace_activation_rejects_root_replaced_by_escaping_symlink(tmp_path: Path) -> None:
     saved_root = tmp_path / "project"
     saved_root.mkdir()
-    saved_context = workspace.NewDefaultContext(str(saved_root))
-    spec = workspace.New(saved_context).Spec()
+    saved_context = workspace.new_default_context(str(saved_root))
+    spec = workspace.new(saved_context).spec()
 
     os.rmdir(saved_root)
     outside = tmp_path / "outside"
@@ -103,9 +103,9 @@ def test_workspace_activation_rejects_root_replaced_by_escaping_symlink(tmp_path
 
     current = tmp_path / "current"
     current.mkdir()
-    current_context = workspace.NewDefaultContext(str(current))
+    current_context = workspace.new_default_context(str(current))
     with pytest.raises(ValueError, match="resolves to a different path"):
-        workspace.New(current_context).Activate(spec)
+        workspace.new(current_context).activate(spec)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="symlinks commonly need elevated privileges on Windows")
@@ -116,25 +116,25 @@ def test_workspace_canonicalize_upgrades_legacy_non_canonical_path(tmp_path: Pat
     os.symlink(real, link)
     other = tmp_path / "other"
     other.mkdir()
-    context = workspace.NewDefaultContext(str(other))
-    runtime_workspace = workspace.New(context)
+    context = workspace.new_default_context(str(other))
+    runtime_workspace = workspace.new(context)
 
     # Legacy metadata may hold a path that is not itself canonical, such as a
     # symlinked cwd. Canonicalize upgrades it; Validate then accepts the result.
     legacy = WorkspaceSpec(
-        PrimaryRoot=str(link),
-        CWD=str(link),
-        Roots=(WorkspaceRootSpec(Path=str(link), Access=WorkspaceAccessReadWrite),),
+        primary_root=str(link),
+        cwd=str(link),
+        roots=(WorkspaceRootSpec(path=str(link), access=WORKSPACE_ACCESS_READ_WRITE),),
     )
-    upgraded = runtime_workspace.Canonicalize(legacy)
+    upgraded = runtime_workspace.canonicalize(legacy)
     canonical = os.path.realpath(str(link))
 
-    assert upgraded.PrimaryRoot == canonical
-    assert canonical == upgraded.CWD
-    assert len(upgraded.Roots) == 1
-    assert upgraded.Roots[0].Path == canonical
+    assert upgraded.primary_root == canonical
+    assert canonical == upgraded.cwd
+    assert len(upgraded.roots) == 1
+    assert upgraded.roots[0].path == canonical
 
-    again = runtime_workspace.Canonicalize(upgraded)
+    again = runtime_workspace.canonicalize(upgraded)
     assert upgraded == again
 
-    runtime_workspace.Validate(upgraded)
+    runtime_workspace.validate(upgraded)

@@ -15,9 +15,9 @@ from pathlib import Path
 import pytest
 
 from super_agent.errors import Cancelled
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.protocol.types import ToolCall
-from super_agent.tools.lsp import Connect, Manager, ServerConfig
+from super_agent.tools.lsp import Manager, ServerConfig, connect
 from super_agent.tools.lsp.client import max_message_bytes, read_header
 from tests.tools.test_workspace import workspace_for
 
@@ -39,18 +39,18 @@ def _helper_is_importable(monkeypatch: pytest.MonkeyPatch) -> None:
 def server_config(*extra: str) -> ServerConfig:
     """A config for the fake server, with the extra flags appended."""
     return ServerConfig(
-        Name="fake",
-        Command=sys.executable,
-        Args=("-m", "tests.helpers.lsp_fake_server", *extra),
-        Extensions=("go",),
-        LanguageID="go",
+        name="fake",
+        command=sys.executable,
+        args=("-m", "tests.helpers.lsp_fake_server", *extra),
+        extensions=("go",),
+        language_id="go",
     )
 
 
 def call_for(name: str, **arguments: object) -> ToolCall:
     """A tool call for ``name`` with the standard argument set."""
     payload = {"path": "main.go", "line": 1, "column": 1, "query": "Main", **arguments}
-    return ToolCall(Name=name, Input=json.dumps(payload))
+    return ToolCall(name=name, input=json.dumps(payload))
 
 
 def write_main(root: Path) -> None:
@@ -62,21 +62,21 @@ def write_main(root: Path) -> None:
 async def test_lsp_tools_query_configured_server(tmp_path: Path) -> None:
     root = tmp_path / "root"
     write_main(root)
-    manager = await Connect(LiveContext(), workspace_for(root), [server_config()])
+    manager = await connect(live_context(), workspace_for(root), [server_config()])
     try:
-        tools = manager.Tools()
-        assert [tool.Specs()[0].Name for tool in tools] == TOOL_ORDER
+        tools = manager.tools()
+        assert [tool.specs()[0].name for tool in tools] == TOOL_ORDER
         for tool in tools:
-            name = tool.Specs()[0].Name
-            result = await tool.Run(LiveContext(), call_for(name))
+            name = tool.specs()[0].name
+            result = await tool.run(live_context(), call_for(name))
             assert result not in ("", "null"), name
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 def test_lsp_manager_exposes_no_tools_without_configs(tmp_path: Path) -> None:
     manager = Manager(workspace_for(tmp_path), [])
-    assert manager.Tools() == []
+    assert manager.tools() == []
 
 
 @pytest.mark.asyncio
@@ -84,13 +84,13 @@ async def test_lsp_rejects_a_path_no_server_covers(tmp_path: Path) -> None:
     root = tmp_path / "root"
     write_main(root)
     (root / "notes.txt").write_text("hello", encoding="utf-8")
-    manager = await Connect(LiveContext(), workspace_for(root), [server_config()])
+    manager = await connect(live_context(), workspace_for(root), [server_config()])
     try:
-        tool = manager.Tools()[2]
+        tool = manager.tools()[2]
         with pytest.raises(RuntimeError, match=r"no LSP server configured for \.txt"):
-            await tool.Run(LiveContext(), call_for("lsp_definition", path="notes.txt"))
+            await tool.run(live_context(), call_for("lsp_definition", path="notes.txt"))
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
@@ -98,13 +98,13 @@ async def test_lsp_rejects_a_path_outside_the_workspace(tmp_path: Path) -> None:
     root = tmp_path / "root"
     write_main(root)
     (tmp_path / "outside.go").write_text("package outside\n", encoding="utf-8")
-    manager = await Connect(LiveContext(), workspace_for(root), [server_config()])
+    manager = await connect(live_context(), workspace_for(root), [server_config()])
     try:
-        tool = manager.Tools()[2]
+        tool = manager.tools()[2]
         with pytest.raises(RuntimeError, match="outside readable workspace roots"):
-            await tool.Run(LiveContext(), call_for("lsp_definition", path="../outside.go"))
+            await tool.run(live_context(), call_for("lsp_definition", path="../outside.go"))
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
@@ -138,15 +138,15 @@ async def test_lsp_diagnostics_settle_before_being_read(tmp_path: Path) -> None:
     """A diagnostic pushed shortly after ``didOpen`` must still be returned."""
     root = tmp_path / "root"
     write_main(root)
-    manager = await Connect(LiveContext(), workspace_for(root), [server_config("--diagnostics-delay", "0.15")])
+    manager = await connect(live_context(), workspace_for(root), [server_config("--diagnostics-delay", "0.15")])
     try:
-        tool = manager.Tools()[0]
-        result = await tool.Run(LiveContext(), call_for("lsp_diagnostics"))
+        tool = manager.tools()[0]
+        result = await tool.run(live_context(), call_for("lsp_diagnostics"))
         diagnostics = json.loads(result)
         assert diagnostics
         assert diagnostics[0]["message"] == "fake diagnostic"
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
@@ -156,36 +156,36 @@ async def test_lsp_client_reconnects_when_the_working_directory_changes(tmp_path
     write_main(first)
     write_main(second)
     workspace = _SwitchableWorkspace(os.path.realpath(first))
-    manager = await Connect(LiveContext(), workspace, [server_config()])
+    manager = await connect(live_context(), workspace, [server_config()])
     try:
-        tool = manager.Tools()[0]
-        assert os.path.realpath(first) in await tool.Run(LiveContext(), call_for("lsp_diagnostics"))
+        tool = manager.tools()[0]
+        assert os.path.realpath(first) in await tool.run(live_context(), call_for("lsp_diagnostics"))
         workspace.cwd = os.path.realpath(second)
-        assert os.path.realpath(second) in await tool.Run(LiveContext(), call_for("lsp_diagnostics"))
+        assert os.path.realpath(second) in await tool.run(live_context(), call_for("lsp_diagnostics"))
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
 async def test_lsp_cancelling_a_request_leaves_the_client_usable(tmp_path: Path) -> None:
     root = tmp_path / "root"
     write_main(root)
-    manager = await Connect(LiveContext(), workspace_for(root), [server_config("--delay", "0.25")])
+    manager = await connect(live_context(), workspace_for(root), [server_config("--delay", "0.25")])
     try:
-        tool = manager.Tools()[4]
+        tool = manager.tools()[4]
         call = call_for("lsp_outline")
         ctx = RunContext()
-        task = asyncio.ensure_future(tool.Run(ctx, call))
+        task = asyncio.ensure_future(tool.run(ctx, call))
         await asyncio.sleep(0.05)
-        ctx.Cancel()
+        ctx.cancel()
         with pytest.raises(Cancelled):
             await task
         # The late reply lands in a slot the client has already dropped; the
         # read loop must survive it and the client must still answer.
         await asyncio.sleep(0.4)
-        assert await tool.Run(LiveContext(), call) not in ("", "null")
+        assert await tool.run(live_context(), call) not in ("", "null")
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 class _SwitchableWorkspace:
@@ -194,19 +194,19 @@ class _SwitchableWorkspace:
     def __init__(self, cwd: str) -> None:
         self.cwd = os.path.realpath(cwd)
 
-    def GetPrimaryRoot(self) -> str:
+    def get_primary_root(self) -> str:
         return self.cwd
 
-    def GetCWD(self) -> str:
+    def get_cwd(self) -> str:
         return self.cwd
 
-    def ResolvePath(self, path: str) -> str:
+    def resolve_path(self, path: str) -> str:
         if not os.path.isabs(path):
             path = os.path.join(self.cwd, path)
         return os.path.normpath(path)
 
-    def CanRead(self, path: str) -> bool:
+    def can_read(self, path: str) -> bool:
         return True
 
-    def CanWrite(self, path: str) -> bool:
+    def can_write(self, path: str) -> bool:
         return True

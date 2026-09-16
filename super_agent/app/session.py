@@ -34,58 +34,58 @@ from super_agent.app.agents import (
 )
 from super_agent.app.config import (
     Config,
-    SettingsPath,
     firstNonEmpty,
     instructionSourcePaths,
+    settings_path,
     settingsMap,
 )
-from super_agent.app.mcp import MCPController, NewMCPController
+from super_agent.app.mcp import MCPController, new_mcp_controller
 from super_agent.app.subagents import subagentTool
 from super_agent.app.workflows import WorkflowController
 from super_agent.errors import JoinedError
 from super_agent.runtime import (
-    CreatePersistentSession,
+    ROLE_SYSTEM,
     DefaultScheduledActionExecutor,
     Message,
     Metadata,
-    NewEngineWithExecutorAndPolicy,
-    NewPolicy,
-    RoleSystem,
     Session,
     ToolCall,
     ToolSpec,
+    create_persistent_session,
+    new_engine_with_executor_and_policy,
+    new_policy,
     telemetry,
 )
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.protocol.types import ToolRunner
 from super_agent.tools import lsp as lsptools, mcp as mcptools
-from super_agent.workspace import Context, New as newWorkspace
+from super_agent.workspace import Context, new as newWorkspace
 
 __all__ = [
-    "NewSession",
-    "NewSessionWithExtensions",
-    "NewSessionWithMCP",
     "asyncCloser",
     "closerFunc",
     "contextForConfig",
+    "new_session",
+    "new_session_with_extensions",
+    "new_session_with_mcp",
     "toolHooks",
     "waitPendingClosers",
 ]
 
 
-async def NewSession(cfg: Config) -> Session:
+async def new_session(cfg: Config) -> Session:
     """The ordinary entry point: a session, with its MCP controller discarded."""
-    session, _mcp = await NewSessionWithMCP(cfg)
+    session, _mcp = await new_session_with_mcp(cfg)
     return session
 
 
-async def NewSessionWithMCP(cfg: Config) -> tuple[Session, MCPController | None]:
+async def new_session_with_mcp(cfg: Config) -> tuple[Session, MCPController | None]:
     """A session and its MCP controller, without the agent controller."""
-    session, mcp, _agents = await NewSessionWithExtensions(cfg)
+    session, mcp, _agents = await new_session_with_extensions(cfg)
     return session, mcp
 
 
-async def NewSessionWithExtensions(cfg: Config) -> tuple[Session, MCPController | None, AgentController]:
+async def new_session_with_extensions(cfg: Config) -> tuple[Session, MCPController | None, AgentController]:
     """Build the runtime, the tools, and the controllers for one session.
 
     The model is built from the *resolved* provider configuration — ``cfg.ModelConfig``
@@ -94,131 +94,131 @@ async def NewSessionWithExtensions(cfg: Config) -> tuple[Session, MCPController 
     and sending ``sk-...`` as a bearer token is the bug this port fixes.
     """
     workspaceContext = contextForConfig(cfg)
-    cwd = workspaceContext.GetCWD()
-    configRoot = firstNonEmpty(cfg.ConfigRoot, cfg.Project.Root, cwd)
+    cwd = workspaceContext.get_cwd()
+    configRoot = firstNonEmpty(cfg.config_root, cfg.project.root, cwd)
     workspaceRuntime = newWorkspace(workspaceContext)
-    cfg.Sandbox.Workspace = workspaceContext.GetPrimaryRoot()
-    telemetry.Configure(cfg.TelemetryPath)
+    cfg.sandbox.workspace = workspaceContext.get_primary_root()
+    telemetry.configure(cfg.telemetry_path)
     telemetryOwned = True
     extension: mcptools.Manager | None = None
     lspCloser: lsptools.Manager | None = None
     try:
-        providers = dict(cfg.ProviderConfigs)
+        providers = dict(cfg.provider_configs)
         if not providers:
-            providers = {cfg.Provider: cfg.ModelConfig}
+            providers = {cfg.provider: cfg.model_config}
         else:
             # The selected provider's entry is replaced by the resolved one, so a
             # profile naming the default provider gets the resolved credential and
             # a profile naming another provider still gets its own entry.
-            providers[cfg.Provider] = cfg.ModelConfig
+            providers[cfg.provider] = cfg.model_config
         profiles = buildAgentProfiles(cfg, providers)
-        agentName = firstNonEmpty(cfg.Agent, "build")
+        agentName = firstNonEmpty(cfg.agent, "build")
         profile = profiles.get(agentName)
         if profile is None:
             raise ValueError("unknown configured agent: " + agentName)
-        providerConfig = providers[profile.Provider]
-        if profile.Model != "":
-            providerConfig = dataclasses.replace(providerConfig, Model=profile.Model)
-        model = llm.NewModel(profile.Provider, providerConfig)
+        providerConfig = providers[profile.provider]
+        if profile.model != "":
+            providerConfig = dataclasses.replace(providerConfig, model=profile.model)
+        model = llm.new_model(profile.provider, providerConfig)
         router = routedModel(model)
         toolRunner: ToolRunner
         registry: tools.Registry | None = None
         hooks: toolHooks | None = None
         controller: MCPController | None = None
         toolFilter: filteredToolRunner | None = None
-        if cfg.NoTools:
+        if cfg.no_tools:
             toolRunner = tools.NoTools()
         else:
-            registry = tools.SandboxedRegistry(cfg.Sandbox, workspaceRuntime)
-            manager = await mcptools.Connect(LiveContext(), cfg.MCPServers)
+            registry = tools.sandboxed_registry(cfg.sandbox, workspaceRuntime)
+            manager = await mcptools.connect(live_context(), cfg.mcp_servers)
             try:
-                registry.Add(*manager.Tools())
+                registry.add(*manager.tools())
             except BaseException:
                 with contextlib.suppress(Exception):
-                    await manager.Close()
+                    await manager.close()
                 raise
-            controller = NewMCPController(manager, registry, SettingsPath(), cwd, settingsMap(cfg.MCPServers))
+            controller = new_mcp_controller(manager, registry, settings_path(), cwd, settingsMap(cfg.mcp_servers))
             # The runtime session owns extension process lifetime after creation.
             extension = manager
-            if cfg.LSPServers:
-                lspManager = await lsptools.Connect(LiveContext(), workspaceRuntime, cfg.LSPServers)
+            if cfg.lsp_servers:
+                lspManager = await lsptools.connect(live_context(), workspaceRuntime, cfg.lsp_servers)
                 try:
-                    for lspTool in lspManager.Tools():
-                        registry.Add(lspTool)
+                    for lspTool in lspManager.tools():
+                        registry.add(lspTool)
                 except BaseException:
                     with contextlib.suppress(Exception):
-                        await lspManager.Close()
+                        await lspManager.close()
                     raise
                 lspCloser = lspManager
             hooks = toolHooks(registry)
             toolFilter = filteredToolRunner(hooks)
-            toolFilter.setAllowed(profile.Tools)
+            toolFilter.setAllowed(profile.tools)
             toolRunner = toolFilter
         initial, bundle = initialMessagesWithAgent(configRoot, profile)
-        st = store.OpenDefault()
-        repository = store.NewRepository(st)
-        memories = repository.LoadMemory()
+        st = store.open_default()
+        repository = store.new_repository(st)
+        memories = repository.load_memory()
         if memories:
             initial = [
                 *initial,
-                Message(Role=RoleSystem, Content="Cross-session memory:\n- " + "\n- ".join(memories)),
+                Message(role=ROLE_SYSTEM, content="Cross-session memory:\n- " + "\n- ".join(memories)),
             ]
-        engine = NewEngineWithExecutorAndPolicy(
+        engine = new_engine_with_executor_and_policy(
             DefaultScheduledActionExecutor(router, toolRunner),
-            NewPolicy(profile.PermissionMode, cfg.PermissionRules),
+            new_policy(profile.permission_mode, cfg.permission_rules),
             initial,
         )
-        await engine.Ready()
-        session = CreatePersistentSession(
+        await engine.ready()
+        session = create_persistent_session(
             engine,
             repository,
             workspaceRuntime,
             Metadata(
-                Provider=profile.Provider,
-                Model=profile.Model,
-                CWD=cwd,
-                Title=os.path.basename(cwd),
-                InstructionSources=instructionSourcePaths(bundle),
-                ProjectID=cfg.Project.ID,
-                ConfigRoot=configRoot,
+                provider=profile.provider,
+                model=profile.model,
+                cwd=cwd,
+                title=os.path.basename(cwd),
+                instruction_sources=instructionSourcePaths(bundle),
+                project_id=cfg.project.id,
+                config_root=configRoot,
             ),
             initial,
         )
         if registry is not None and hooks is not None:
-            registry.SetCheckpointCallback(session.Checkpoint)
+            registry.set_checkpoint_callback(session.checkpoint)
             delegate = subagentTool(
                 parent=session,
                 repository=repository,
                 profiles=profiles,
                 providers=providers,
-                sandbox=cfg.Sandbox,
-                rules=cfg.PermissionRules,
+                sandbox=cfg.sandbox,
+                rules=cfg.permission_rules,
                 base=cwd,
                 workspace=workspaceRuntime,
             )
             try:
-                registry.Add(delegate)
+                registry.add(delegate)
             except BaseException:
                 with contextlib.suppress(Exception):
-                    await session.Close()
+                    await session.close()
                 raise
-        session.ConfigurePermissions(profile.PermissionMode, cfg.PermissionRules)
+        session.configure_permissions(profile.permission_mode, cfg.permission_rules)
         if extension is not None:
-            session.AddCloser(asyncCloser(extension.Close))
+            session.add_closer(asyncCloser(extension.close))
             extension = None
         if lspCloser is not None:
-            session.AddCloser(asyncCloser(lspCloser.Close))
+            session.add_closer(asyncCloser(lspCloser.close))
             lspCloser = None
-        session.AddCloser(closerFunc(telemetry.Close))
+        session.add_closer(closerFunc(telemetry.close))
         telemetryOwned = False
-        workflows = WorkflowController(registry=hooks, extensions=cfg.Extensions)
+        workflows = WorkflowController(registry=hooks, extensions=cfg.extensions)
         if hooks is not None:
-            hooks.SetWorkflows(workflows)
+            hooks.set_workflows(workflows)
         try:
-            await workflows.RunHooks(LiveContext(), "session_start", "startup")
+            await workflows.run_hooks(live_context(), "session_start", "startup")
         except BaseException:
             with contextlib.suppress(Exception):
-                await session.Close()
+                await session.close()
             raise
         agents = AgentController(
             session=session,
@@ -228,7 +228,7 @@ async def NewSessionWithExtensions(cfg: Config) -> tuple[Session, MCPController 
             workflows=workflows,
             tools=toolFilter,
             base=cwd,
-            current=profile.Name,
+            current=profile.name,
         )
         return session, controller, agents
     except BaseException:
@@ -237,12 +237,12 @@ async def NewSessionWithExtensions(cfg: Config) -> tuple[Session, MCPController 
         # nothing is closed twice.
         if extension is not None:
             with contextlib.suppress(Exception):
-                await extension.Close()
+                await extension.close()
         if lspCloser is not None:
             with contextlib.suppress(Exception):
-                await lspCloser.Close()
+                await lspCloser.close()
         if telemetryOwned:
-            telemetry.Close()
+            telemetry.close()
         raise
 
 
@@ -264,7 +264,7 @@ class toolHooks:
         self._registry = registry
         self._workflows: WorkflowController | None = None
 
-    def SetWorkflows(self, workflows: WorkflowController) -> None:
+    def set_workflows(self, workflows: WorkflowController) -> None:
         """Install the controller the hooks run through.
 
         Set after construction because the controller reaches these hooks back for
@@ -272,23 +272,23 @@ class toolHooks:
         """
         self._workflows = workflows
 
-    def Specs(self) -> list[ToolSpec]:
-        return self._registry.Specs()
+    def specs(self) -> list[ToolSpec]:
+        return self._registry.specs()
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         """Run ``call`` between the pre-tool and post-tool hooks."""
         workflows = self._workflows
         if workflows is not None:
-            await workflows.RunHook(ctx, "pre_tool")
+            await workflows.run_hook(ctx, "pre_tool")
         result = ""
         error: BaseException | None = None
         try:
-            result = await self._registry.RunDirect(ctx, call)
+            result = await self._registry.run_direct(ctx, call)
         except BaseException as failure:
             error = failure
         if workflows is not None:
             try:
-                await workflows.RunHook(ctx, "post_tool")
+                await workflows.run_hook(ctx, "post_tool")
             except Exception as hookError:
                 if error is None:
                     result += "\n[post_tool hook failed: " + str(hookError) + "]"
@@ -296,15 +296,15 @@ class toolHooks:
             raise error
         return result
 
-    async def RunDirect(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run_direct(self, ctx: RunContext, call: ToolCall) -> str:
         """Run ``call`` without hooks; hooks use this to avoid recursing."""
-        return await self._registry.RunDirect(ctx, call)
+        return await self._registry.run_direct(ctx, call)
 
 
 def contextForConfig(cfg: Config) -> Context:
     """The workspace context, which a bare :class:`Config` may not carry."""
-    if cfg.Workspace is not None:
-        return cfg.Workspace
+    if cfg.workspace is not None:
+        return cfg.workspace
     raise ValueError("workspace context is required")
 
 
@@ -319,7 +319,7 @@ class closerFunc:
     def __init__(self, close: Callable[[], None]) -> None:
         self._close = close
 
-    def Close(self) -> None:
+    def close(self) -> None:
         self._close()
 
 
@@ -342,7 +342,7 @@ class asyncCloser:
     def __init__(self, close: Callable[[], Coroutine[Any, Any, None]]) -> None:
         self._close = close
 
-    def Close(self) -> None:
+    def close(self) -> None:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:

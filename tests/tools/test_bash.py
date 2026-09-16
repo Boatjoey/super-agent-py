@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.protocol.types import ToolCall, ToolSpec
-from super_agent.tools import BashTool, DefaultRegistry, NewRegistry, NoTools
+from super_agent.tools import BashTool, NoTools, default_registry, new_registry
 from tests.tools.test_workspace import workspace_for
 
 
@@ -19,97 +19,97 @@ class FakeTool:
         self.spec = spec
         self.got: list[ToolCall] = []
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [self.spec]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         self.got.append(call)
-        return "ran " + call.Name
+        return "ran " + call.name
 
 
 def test_bash_tool_is_risky() -> None:
-    for spec in NewRegistry(BashTool()).Specs():
-        if spec.Name == "bash":
-            assert spec.Risky
+    for spec in new_registry(BashTool()).specs():
+        if spec.name == "bash":
+            assert spec.risky
             return
     pytest.fail("bash tool not found")
 
 
 def test_registry_holding_only_the_bash_tool_exposes_only_bash() -> None:
-    specs = NewRegistry(BashTool()).Specs()
+    specs = new_registry(BashTool()).specs()
     assert len(specs) == 1
-    assert specs[0].Name == "bash"
+    assert specs[0].name == "bash"
 
 
 @pytest.mark.asyncio
 async def test_bash_runs_a_command(tmp_path: Path) -> None:
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
-    got = await registry.Run(LiveContext(), ToolCall(Name="bash", Input='{"command":"printf hello"}'))
+    got = await registry.run(live_context(), ToolCall(name="bash", input='{"command":"printf hello"}'))
 
     assert got == "hello"
 
 
 @pytest.mark.asyncio
 async def test_bash_returns_a_failed_command_output_without_an_error(tmp_path: Path) -> None:
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
-    got = await registry.Run(LiveContext(), ToolCall(Name="bash", Input='{"command":"printf before; exit 7"}'))
+    got = await registry.run(live_context(), ToolCall(name="bash", input='{"command":"printf before; exit 7"}'))
 
     assert "before" in got
     assert "exit status 7" in got
 
 
 def test_no_tools_exposes_no_specs() -> None:
-    assert NoTools().Specs() == []
+    assert NoTools().specs() == []
 
 
 def test_registry_aggregates_specs_in_order() -> None:
-    registry = NewRegistry(
-        FakeTool(ToolSpec(Name="first")),
-        FakeTool(ToolSpec(Name="second")),
+    registry = new_registry(
+        FakeTool(ToolSpec(name="first")),
+        FakeTool(ToolSpec(name="second")),
     )
 
-    specs = registry.Specs()
+    specs = registry.specs()
 
-    assert [spec.Name for spec in specs] == ["first", "second"]
+    assert [spec.name for spec in specs] == ["first", "second"]
 
 
 @pytest.mark.asyncio
 async def test_registry_dispatches_by_name() -> None:
-    first = FakeTool(ToolSpec(Name="first"))
-    second = FakeTool(ToolSpec(Name="second"))
-    registry = NewRegistry(first, second)
+    first = FakeTool(ToolSpec(name="first"))
+    second = FakeTool(ToolSpec(name="second"))
+    registry = new_registry(first, second)
 
-    got = await registry.Run(LiveContext(), ToolCall(Name="second"))
+    got = await registry.run(live_context(), ToolCall(name="second"))
 
     assert got == "ran second"
     assert first.got == []
-    assert [call.Name for call in second.got] == ["second"]
+    assert [call.name for call in second.got] == ["second"]
 
 
 @pytest.mark.asyncio
 async def test_registry_rejects_an_unknown_tool() -> None:
-    registry = NewRegistry(FakeTool(ToolSpec(Name="known")))
+    registry = new_registry(FakeTool(ToolSpec(name="known")))
 
     with pytest.raises(RuntimeError, match="unknown tool: missing"):
-        await registry.Run(LiveContext(), ToolCall(Name="missing"))
+        await registry.run(live_context(), ToolCall(name="missing"))
 
 
 @pytest.mark.asyncio
 async def test_registry_adds_dynamic_tools_atomically_and_removes_them() -> None:
-    registry = NewRegistry(FakeTool(ToolSpec(Name="built-in")))
-    first = FakeTool(ToolSpec(Name="remote"))
-    duplicate = FakeTool(ToolSpec(Name="built-in"))
+    registry = new_registry(FakeTool(ToolSpec(name="built-in")))
+    first = FakeTool(ToolSpec(name="remote"))
+    duplicate = FakeTool(ToolSpec(name="built-in"))
 
     with pytest.raises(RuntimeError):
-        registry.Add(first, duplicate)
-    assert all(spec.Name != "remote" for spec in registry.Specs())
+        registry.add(first, duplicate)
+    assert all(spec.name != "remote" for spec in registry.specs())
 
-    registry.Add(first)
-    got = await registry.Run(LiveContext(), ToolCall(Name="remote"))
+    registry.add(first)
+    got = await registry.run(live_context(), ToolCall(name="remote"))
     assert got == "ran remote"
 
-    registry.Remove("remote")
+    registry.remove("remote")
     with pytest.raises(RuntimeError):
-        await registry.Run(LiveContext(), ToolCall(Name="remote"))
+        await registry.run(live_context(), ToolCall(name="remote"))

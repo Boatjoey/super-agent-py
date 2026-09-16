@@ -24,11 +24,11 @@ from super_agent.runtime.engine.commands import (
 )
 from super_agent.runtime.engine.engine import (
     Engine as Engine,
-    NewEngine as NewEngine,
-    NewEngineWithComponents as NewEngineWithComponents,
-    NewEngineWithExecutor as NewEngineWithExecutor,
-    NewEngineWithExecutorAndPolicy as NewEngineWithExecutorAndPolicy,
     StateObserver as StateObserver,
+    new_engine as new_engine,
+    new_engine_with_components as new_engine_with_components,
+    new_engine_with_executor as new_engine_with_executor,
+    new_engine_with_executor_and_policy as new_engine_with_executor_and_policy,
 )
 from super_agent.runtime.engine.policy_ports import (
     PolicySetter as PolicySetter,
@@ -48,10 +48,6 @@ __all__ = [
     "CommandsMixin",
     "Engine",
     "EngineView",
-    "NewEngine",
-    "NewEngineWithComponents",
-    "NewEngineWithExecutor",
-    "NewEngineWithExecutorAndPolicy",
     "PolicySetter",
     "PolicySnapshot",
     "PolicyStore",
@@ -63,5 +59,9 @@ __all__ = [
     "estimateMessageTokens",
     "estimateTokens",
     "millis_since",
+    "new_engine",
+    "new_engine_with_components",
+    "new_engine_with_executor",
+    "new_engine_with_executor_and_policy",
     "typeName",
 ]

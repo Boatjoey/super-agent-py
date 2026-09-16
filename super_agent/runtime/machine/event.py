@@ -36,47 +36,47 @@ class Event:
 class UserMessageSubmitted(Event):
     kind: ClassVar[str] = "UserMessageSubmitted"
 
-    Content: str = ""
-    Attachments: tuple[Attachment, ...] = ()
+    content: str = ""
+    attachments: tuple[Attachment, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AssistantMessageReceived(Event):
     kind: ClassVar[str] = "AssistantMessageReceived"
 
-    Response: ModelResponse = dataclasses.field(default_factory=ModelResponse)
+    response: ModelResponse = dataclasses.field(default_factory=ModelResponse)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolBatchReceived(Event):
     kind: ClassVar[str] = "ToolBatchReceived"
 
-    Content: str = ""
-    Calls: tuple[ToolCall, ...] = ()
-    ReasoningContent: str = ""
+    content: str = ""
+    calls: tuple[ToolCall, ...] = ()
+    reasoning_content: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolCallNeedsApproval(Event):
     kind: ClassVar[str] = "ToolCallNeedsApproval"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolCallReadyToRun(Event):
     kind: ClassVar[str] = "ToolCallReadyToRun"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolCallDenied(Event):
     kind: ClassVar[str] = "ToolCallDenied"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Reason: str = ""
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    reason: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -88,36 +88,36 @@ class ToolBatchFinished(Event):
 class ToolResultReceived(Event):
     kind: ClassVar[str] = "ToolResultReceived"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Result: str = ""
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    result: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ApprovalGranted(Event):
     kind: ClassVar[str] = "ApprovalGranted"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ApprovalAlwaysGranted(Event):
     kind: ClassVar[str] = "ApprovalAlwaysGranted"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ApprovalDenied(Event):
     kind: ClassVar[str] = "ApprovalDenied"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ErrorOccurred(Event):
     kind: ClassVar[str] = "ErrorOccurred"
 
-    Err: BaseException | None = None
+    err: BaseException | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -137,7 +137,7 @@ class EngineReady(Event):
 
 #: Every event type as a zero value, in declaration order. Registration,
 #: serialization, and the conformance test all iterate this.
-AllEvents: Final[tuple[Event, ...]] = (
+ALL_EVENTS: Final[tuple[Event, ...]] = (
     UserMessageSubmitted(),
     AssistantMessageReceived(),
     ToolBatchReceived(),

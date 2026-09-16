@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from super_agent import runtime
-from super_agent.app import NewTUIConversation
+from super_agent.app import new_tui_conversation
 
 
 @pytest.mark.asyncio
@@ -18,16 +18,16 @@ async def test_tui_adapter_maps_runtime_state() -> None:
     # The engine is built with nil ports: the default executor wraps a nil model
     # and a nil tool runner, which is the same engine for a test that only reads
     # its state.
-    engine = runtime.NewEngine(None, None, None)
-    conversation = NewTUIConversation(runtime.NewSession(engine))
+    engine = runtime.new_engine(None, None, None)
+    conversation = new_tui_conversation(runtime.new_session(engine))
 
-    status = conversation.Snapshot().AgentStatus
-    assert status.Label == "Initializing"
-    assert status.Busy is True
+    status = conversation.snapshot().agent_status
+    assert status.label == "Initializing"
+    assert status.busy is True
 
-    await engine.Ready()
+    await engine.ready()
 
-    status = conversation.Snapshot().AgentStatus
-    assert status.Label == "Idle"
-    assert status.Busy is False
-    assert status.AwaitingApproval is False
+    status = conversation.snapshot().agent_status
+    assert status.label == "Idle"
+    assert status.busy is False
+    assert status.awaiting_approval is False

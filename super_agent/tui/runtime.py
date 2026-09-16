@@ -37,14 +37,14 @@ from rich.console import Console, RenderableType
 from rich.live import Live
 
 __all__ = [
-    "ClearScreen",
+    "CLEAR_SCREEN",
+    "QUIT",
     "ClearScreenMsg",
     "Command",
     "KeyDecoder",
     "KeyMsg",
     "Listener",
     "Program",
-    "Quit",
     "QuitMsg",
     "Scrollback",
     "WindowSizeMsg",
@@ -61,8 +61,8 @@ type Command[M] = Callable[[], Awaitable[M | None]]
 class WindowSizeMsg:
     """The terminal was resized, or its size is known for the first time."""
 
-    Width: int = 80
-    Height: int = 24
+    width: int = 80
+    height: int = 24
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -75,7 +75,7 @@ class KeyMsg:
     the decoder produces exactly them.
     """
 
-    Key: str = ""
+    key: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -98,10 +98,10 @@ async def _clear_screen() -> ClearScreenMsg:
 
 #: The command that stops the program. It is a value rather than an async
 #: function, so a caller passes it, never calls it.
-Quit: Final[Command[QuitMsg]] = _quit
+QUIT: Final[Command[QuitMsg]] = _quit
 
 #: The command that clears the screen.
-ClearScreen: Final[Command[ClearScreenMsg]] = _clear_screen
+CLEAR_SCREEN: Final[Command[ClearScreenMsg]] = _clear_screen
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -122,12 +122,12 @@ class Listener[M]:
 class Scrollback:
     """A command that commits text above the live view."""
 
-    Content: str = ""
+    content: str = ""
 
     async def __call__(self) -> None:
         console = active_console()
-        if console is not None and self.Content.strip():
-            console.print(self.Content, markup=False, highlight=False, soft_wrap=False)
+        if console is not None and self.content.strip():
+            console.print(self.content, markup=False, highlight=False, soft_wrap=False)
         return None
 
 
@@ -360,7 +360,7 @@ class Program[Model, MsgT]:
         width, height = _terminal_size()
         # The program injects its own messages, which every message set carries by
         # construction; a generic parameter cannot say so, hence the cast.
-        self.send(cast("MsgT", WindowSizeMsg(Width=width, Height=height)))
+        self.send(cast("MsgT", WindowSizeMsg(width=width, height=height)))
         reader = asyncio.create_task(self._read_keys())
         with _raw_mode(self.input_fd), Live(console=self.console, screen=False, auto_refresh=True) as live:
             self.live = live
@@ -372,7 +372,7 @@ class Program[Model, MsgT]:
                 finally:
                     reader.cancel()
                     await asyncio.gather(reader, return_exceptions=True)
-                    await self.Shutdown()
+                    await self.shutdown()
         self.live = None
         _set_active_console(None)
 
@@ -381,7 +381,7 @@ class Program[Model, MsgT]:
         decoder = KeyDecoder()
         while True:
             for key in await asyncio.to_thread(read_keys, decoder, self.input_fd):
-                self.send(cast("MsgT", KeyMsg(Key=key)))
+                self.send(cast("MsgT", KeyMsg(key=key)))
 
     def _start(self, commands: Sequence[Command[MsgT]]) -> None:
         """Run each command as a task, replacing the previous listener."""
@@ -405,7 +405,7 @@ class Program[Model, MsgT]:
             self.listener.cancel()
         self.listener = None
 
-    async def Shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """Cancel everything still running. The loop has no more messages to send."""
         pending = [*self.tasks, *self.listeners]
         for task in pending:
@@ -440,7 +440,7 @@ def _sigwinch(loop: asyncio.AbstractEventLoop, program: Program[Any, Any]) -> Ge
 
     def resize() -> None:
         width, height = _terminal_size()
-        program.send(WindowSizeMsg(Width=width, Height=height))
+        program.send(WindowSizeMsg(width=width, height=height))
 
     try:
         loop.add_signal_handler(signal.SIGWINCH, resize)

@@ -15,8 +15,8 @@ class UnexpectedEventError(Exception):
     """The current state does not accept this event."""
 
     def __init__(self, state: State, event: Event | None) -> None:
-        self.State = state
-        self.Event = event
+        self.state = state
+        self.event = event
         super().__init__(f"state {state} does not accept event {_event_name(event)}")
 
 
@@ -28,9 +28,9 @@ class ProtocolViolationError(Exception):
     """
 
     def __init__(self, state: State, event: Event | None, reason: str) -> None:
-        self.State = state
-        self.Event = event
-        self.Reason = reason
+        self.state = state
+        self.event = event
+        self.reason = reason
         super().__init__(f"protocol violation in state {state} for event {_event_name(event)}: {reason}")
 
 
@@ -38,5 +38,5 @@ class InvariantViolationError(Exception):
     """``RuntimeData`` itself is impossible."""
 
     def __init__(self, reason: str) -> None:
-        self.Reason = reason
+        self.reason = reason
         super().__init__("engine state invariant violation: " + reason)

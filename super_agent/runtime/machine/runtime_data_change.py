@@ -30,53 +30,53 @@ class RuntimeDataChange:
 class AppendUserMessage(RuntimeDataChange):
     kind: ClassVar[str] = "AppendUserMessage"
 
-    Content: str = ""
-    Attachments: tuple[Attachment, ...] = ()
+    content: str = ""
+    attachments: tuple[Attachment, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AppendAssistantMessage(RuntimeDataChange):
     kind: ClassVar[str] = "AppendAssistantMessage"
 
-    Message: Message = dataclasses.field(default_factory=Message)
+    message: Message = dataclasses.field(default_factory=Message)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AppendToolResult(RuntimeDataChange):
     kind: ClassVar[str] = "AppendToolResult"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Result: str = ""
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    result: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AppendStreamingAssistant(RuntimeDataChange):
     kind: ClassVar[str] = "AppendStreamingAssistant"
 
-    Chunk: StreamChunk = dataclasses.field(default_factory=StreamChunk)
+    chunk: StreamChunk = dataclasses.field(default_factory=StreamChunk)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class FlushStreamingAssistant(RuntimeDataChange):
     kind: ClassVar[str] = "FlushStreamingAssistant"
 
-    Interrupted: bool = False
+    interrupted: bool = False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class SetPendingTool(RuntimeDataChange):
     kind: ClassVar[str] = "SetPendingTool"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class SetToolCallBatch(RuntimeDataChange):
     kind: ClassVar[str] = "SetToolCallBatch"
 
-    ID: str = ""
-    Calls: tuple[ToolCall, ...] = ()
+    id: str = ""
+    calls: tuple[ToolCall, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -93,7 +93,7 @@ class ClearPendingTool(RuntimeDataChange):
 class SetCurrentTool(RuntimeDataChange):
     kind: ClassVar[str] = "SetCurrentTool"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -112,7 +112,7 @@ class ResetConversation(RuntimeDataChange):
 
 
 #: Every change type as a zero value, in declaration order.
-AllRuntimeDataChanges: Final[tuple[RuntimeDataChange, ...]] = (
+ALL_RUNTIME_DATA_CHANGES: Final[tuple[RuntimeDataChange, ...]] = (
     AppendUserMessage(),
     AppendAssistantMessage(),
     AppendToolResult(),

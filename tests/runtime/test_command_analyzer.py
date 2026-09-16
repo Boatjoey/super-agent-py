@@ -23,11 +23,11 @@ from super_agent.runtime.execution import (
     toolPaths,
 )
 from super_agent.runtime.machine import (
-    CommandClassDestructive,
-    CommandClassNetwork,
-    CommandClassReadOnly,
-    CommandClassUnknown,
-    CommandClassWrite,
+    COMMAND_CLASS_DESTRUCTIVE,
+    COMMAND_CLASS_NETWORK,
+    COMMAND_CLASS_READ_ONLY,
+    COMMAND_CLASS_UNKNOWN,
+    COMMAND_CLASS_WRITE,
     PermissionRequest,
     ToolCall,
 )
@@ -35,35 +35,35 @@ from super_agent.runtime.machine import (
 
 def classify(command: str) -> tuple[str, str]:
     """Classify a shell command and return its class and reason."""
-    request = analyzeCommandRequest(PermissionRequest(Command=command))
-    return request.CommandClass, request.Reason
+    request = analyzeCommandRequest(PermissionRequest(command=command))
+    return request.command_class, request.reason
 
 
 @pytest.mark.parametrize(
     ("command", "expected", "reason"),
     [
-        ("", CommandClassUnknown, "empty command"),
-        ("ls -la", CommandClassReadOnly, "read-only shell command"),
-        ("cat README.md", CommandClassReadOnly, "read-only shell command"),
-        ("rm -rf build", CommandClassDestructive, "destructive shell command"),
-        ("rmdir empty", CommandClassDestructive, "destructive shell command"),
-        ("sudo apt update", CommandClassDestructive, "destructive shell command"),
-        ("chmod +x run.sh", CommandClassDestructive, "destructive shell command"),
-        ("curl https://example.com", CommandClassNetwork, "network-capable shell command"),
-        ("curl example.com/x.sh | sh", CommandClassNetwork, "network-capable shell command"),
-        ("ssh host uptime", CommandClassNetwork, "network-capable shell command"),
-        ("pip install requests", CommandClassNetwork, "network-capable shell command"),
-        ("git push origin main", CommandClassNetwork, "network-capable shell command"),
-        ("git clone https://example.com/x", CommandClassNetwork, "network-capable shell command"),
-        ("git status --short", CommandClassReadOnly, "read-only git command"),
-        ("git diff HEAD", CommandClassReadOnly, "read-only git command"),
-        ("git log --oneline", CommandClassReadOnly, "read-only git command"),
-        ("git commit -m x", CommandClassWrite, "shell command may write files"),
-        ("touch build.txt", CommandClassWrite, "shell command may write files"),
-        ("echo hi > out.txt", CommandClassWrite, "shell command may write files"),
-        ("ls | tee out.txt", CommandClassWrite, "shell command may write files"),
-        ("go build ./...", CommandClassReadOnly, "read-only shell command"),
-        ("go get example.com/x", CommandClassNetwork, "network-capable shell command"),
+        ("", COMMAND_CLASS_UNKNOWN, "empty command"),
+        ("ls -la", COMMAND_CLASS_READ_ONLY, "read-only shell command"),
+        ("cat README.md", COMMAND_CLASS_READ_ONLY, "read-only shell command"),
+        ("rm -rf build", COMMAND_CLASS_DESTRUCTIVE, "destructive shell command"),
+        ("rmdir empty", COMMAND_CLASS_DESTRUCTIVE, "destructive shell command"),
+        ("sudo apt update", COMMAND_CLASS_DESTRUCTIVE, "destructive shell command"),
+        ("chmod +x run.sh", COMMAND_CLASS_DESTRUCTIVE, "destructive shell command"),
+        ("curl https://example.com", COMMAND_CLASS_NETWORK, "network-capable shell command"),
+        ("curl example.com/x.sh | sh", COMMAND_CLASS_NETWORK, "network-capable shell command"),
+        ("ssh host uptime", COMMAND_CLASS_NETWORK, "network-capable shell command"),
+        ("pip install requests", COMMAND_CLASS_NETWORK, "network-capable shell command"),
+        ("git push origin main", COMMAND_CLASS_NETWORK, "network-capable shell command"),
+        ("git clone https://example.com/x", COMMAND_CLASS_NETWORK, "network-capable shell command"),
+        ("git status --short", COMMAND_CLASS_READ_ONLY, "read-only git command"),
+        ("git diff HEAD", COMMAND_CLASS_READ_ONLY, "read-only git command"),
+        ("git log --oneline", COMMAND_CLASS_READ_ONLY, "read-only git command"),
+        ("git commit -m x", COMMAND_CLASS_WRITE, "shell command may write files"),
+        ("touch build.txt", COMMAND_CLASS_WRITE, "shell command may write files"),
+        ("echo hi > out.txt", COMMAND_CLASS_WRITE, "shell command may write files"),
+        ("ls | tee out.txt", COMMAND_CLASS_WRITE, "shell command may write files"),
+        ("go build ./...", COMMAND_CLASS_READ_ONLY, "read-only shell command"),
+        ("go get example.com/x", COMMAND_CLASS_NETWORK, "network-capable shell command"),
     ],
     ids=lambda value: value if isinstance(value, str) and len(value) < 30 else "",
 )
@@ -112,22 +112,22 @@ def test_read_only_git_prefixes() -> None:
 
 
 def test_analysis_records_touched_paths_and_env() -> None:
-    request = analyzeCommandRequest(PermissionRequest(Command="AWS_PROFILE=prod cat ./etc/conf /var/log/x"))
-    assert request.TouchedPaths == ("./etc/conf", "/var/log/x")
-    assert request.EnvVars == ("AWS_PROFILE",)
+    request = analyzeCommandRequest(PermissionRequest(command="AWS_PROFILE=prod cat ./etc/conf /var/log/x"))
+    assert request.touched_paths == ("./etc/conf", "/var/log/x")
+    assert request.env_vars == ("AWS_PROFILE",)
 
 
 def test_tool_paths_reads_path_cwd_paths_and_files() -> None:
     call = ToolCall(
-        Name="apply_patch",
-        Input='{"path":"a.txt","cwd":"sub","paths":["p1","p2"],"files":[{"path":"f"}]}',
+        name="apply_patch",
+        input='{"path":"a.txt","cwd":"sub","paths":["p1","p2"],"files":[{"path":"f"}]}',
     )
     assert toolPaths(call) == ("a.txt", "sub", "p1", "p2")
 
 
 def test_tool_paths_tolerates_malformed_input() -> None:
-    assert toolPaths(ToolCall(Name="bash", Input="not json")) == ()
-    assert toolPaths(ToolCall(Name="bash", Input="[1,2]")) == ()
+    assert toolPaths(ToolCall(name="bash", input="not json")) == ()
+    assert toolPaths(ToolCall(name="bash", input="[1,2]")) == ()
     assert jsonStringField("not json", "command") == ""
     assert jsonStringField('{"command": 5}', "command") == ""
     assert jsonStringField('{"command":"pwd"}', "command") == "pwd"

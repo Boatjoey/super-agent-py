@@ -25,12 +25,12 @@ from super_agent import runtime, tui
 from super_agent.app.agents import AgentController
 from super_agent.app.mcp import MCPController
 from super_agent.errors import JoinedError
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.session import ApprovalsClosed, NotificationsClosed
 
 __all__ = [
-    "NewTUIConversation",
     "TUIConversation",
+    "new_tui_conversation",
     "to_conversation_notification",
     "to_conversation_view",
     "to_tui_message",
@@ -63,183 +63,183 @@ class TUIConversation:
 
     # --- agent profiles ------------------------------------------------------
 
-    def ListAgents(self) -> list[tui.AgentSummary]:
+    def list_agents(self) -> list[tui.AgentSummary]:
         """Every configured profile, or nothing when the controller is absent."""
         if self.agents is None:
             return []
         return [
             tui.AgentSummary(
-                Name=profile.Name,
-                Provider=profile.Provider,
-                Model=profile.Model,
-                PermissionMode=str(profile.PermissionMode),
+                name=profile.name,
+                provider=profile.provider,
+                model=profile.model,
+                permission_mode=str(profile.permission_mode),
             )
-            for profile in self.agents.List()
+            for profile in self.agents.list()
         ]
 
-    def CurrentAgent(self) -> tui.AgentSummary:
+    def current_agent(self) -> tui.AgentSummary:
         """The active profile, or an empty summary when there is no controller."""
         if self.agents is None:
             return tui.AgentSummary()
-        profile = self.agents.Current()
+        profile = self.agents.active_profile()
         return tui.AgentSummary(
-            Name=profile.Name,
-            Provider=profile.Provider,
-            Model=profile.Model,
-            PermissionMode=str(profile.PermissionMode),
+            name=profile.name,
+            provider=profile.provider,
+            model=profile.model,
+            permission_mode=str(profile.permission_mode),
         )
 
-    async def UseAgent(self, name: str) -> None:
+    async def use_agent(self, name: str) -> None:
         """Switch profiles, replacing the context, model, and visible tools."""
         if self.agents is None:
             raise ValueError("agent profiles are unavailable")
-        await self.agents.Use(name)
+        await self.agents.use(name)
 
     # --- conversation --------------------------------------------------------
 
-    async def Fork(self, title: str) -> str:
-        meta = await self.session.Fork(title)
-        return str(meta.ID)
+    async def fork(self, title: str) -> str:
+        meta = await self.session.fork(title)
+        return str(meta.id)
 
-    async def Memories(self) -> list[str]:
-        return self.session.Memories()
+    async def memories(self) -> list[str]:
+        return self.session.memories()
 
-    async def Remember(self, text: str) -> None:
-        await self.session.Remember(text)
+    async def remember(self, text: str) -> None:
+        await self.session.remember(text)
 
-    async def ForgetMemories(self) -> None:
-        await self.session.ForgetMemories()
+    async def forget_memories(self) -> None:
+        await self.session.forget_memories()
 
-    async def Export(self, format: str) -> str:
-        return self.session.Export(format)
+    async def export(self, format: str) -> str:
+        return self.session.export(format)
 
-    async def Attach(self, path: str) -> tui.AttachmentSummary:
-        attachment = self.session.Attach(path)
-        return tui.AttachmentSummary(Name=attachment.Name, MIME=attachment.MIME)
+    async def attach(self, path: str) -> tui.AttachmentSummary:
+        attachment = self.session.attach(path)
+        return tui.AttachmentSummary(name=attachment.name, mime=attachment.mime)
 
-    async def PendingAttachments(self) -> tuple[tui.AttachmentSummary, ...]:
+    async def pending_attachments(self) -> tuple[tui.AttachmentSummary, ...]:
         return tuple(
-            tui.AttachmentSummary(Name=attachment.Name, MIME=attachment.MIME)
-            for attachment in self.session.PendingAttachments()
+            tui.AttachmentSummary(name=attachment.name, mime=attachment.mime)
+            for attachment in self.session.pending_attachments()
         )
 
-    def Snapshot(self) -> tui.ConversationView:
-        return to_conversation_view(self.session.Snapshot())
+    def snapshot(self) -> tui.ConversationView:
+        return to_conversation_view(self.session.snapshot())
 
-    async def Cancel(self) -> BaseException | None:
+    async def cancel(self) -> BaseException | None:
         """Cancel the turn in flight, reporting rather than raising a failure."""
         try:
-            await self.session.Cancel()
+            await self.session.cancel()
         except Exception as error:
             return error
         return None
 
-    async def Reset(self) -> None:
-        await self.session.Reset()
+    async def reset(self) -> None:
+        await self.session.reset()
 
-    async def Compact(self, summary: str) -> None:
+    async def compact(self, summary: str) -> None:
         # The keep-newest default lives in the runtime session.
-        await self.session.Compact(LiveContext(), summary, 0)
+        await self.session.compact(live_context(), summary, 0)
 
-    async def Undo(self) -> None:
-        await self.session.Undo()
+    async def undo(self) -> None:
+        await self.session.undo()
 
-    async def SetPermissionMode(self, mode: str) -> None:
-        await self.session.SetPermissionMode(runtime.PermissionMode(mode))
+    async def set_permission_mode(self, mode: str) -> None:
+        await self.session.set_permission_mode(runtime.PermissionMode(mode))
 
-    def PermissionMode(self) -> str:
-        return str(self.session.PermissionMode())
+    def permission_mode(self) -> str:
+        return str(self.session.permission_mode())
 
-    def AutoApproveTools(self) -> bool:
-        return self.session.AutoApproveTools()
+    def auto_approve_tools(self) -> bool:
+        return self.session.auto_approve_tools()
 
     # --- saved sessions ------------------------------------------------------
 
-    async def ListSessions(self) -> list[tui.SessionSummary]:
-        summaries = self.session.ListSessions()
+    async def list_sessions(self) -> list[tui.SessionSummary]:
+        summaries = self.session.list_sessions()
         return [
             tui.SessionSummary(
-                ID=str(item.ID),
-                Title=item.Title,
-                Provider=item.Provider,
-                Model=item.Model,
-                CWD=item.CWD,
-                ParentID=str(item.ParentID),
+                id=str(item.id),
+                title=item.title,
+                provider=item.provider,
+                model=item.model,
+                cwd=item.cwd,
+                parent_id=str(item.parent_id),
             )
             for item in summaries
         ]
 
-    async def Resume(self, session_id: str) -> None:
-        await self.session.Resume(runtime.SessionID(session_id))
+    async def resume(self, session_id: str) -> None:
+        await self.session.resume(runtime.SessionID(session_id))
 
-    async def RenameSession(self, session_id: str, title: str) -> None:
-        self.session.RenameSession(runtime.SessionID(session_id), title)
+    async def rename_session(self, session_id: str, title: str) -> None:
+        self.session.rename_session(runtime.SessionID(session_id), title)
 
-    async def DeleteSession(self, session_id: str) -> None:
-        self.session.DeleteSession(runtime.SessionID(session_id))
+    async def delete_session(self, session_id: str) -> None:
+        self.session.delete_session(runtime.SessionID(session_id))
 
     # --- MCP servers ---------------------------------------------------------
 
-    def ListMCPServers(self) -> list[tui.MCPServerSummary]:
+    def list_mcp_servers(self) -> list[tui.MCPServerSummary]:
         if self.mcp is None:
             return []
-        return [tui.MCPServerSummary(Name=server.Name, Tools=server.Tools) for server in self.mcp.List()]
+        return [tui.MCPServerSummary(name=server.name, tools=server.tools) for server in self.mcp.list()]
 
-    async def AddMCPServer(self, name: str, command: str, args: list[str]) -> None:
+    async def add_mcp_server(self, name: str, command: str, args: list[str]) -> None:
         if self.mcp is None:
             raise ValueError("MCP management is unavailable")
-        await self.mcp.Add(LiveContext(), name, command, args)
+        await self.mcp.add(live_context(), name, command, args)
 
-    async def RemoveMCPServer(self, name: str) -> None:
+    async def remove_mcp_server(self, name: str) -> None:
         if self.mcp is None:
             raise ValueError("MCP management is unavailable")
-        await self.mcp.Remove(name)
+        await self.mcp.remove(name)
 
-    async def RestartMCPServer(self, name: str) -> None:
+    async def restart_mcp_server(self, name: str) -> None:
         if self.mcp is None:
             raise ValueError("MCP management is unavailable")
-        await self.mcp.Restart(LiveContext(), name)
+        await self.mcp.restart(live_context(), name)
 
     # --- repository and extension queries ------------------------------------
 
-    async def GitDiff(self) -> str:
+    async def git_diff(self) -> str:
         if self.agents is None:
             raise ValueError("workflow tools are unavailable")
-        return await self.agents.GitDiff(LiveContext())
+        return await self.agents.git_diff(live_context())
 
-    async def GitStatus(self) -> str:
+    async def git_status(self) -> str:
         if self.agents is None:
             raise ValueError("workflow tools are unavailable")
-        return await self.agents.GitStatus(LiveContext())
+        return await self.agents.git_status(live_context())
 
-    async def Diagnostics(self, path: str) -> str:
+    async def diagnostics(self, path: str) -> str:
         if self.agents is None:
             raise ValueError("diagnostics are unavailable")
-        return await self.agents.Diagnostics(LiveContext(), path)
+        return await self.agents.diagnostics(live_context(), path)
 
-    def CustomCommands(self) -> list[str]:
+    def custom_commands(self) -> list[str]:
         if self.agents is None:
             return []
-        return self.agents.CustomCommands()
+        return self.agents.custom_commands()
 
-    async def ExpandCustomCommand(self, name: str, arguments: str) -> str:
+    async def expand_custom_command(self, name: str, arguments: str) -> str:
         if self.agents is None:
             raise ValueError("custom commands are unavailable")
-        return self.agents.ExpandCommand(name, arguments)
+        return self.agents.expand_command(name, arguments)
 
-    def Skills(self) -> list[str]:
+    def skills(self) -> list[str]:
         if self.agents is None:
             return []
-        return self.agents.Skills()
+        return self.agents.skills()
 
-    def Plugins(self) -> list[str]:
+    def plugins(self) -> list[str]:
         if self.agents is None:
             return []
-        return self.agents.Plugins()
+        return self.agents.plugins()
 
     # --- the turn ------------------------------------------------------------
 
-    async def RunTurn(
+    async def run_turn(
         self,
         text: str,
         notifications: tui.Channel[tui.ConversationNotification],
@@ -257,9 +257,9 @@ class TUIConversation:
         try:
             if self.agents is not None:
                 try:
-                    await self.agents.RunHook(ctx, "before_turn")
+                    await self.agents.run_hook(ctx, "before_turn")
                 except Exception as error:
-                    notifications.Close()
+                    notifications.close()
                     return error
             runtimeNotifications: asyncio.Queue[runtime.SessionNotification] = asyncio.Queue(maxsize=100)
             runtimeApprovals: asyncio.Queue[runtime.ApprovalDecision | ApprovalsClosed] = asyncio.Queue(maxsize=1)
@@ -270,7 +270,7 @@ class TUIConversation:
             approvalBridge = asyncio.create_task(_bridgeApprovals(approvals, runtimeApprovals, done))
             error: BaseException | None = None
             try:
-                await self.session.RunTurn(ctx, text, runtimeNotifications, runtimeApprovals)
+                await self.session.run_turn(ctx, text, runtimeNotifications, runtimeApprovals)
             except Exception as failure:
                 error = failure
             finally:
@@ -293,15 +293,15 @@ class TUIConversation:
         return error
 
 
-def NewTUIConversation(session: runtime.Session, *controllers: object) -> TUIConversation:
+def new_tui_conversation(session: runtime.Session, *controllers: object) -> TUIConversation:
     """The session, plus whichever controllers apply."""
     return TUIConversation(session, *controllers)
 
 
 async def _watchCancellation(cancellation: tui.Cancellation, ctx: RunContext) -> None:
     """Cancel the run context when the interface cancels the turn."""
-    await cancellation.Wait()
-    ctx.Cancel()
+    await cancellation.wait()
+    ctx.cancel()
 
 
 async def _bridgeNotifications(
@@ -332,17 +332,17 @@ async def _bridgeNotifications(
                     return
                 if isinstance(notification, runtime.ToolApprovalRequested) and agents is not None:
                     try:
-                        await agents.RunHook(ctx, "approval_requested")
+                        await agents.run_hook(ctx, "approval_requested")
                     except Exception as hookError:
-                        notifications.Put(tui.ConversationError(Err=hookError))
-                notifications.Put(to_conversation_notification(notification))
+                        notifications.put(tui.ConversationError(err=hookError))
+                notifications.put(to_conversation_notification(notification))
                 continue
             getter.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await getter
             return
     finally:
-        notifications.Close()
+        notifications.close()
 
 
 async def _bridgeApprovals(
@@ -352,7 +352,7 @@ async def _bridgeApprovals(
 ) -> None:
     """Forward the user's decisions to the runtime until the turn ends."""
     while True:
-        decision = await approvals.Get()
+        decision = await approvals.get()
         if decision is None or done.is_set():
             return
         await runtimeApprovals.put(runtime.ApprovalDecision(str(decision)))
@@ -361,7 +361,7 @@ async def _bridgeApprovals(
 async def _hookFailure(agents: AgentController, ctx: RunContext, events: tuple[str, ...]) -> BaseException | None:
     """Run lifecycle hooks, returning their failure instead of raising it."""
     try:
-        await agents.RunHooks(ctx, *events)
+        await agents.run_hooks(ctx, *events)
     except Exception as error:
         return error
     return None
@@ -390,41 +390,41 @@ def to_conversation_notification(
     """
     match notification:
         case runtime.StateChanged():
-            return tui.AgentStatusChanged(Status=to_tui_status(notification.State))
+            return tui.AgentStatusChanged(status=to_tui_status(notification.state))
         case runtime.ToolApprovalRequested():
             return tui.ToolApprovalRequested(
-                ToolCall=to_tui_tool_call(notification.ToolCall),
-                Request=to_tui_permission(notification.Request),
-                BatchIndex=notification.BatchIndex,
-                BatchTotal=notification.BatchTotal,
+                tool_call=to_tui_tool_call(notification.tool_call),
+                request=to_tui_permission(notification.request),
+                batch_index=notification.batch_index,
+                batch_total=notification.batch_total,
             )
         case runtime.ToolApprovalCleared():
             return tui.ToolApprovalCleared()
         case runtime.StreamChunkReceived():
-            return tui.StreamChunkReceived(Message=to_tui_message_ptr(notification.Message))
+            return tui.StreamChunkReceived(message=to_tui_message_ptr(notification.message))
         case runtime.MessageAppended():
-            return tui.MessageAppended(Message=to_tui_message(notification.Message))
+            return tui.MessageAppended(message=to_tui_message(notification.message))
         case runtime.SessionError():
-            return tui.ConversationError(Err=notification.Err)
+            return tui.ConversationError(err=notification.err)
         case _:
             return tui.ConversationError(
-                Err=ValueError(f"unknown runtime session notification: {type(notification).__name__}")
+                err=ValueError(f"unknown runtime session notification: {type(notification).__name__}")
             )
 
 
 def to_conversation_view(view: runtime.EngineView) -> tui.ConversationView:
     """Map one engine snapshot to the view the transcript rebuilds from."""
     result = tui.ConversationView(
-        AgentStatus=to_tui_status(view.State),
-        Messages=tuple(to_tui_message(message) for message in view.Messages),
-        PendingToolBatchIndex=view.PendingToolBatchIndex,
-        PendingToolBatchTotal=view.PendingToolBatchTotal,
-        StreamingMessage=to_tui_message_ptr(view.StreamingMessage),
+        agent_status=to_tui_status(view.state),
+        messages=tuple(to_tui_message(message) for message in view.messages),
+        pending_tool_batch_index=view.pending_tool_batch_index,
+        pending_tool_batch_total=view.pending_tool_batch_total,
+        streaming_message=to_tui_message_ptr(view.streaming_message),
     )
-    if view.PendingTool is not None:
-        result = dataclasses.replace(result, PendingTool=to_tui_tool_call(view.PendingTool))
-    if view.PendingPermission is not None:
-        result = dataclasses.replace(result, PendingPermission=to_tui_permission(view.PendingPermission))
+    if view.pending_tool is not None:
+        result = dataclasses.replace(result, pending_tool=to_tui_tool_call(view.pending_tool))
+    if view.pending_permission is not None:
+        result = dataclasses.replace(result, pending_permission=to_tui_permission(view.pending_permission))
     return result
 
 
@@ -437,20 +437,20 @@ def to_tui_status(state: runtime.State) -> tui.AgentStatus:
     runtime state enum.
     """
     match state:
-        case runtime.StateInitializing:
-            return tui.AgentStatus(Label="Initializing", Busy=True)
-        case runtime.StateIdle:
-            return tui.AgentStatus(Label="Idle")
-        case runtime.StateWaitingLLM:
-            return tui.AgentStatus(Label="WaitingLLM", Busy=True)
-        case runtime.StateWaitingApproval:
-            return tui.AgentStatus(Label="WaitingApproval", AwaitingApproval=True)
-        case runtime.StateRunningTool:
-            return tui.AgentStatus(Label="RunningTool", Busy=True)
-        case runtime.StateAdvancingQueue:
-            return tui.AgentStatus(Label="AdvancingQueue", Busy=True)
+        case runtime.STATE_INITIALIZING:
+            return tui.AgentStatus(label="Initializing", busy=True)
+        case runtime.STATE_IDLE:
+            return tui.AgentStatus(label="Idle")
+        case runtime.STATE_WAITING_LLM:
+            return tui.AgentStatus(label="WaitingLLM", busy=True)
+        case runtime.STATE_WAITING_APPROVAL:
+            return tui.AgentStatus(label="WaitingApproval", awaiting_approval=True)
+        case runtime.STATE_RUNNING_TOOL:
+            return tui.AgentStatus(label="RunningTool", busy=True)
+        case runtime.STATE_ADVANCING_QUEUE:
+            return tui.AgentStatus(label="AdvancingQueue", busy=True)
         case _:
-            return tui.AgentStatus(Label="Unknown")
+            return tui.AgentStatus(label="Unknown")
 
 
 def to_tui_message_ptr(message: runtime.Message | None) -> tui.Message | None:
@@ -466,35 +466,35 @@ def to_tui_message(message: runtime.Message) -> tui.Message:
     The runtime type is a flat tuple with no nil entries, so there is nothing to
     skip.
     """
-    calls = tuple(to_tui_tool_call(call) for call in message.ToolCalls or ())
+    calls = tuple(to_tui_tool_call(call) for call in message.tool_calls or ())
     attachments = tuple(
-        tui.MessageAttachment(Name=attachment.Name, MIME=attachment.MIME) for attachment in message.Attachments
+        tui.MessageAttachment(name=attachment.name, mime=attachment.mime) for attachment in message.attachments
     )
     return tui.Message(
-        Role=tui.Role(str(message.Role)),
-        Content=message.Content,
-        ReasoningContent=message.ReasoningContent,
-        ToolCallID=message.ToolCallID,
-        ToolName=message.ToolName,
-        ToolCalls=calls,
-        Interrupted=message.Interrupted,
-        Attachments=attachments,
+        role=tui.Role(str(message.role)),
+        content=message.content,
+        reasoning_content=message.reasoning_content,
+        tool_call_id=message.tool_call_id,
+        tool_name=message.tool_name,
+        tool_calls=calls,
+        interrupted=message.interrupted,
+        attachments=attachments,
     )
 
 
 def to_tui_tool_call(call: runtime.ToolCall) -> tui.ToolCall:
     """One tool call, unchanged: the fields already mean the same thing."""
-    return tui.ToolCall(ID=call.ID, Name=call.Name, Input=call.Input)
+    return tui.ToolCall(id=call.id, name=call.name, input=call.input)
 
 
 def to_tui_permission(request: runtime.PermissionRequest) -> tui.PermissionRequest:
     """One permission request, with its sequences copied."""
     return tui.PermissionRequest(
-        ToolName=request.ToolName,
-        Command=request.Command,
-        CommandClass=str(request.CommandClass),
-        CWD=request.CWD,
-        TouchedPaths=tuple(request.TouchedPaths),
-        EnvVars=tuple(request.EnvVars),
-        Reason=request.Reason,
+        tool_name=request.tool_name,
+        command=request.command,
+        command_class=str(request.command_class),
+        cwd=request.cwd,
+        touched_paths=tuple(request.touched_paths),
+        env_vars=tuple(request.env_vars),
+        reason=request.reason,
     )

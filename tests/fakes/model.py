@@ -28,7 +28,7 @@ class ScriptedModel:
         self.responses: list[ModelResponse] = list(responses)
         self.calls: list[Message] = []
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
@@ -49,17 +49,17 @@ class StreamingCancelModel:
     def __init__(self) -> None:
         self.started: asyncio.Event = asyncio.Event()
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
         tools: list[ToolSpec],
         on_stream_chunk: Callable[[StreamChunk], None],
     ) -> ModelResponse:
-        on_stream_chunk(StreamChunk(ContentDelta="partial", ReasoningContentDelta="thinking"))
+        on_stream_chunk(StreamChunk(content_delta="partial", reasoning_content_delta="thinking"))
         self.started.set()
-        await ctx.Done().wait()
-        ctx.RaiseIfCancelled()
+        await ctx.done().wait()
+        ctx.raise_if_cancelled()
         return ModelResponse()
 
 
@@ -76,7 +76,7 @@ class BlockingModel:
         self.started: asyncio.Event = asyncio.Event()
         self.calls: int = 0
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
@@ -86,7 +86,7 @@ class BlockingModel:
         self.calls += 1
         self.started.set()
         await self.release.wait()
-        return ModelResponse(Content=self.content)
+        return ModelResponse(content=self.content)
 
 
 class GateModel:
@@ -102,7 +102,7 @@ class GateModel:
         self.started: asyncio.Event = asyncio.Event()
         self.calls: list[Message] = []
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],

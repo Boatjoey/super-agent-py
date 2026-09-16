@@ -14,10 +14,10 @@ from pathlib import Path
 
 import pytest
 
-from super_agent.app import DefaultSettings, LoadSettingsFile, NewMCPController, SaveSettingsFile
-from super_agent.runtime.protocol.run_context import LiveContext
-from super_agent.tools import NewRegistry
-from super_agent.tools.mcp import Connect
+from super_agent.app import default_settings, load_settings_file, new_mcp_controller, save_settings_file
+from super_agent.runtime.protocol.run_context import live_context
+from super_agent.tools import new_registry
+from super_agent.tools.mcp import connect
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HELPER = REPO_ROOT / "tests" / "helpers" / "mcp_echo_server.py"
@@ -45,23 +45,23 @@ def test_app_mcp_helper_process() -> None:
 
 @pytest.mark.asyncio
 async def test_mcp_controller_persists_add_and_remove(tmp_path: Path) -> None:
-    manager = await Connect(LiveContext(), [])
+    manager = await connect(live_context(), [])
     try:
-        registry = NewRegistry()
+        registry = new_registry()
         settingsPath = tmp_path / "settings.json"
-        SaveSettingsFile(str(settingsPath), DefaultSettings())
-        controller = NewMCPController(manager, registry, str(settingsPath), str(REPO_ROOT), None)
+        save_settings_file(str(settingsPath), default_settings())
+        controller = new_mcp_controller(manager, registry, str(settingsPath), str(REPO_ROOT), None)
 
-        await controller.Add(LiveContext(), "fake", sys.executable, ["-m", "tests.helpers.mcp_echo_server"])
-        assert len(controller.List()) == 1
-        assert len(registry.Specs()) == 1
+        await controller.add(live_context(), "fake", sys.executable, ["-m", "tests.helpers.mcp_echo_server"])
+        assert len(controller.list()) == 1
+        assert len(registry.specs()) == 1
 
-        settings = LoadSettingsFile(str(settingsPath))
-        assert settings.MCPServers["fake"].Command == sys.executable
+        settings = load_settings_file(str(settingsPath))
+        assert settings.mcp_servers["fake"].command == sys.executable
 
-        await controller.Remove("fake")
-        settings = LoadSettingsFile(str(settingsPath))
-        assert len(settings.MCPServers) == 0
-        assert len(registry.Specs()) == 0
+        await controller.remove("fake")
+        settings = load_settings_file(str(settingsPath))
+        assert len(settings.mcp_servers) == 0
+        assert len(registry.specs()) == 0
     finally:
-        await manager.Close()
+        await manager.close()

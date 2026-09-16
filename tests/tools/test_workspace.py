@@ -29,8 +29,8 @@ ACCESS_READ_WRITE = "read_write"
 class Root:
     """One access root, mirroring ``workspace.Root``."""
 
-    Path: str
-    Access: str
+    path: str
+    access: str
 
 
 class FakeWorkspace:
@@ -41,9 +41,9 @@ class FakeWorkspace:
             raise RuntimeError("workspace primary root and cwd are required")
         normalized: list[Root] = []
         for root in roots:
-            if root.Access not in (ACCESS_READ, ACCESS_READ_WRITE):
+            if root.access not in (ACCESS_READ, ACCESS_READ_WRITE):
                 raise RuntimeError("invalid workspace root access")
-            normalized.append(Root(Path=_canonical_directory(root.Path), Access=root.Access))
+            normalized.append(Root(path=_canonical_directory(root.path), access=root.access))
         if not normalized:
             raise RuntimeError("workspace requires at least one root")
         self._primary_root = _canonical_directory(primary_root)
@@ -54,13 +54,13 @@ class FakeWorkspace:
         if not self._can_access(self._cwd, write=False):
             raise RuntimeError("workspace cwd is not readable")
 
-    def GetPrimaryRoot(self) -> str:
+    def get_primary_root(self) -> str:
         return self._primary_root
 
-    def GetCWD(self) -> str:
+    def get_cwd(self) -> str:
         return self._cwd
 
-    def ResolvePath(self, path: str) -> str:
+    def resolve_path(self, path: str) -> str:
         """Resolve relative to the workspace cwd and canonicalize symlinks."""
         if path == "":
             raise RuntimeError("path is required")
@@ -68,24 +68,24 @@ class FakeWorkspace:
             path = os.path.join(self._cwd, path)
         return _canonical_nearest(os.path.abspath(path))
 
-    def CanRead(self, path: str) -> bool:
+    def can_read(self, path: str) -> bool:
         return self._can_access_resolved(path, write=False)
 
-    def CanWrite(self, path: str) -> bool:
+    def can_write(self, path: str) -> bool:
         return self._can_access_resolved(path, write=True)
 
     def _can_access_resolved(self, path: str, *, write: bool) -> bool:
         try:
-            resolved = self.ResolvePath(path)
+            resolved = self.resolve_path(path)
         except OSError:
             return False
         return self._can_access(resolved, write=write)
 
     def _can_access(self, path: str, *, write: bool) -> bool:
         for root in self._roots:
-            if write and root.Access != ACCESS_READ_WRITE:
+            if write and root.access != ACCESS_READ_WRITE:
                 continue
-            relative = os.path.relpath(path, root.Path)
+            relative = os.path.relpath(path, root.path)
             if relative == ".." or relative.startswith(".." + os.sep):
                 continue
             if os.path.isabs(relative):
@@ -94,19 +94,19 @@ class FakeWorkspace:
         return False
 
 
-def NewContext(primary_root: str | Path, cwd: str | Path, roots: list[Root]) -> FakeWorkspace:
+def new_context(primary_root: str | Path, cwd: str | Path, roots: list[Root]) -> FakeWorkspace:
     """Build a workspace over explicit roots, as ``workspace.NewContext`` does."""
     return FakeWorkspace(str(primary_root), str(cwd), roots)
 
 
-def NewDefaultContext(root: str | Path) -> FakeWorkspace:
+def new_default_context(root: str | Path) -> FakeWorkspace:
     """Build a workspace whose single root is also its cwd."""
-    return NewContext(root, root, [Root(Path=str(root), Access=ACCESS_READ_WRITE)])
+    return new_context(root, root, [Root(path=str(root), access=ACCESS_READ_WRITE)])
 
 
 def workspace_for(root: str | Path | None = None) -> FakeWorkspace:
     """The default workspace for ``root``, or for the process cwd."""
-    return NewDefaultContext(root if root is not None else os.getcwd())
+    return new_default_context(root if root is not None else os.getcwd())
 
 
 def _canonical_directory(path: str) -> str:
@@ -150,10 +150,10 @@ def test_resolve_writable_rejects_a_read_only_root(tmp_path: Path) -> None:
     primary.mkdir()
     read_only.mkdir()
     (read_only / "shared.txt").write_text("shared", encoding="utf-8")
-    workspace = NewContext(
+    workspace = new_context(
         primary,
         primary,
-        [Root(Path=str(primary), Access=ACCESS_READ_WRITE), Root(Path=str(read_only), Access=ACCESS_READ)],
+        [Root(path=str(primary), access=ACCESS_READ_WRITE), Root(path=str(read_only), access=ACCESS_READ)],
     )
     shared = str(read_only / "shared.txt")
 

@@ -17,7 +17,7 @@ from super_agent.jsonutil import json_field
 from super_agent.runtime.protocol.types import Model
 
 #: The provider used when a caller names none.
-DefaultProvider: Final[str] = "deepseek"
+DEFAULT_PROVIDER: Final[str] = "deepseek"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -27,9 +27,9 @@ class ProviderConfig:
     Field names and JSON keys are fixed by the settings file.
     """
 
-    BaseURL: str = dataclasses.field(default="", metadata=json_field(name="base_url"))
-    APIKey: str = dataclasses.field(default="", metadata=json_field(name="api_key"))
-    Model: str = dataclasses.field(default="", metadata=json_field(name="model"))
+    base_url: str = dataclasses.field(default="", metadata=json_field(name="base_url"))
+    api_key: str = dataclasses.field(default="", metadata=json_field(name="api_key"))
+    model: str = dataclasses.field(default="", metadata=json_field(name="model"))
 
 
 #: Builds the model for one provider.
@@ -42,60 +42,60 @@ class ModelRegistry:
     def __init__(self) -> None:
         self.factories: dict[str, ModelFactory] = {}
 
-    def RegisterConfigured(self, provider: str, factory: ModelFactory) -> None:
+    def register_configured(self, provider: str, factory: ModelFactory) -> None:
         """Register ``factory`` under ``provider``, replacing any earlier entry."""
         self.factories[provider] = factory
 
-    def Create(self, provider: str, cfg: ProviderConfig) -> Model:
+    def create(self, provider: str, cfg: ProviderConfig) -> Model:
         """Build the model for ``provider``, defaulting to :data:`DefaultProvider`."""
         if provider == "":
-            provider = DefaultProvider
+            provider = DEFAULT_PROVIDER
         factory = self.factories.get(provider)
         if factory is None:
             raise ValueError("unknown llm provider: " + provider)
         return factory(cfg)
 
 
-def NewModelRegistry() -> ModelRegistry:
+def new_model_registry() -> ModelRegistry:
     """An empty registry."""
     return ModelRegistry()
 
 
-def NewDefaultModelRegistry() -> ModelRegistry:
+def new_default_model_registry() -> ModelRegistry:
     """A registry holding the built-in ``deepseek``, ``openai``, and ``claude`` providers.
 
     The provider modules are imported here rather than at module scope: each of
     them imports :class:`ProviderConfig` from this module, so a module-level
     import would be circular.
     """
-    from super_agent.llm.claude import NewClaude
-    from super_agent.llm.deepseek import NewDeepSeek
-    from super_agent.llm.openai import NewOpenAI
+    from super_agent.llm.claude import new_claude
+    from super_agent.llm.deepseek import new_deep_seek
+    from super_agent.llm.openai import new_open_ai
 
-    registry = NewModelRegistry()
-    registry.RegisterConfigured("deepseek", NewDeepSeek)
-    registry.RegisterConfigured("openai", NewOpenAI)
-    registry.RegisterConfigured("claude", NewClaude)
+    registry = new_model_registry()
+    registry.register_configured("deepseek", new_deep_seek)
+    registry.register_configured("openai", new_open_ai)
+    registry.register_configured("claude", new_claude)
     return registry
 
 
 @functools.cache
 def _default_registry() -> ModelRegistry:
     """The process-wide registry of built-in providers."""
-    return NewDefaultModelRegistry()
+    return new_default_model_registry()
 
 
-def NewModel(provider: str, cfg: ProviderConfig) -> Model:
+def new_model(provider: str, cfg: ProviderConfig) -> Model:
     """Build a model from the default registry."""
-    return _default_registry().Create(provider, cfg)
+    return _default_registry().create(provider, cfg)
 
 
-def ModelDisplayName(provider: str, cfg: ProviderConfig) -> str:
+def model_display_name(provider: str, cfg: ProviderConfig) -> str:
     """The model name to show, falling back to the provider's default model."""
-    if cfg.Model != "":
-        return cfg.Model
+    if cfg.model != "":
+        return cfg.model
     if provider == "":
-        provider = DefaultProvider
+        provider = DEFAULT_PROVIDER
     match provider:
         case "deepseek":
             return "deepseek-reasoner"

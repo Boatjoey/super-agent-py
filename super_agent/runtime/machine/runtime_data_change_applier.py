@@ -34,15 +34,15 @@ from super_agent.runtime.machine.runtime_data_change import (
     SetPendingTool,
     SetToolCallBatch,
 )
-from super_agent.runtime.machine.snapshot import ValidateRuntimeData
+from super_agent.runtime.machine.snapshot import validate_runtime_data
 from super_agent.runtime.machine.tool_batch import ToolCallBatch
 from super_agent.runtime.permission.types import Request as PermissionRequest
 from super_agent.runtime.protocol.types import (
+    ROLE_ASSISTANT,
+    ROLE_SYSTEM,
+    ROLE_TOOL,
+    ROLE_USER,
     Message,
-    RoleAssistant,
-    RoleSystem,
-    RoleTool,
-    RoleUser,
     ToolCall,
 )
 
@@ -51,13 +51,13 @@ from super_agent.runtime.protocol.types import (
 class RuntimeDataChangeResult:
     """The validated runtime data a transition should commit."""
 
-    RuntimeData: RuntimeData
+    runtime_data: RuntimeData
 
 
 class RuntimeDataChangeApplier(Protocol):
     """The engine's port for turning a decision into committed data."""
 
-    def ApplyRuntimeDataChanges(
+    def apply_runtime_data_changes(
         self, runtime_data: RuntimeData, result: TransitionResult
     ) -> RuntimeDataChangeResult: ...
 
@@ -65,77 +65,79 @@ class RuntimeDataChangeApplier(Protocol):
 class DefaultRuntimeDataChangeApplier:
     """The only applier; the port exists so tests can substitute one."""
 
-    def ApplyRuntimeDataChanges(self, runtime_data: RuntimeData, result: TransitionResult) -> RuntimeDataChangeResult:
+    def apply_runtime_data_changes(
+        self, runtime_data: RuntimeData, result: TransitionResult
+    ) -> RuntimeDataChangeResult:
         """Clone ``runtime_data``, apply the transition's changes, and validate."""
         next_data = clone_runtime_data(runtime_data)
-        next_data.State = result.NextState
-        for change in result.RuntimeDataChanges:
+        next_data.state = result.next_state
+        for change in result.runtime_data_changes:
             _apply_runtime_data_change(next_data, change)
-        ValidateRuntimeData(next_data)
-        return RuntimeDataChangeResult(RuntimeData=next_data)
+        validate_runtime_data(next_data)
+        return RuntimeDataChangeResult(runtime_data=next_data)
 
 
 def _apply_runtime_data_change(data: RuntimeData, change: RuntimeDataChange) -> None:
     if isinstance(change, AppendUserMessage):
-        data.StreamingContent = ""
-        data.StreamingReasoning = ""
-        data.Messages.append(Message(Role=RoleUser, Content=change.Content, Attachments=change.Attachments))
+        data.streaming_content = ""
+        data.streaming_reasoning = ""
+        data.messages.append(Message(role=ROLE_USER, content=change.content, attachments=change.attachments))
     elif isinstance(change, AppendAssistantMessage):
-        data.StreamingContent = ""
-        data.StreamingReasoning = ""
-        data.Messages.append(clone_message(change.Message))
+        data.streaming_content = ""
+        data.streaming_reasoning = ""
+        data.messages.append(clone_message(change.message))
     elif isinstance(change, AppendToolResult):
-        data.StreamingContent = ""
-        data.StreamingReasoning = ""
-        data.Messages.append(
+        data.streaming_content = ""
+        data.streaming_reasoning = ""
+        data.messages.append(
             Message(
-                Role=RoleTool,
-                Content=change.Result,
-                ToolCallID=change.Call.ID,
-                ToolName=change.Call.Name,
+                role=ROLE_TOOL,
+                content=change.result,
+                tool_call_id=change.call.id,
+                tool_name=change.call.name,
             )
         )
     elif isinstance(change, AppendStreamingAssistant):
-        data.StreamingContent += change.Chunk.ContentDelta
-        data.StreamingReasoning += change.Chunk.ReasoningContentDelta
+        data.streaming_content += change.chunk.content_delta
+        data.streaming_reasoning += change.chunk.reasoning_content_delta
     elif isinstance(change, FlushStreamingAssistant):
-        if data.StreamingContent != "" or data.StreamingReasoning != "":
-            data.Messages.append(
+        if data.streaming_content != "" or data.streaming_reasoning != "":
+            data.messages.append(
                 Message(
-                    Role=RoleAssistant,
-                    Content=data.StreamingContent,
-                    ReasoningContent=data.StreamingReasoning,
-                    Interrupted=change.Interrupted,
+                    role=ROLE_ASSISTANT,
+                    content=data.streaming_content,
+                    reasoning_content=data.streaming_reasoning,
+                    interrupted=change.interrupted,
                 )
             )
-        data.StreamingContent = ""
-        data.StreamingReasoning = ""
+        data.streaming_content = ""
+        data.streaming_reasoning = ""
     elif isinstance(change, SetPendingTool):
-        data.PendingTool = change.Call
-        data.PendingPermission = clone_permission_request(change.Request)
+        data.pending_tool = change.call
+        data.pending_permission = clone_permission_request(change.request)
     elif isinstance(change, SetCurrentTool):
-        data.CurrentTool = change.Call
+        data.current_tool = change.call
     elif isinstance(change, SetToolCallBatch):
-        data.ToolBatch = ToolCallBatch(ID=change.ID, Calls=list(change.Calls), Index=0)
+        data.tool_batch = ToolCallBatch(id=change.id, calls=list(change.calls), index=0)
     elif isinstance(change, AdvanceToolCallBatch):
-        if data.ToolBatch is None or data.ToolBatch.Index >= len(data.ToolBatch.Calls):
+        if data.tool_batch is None or data.tool_batch.index >= len(data.tool_batch.calls):
             raise InvariantViolationError("cannot advance an empty tool batch")
-        data.ToolBatch.Index += 1
+        data.tool_batch.index += 1
     elif isinstance(change, ClearPendingTool):
-        data.PendingTool = None
-        data.PendingPermission = None
+        data.pending_tool = None
+        data.pending_permission = None
     elif isinstance(change, ClearCurrentTool):
-        data.CurrentTool = None
+        data.current_tool = None
     elif isinstance(change, ClearToolCallBatch):
-        data.ToolBatch = None
+        data.tool_batch = None
     elif isinstance(change, ResetConversation):
-        data.Messages = system_messages(data.Messages)
-        data.PendingTool = None
-        data.PendingPermission = None
-        data.CurrentTool = None
-        data.ToolBatch = None
-        data.StreamingContent = ""
-        data.StreamingReasoning = ""
+        data.messages = system_messages(data.messages)
+        data.pending_tool = None
+        data.pending_permission = None
+        data.current_tool = None
+        data.tool_batch = None
+        data.streaming_content = ""
+        data.streaming_reasoning = ""
     else:
         raise InvariantViolationError(f"unknown runtime data change {type(change).__name__}")
 
@@ -143,14 +145,14 @@ def _apply_runtime_data_change(data: RuntimeData, change: RuntimeDataChange) -> 
 def clone_runtime_data(runtime_data: RuntimeData) -> RuntimeData:
     """Copy the parts of ``runtime_data`` a change is allowed to touch."""
     return RuntimeData(
-        State=runtime_data.State,
-        Messages=list(runtime_data.Messages),
-        PendingTool=clone_tool_call(runtime_data.PendingTool),
-        PendingPermission=clone_permission_request(runtime_data.PendingPermission),
-        CurrentTool=clone_tool_call(runtime_data.CurrentTool),
-        ToolBatch=clone_tool_batch(runtime_data.ToolBatch),
-        StreamingContent=runtime_data.StreamingContent,
-        StreamingReasoning=runtime_data.StreamingReasoning,
+        state=runtime_data.state,
+        messages=list(runtime_data.messages),
+        pending_tool=clone_tool_call(runtime_data.pending_tool),
+        pending_permission=clone_permission_request(runtime_data.pending_permission),
+        current_tool=clone_tool_call(runtime_data.current_tool),
+        tool_batch=clone_tool_batch(runtime_data.tool_batch),
+        streaming_content=runtime_data.streaming_content,
+        streaming_reasoning=runtime_data.streaming_reasoning,
     )
 
 
@@ -178,7 +180,7 @@ def clone_tool_batch(batch: ToolCallBatch | None) -> ToolCallBatch | None:
     """Copy a batch, whose call list a change may extend or re-index."""
     if batch is None:
         return None
-    return ToolCallBatch(ID=batch.ID, Calls=list(batch.Calls), Index=batch.Index)
+    return ToolCallBatch(id=batch.id, calls=list(batch.calls), index=batch.index)
 
 
 def system_messages(messages: list[Message]) -> list[Message]:
@@ -187,4 +189,4 @@ def system_messages(messages: list[Message]) -> list[Message]:
     Reset uses this so project instructions survive, and replay applies the same
     rule, which is why a reset also survives a restart.
     """
-    return [message for message in messages if message.Role == RoleSystem]
+    return [message for message in messages if message.role == ROLE_SYSTEM]

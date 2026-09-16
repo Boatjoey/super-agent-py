@@ -31,7 +31,7 @@ class capped_buffer:
         # pipe.
         return len(chunk)
 
-    def String(self) -> str:
+    def string(self) -> str:
         """The collected output, with the truncation marker when it was cut."""
         out = bytes(self._buf).decode("utf-8", "replace")
         if self._truncated:

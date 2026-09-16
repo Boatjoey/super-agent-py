@@ -4,4 +4,4 @@ from __future__ import annotations
 
 from typing import Final
 
-SystemPrompt: Final[str] = "You are Super Agent, a coding assistant."
+SYSTEM_PROMPT: Final[str] = "You are Super Agent, a coding assistant."

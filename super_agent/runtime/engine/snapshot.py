@@ -5,10 +5,10 @@ from __future__ import annotations
 import dataclasses
 
 from super_agent.runtime.machine import (
+    STATE_INITIALIZING,
     Message,
     PermissionRequest,
     State,
-    StateInitializing,
     ToolCall,
 )
 
@@ -22,13 +22,13 @@ class EngineView:
     mean.
     """
 
-    State: State = StateInitializing
-    Messages: tuple[Message, ...] = ()
-    PendingTool: ToolCall | None = None
-    PendingPermission: PermissionRequest | None = None
-    PendingToolBatchID: str = ""
-    PendingToolBatchIndex: int = 0
-    PendingToolBatchTotal: int = 0
-    StreamingMessage: Message | None = None
-    IsBusy: bool = False
-    NeedsInput: bool = False
+    state: State = STATE_INITIALIZING
+    messages: tuple[Message, ...] = ()
+    pending_tool: ToolCall | None = None
+    pending_permission: PermissionRequest | None = None
+    pending_tool_batch_id: str = ""
+    pending_tool_batch_index: int = 0
+    pending_tool_batch_total: int = 0
+    streaming_message: Message | None = None
+    is_busy: bool = False
+    needs_input: bool = False

@@ -34,16 +34,16 @@ class WorkspaceAccessMode(str):
         return f"WorkspaceAccessMode({str.__repr__(self)})"
 
 
-WorkspaceAccessRead: Final[WorkspaceAccessMode] = WorkspaceAccessMode("read")
-WorkspaceAccessReadWrite: Final[WorkspaceAccessMode] = WorkspaceAccessMode("read_write")
+WORKSPACE_ACCESS_READ: Final[WorkspaceAccessMode] = WorkspaceAccessMode("read")
+WORKSPACE_ACCESS_READ_WRITE: Final[WorkspaceAccessMode] = WorkspaceAccessMode("read_write")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class WorkspaceRootSpec:
     """One root a session may reach, and how."""
 
-    Path: str = ""
-    Access: WorkspaceAccessMode = WorkspaceAccessRead
+    path: str = ""
+    access: WorkspaceAccessMode = WORKSPACE_ACCESS_READ
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -54,65 +54,65 @@ class WorkspaceSpec:
     :class:`Workspace` implementation, not here.
     """
 
-    PrimaryRoot: str = ""
-    CWD: str = ""
-    Roots: tuple[WorkspaceRootSpec, ...] = ()
+    primary_root: str = ""
+    cwd: str = ""
+    roots: tuple[WorkspaceRootSpec, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Metadata:
     """What the session knows about itself, including what persistence needs."""
 
-    ID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
-    Title: str = ""
-    Provider: str = ""
-    Model: str = ""
-    CWD: str = ""
-    InstructionSources: tuple[str, ...] = ()
-    ParentID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
-    ProjectID: str = ""
-    ConfigRoot: str = ""
-    WorkspaceSpec: WorkspaceSpec | None = None
+    id: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
+    title: str = ""
+    provider: str = ""
+    model: str = ""
+    cwd: str = ""
+    instruction_sources: tuple[str, ...] = ()
+    parent_id: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
+    project_id: str = ""
+    config_root: str = ""
+    workspace_spec: WorkspaceSpec | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Summary:
     """One row of the session list."""
 
-    ID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
-    Title: str = ""
-    UpdatedAt: datetime | None = None
-    Provider: str = ""
-    Model: str = ""
-    CWD: str = ""
-    ParentID: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
+    id: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
+    title: str = ""
+    updated_at: datetime | None = None
+    provider: str = ""
+    model: str = ""
+    cwd: str = ""
+    parent_id: SessionID = dataclasses.field(default_factory=lambda: SessionID(""))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class FileSnapshot:
     """One file captured before a mutating tool call."""
 
-    Path: str = ""
-    Exists: bool = False
-    Content: str = ""
-    Mode: int = 0
+    path: str = ""
+    exists: bool = False
+    content: str = ""
+    mode: int = 0
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AuditEvent:
     """One auditable decision or failure. Never sent to a model."""
 
-    Type: str = dataclasses.field(default="", metadata=json_field(name="type"))
-    Time: datetime | None = dataclasses.field(default=None, metadata=json_field(name="time"))
-    ToolCall: ToolCall | None = dataclasses.field(default=None, metadata=json_field(name="tool_call", omitempty=True))
-    Decision: str = dataclasses.field(default="", metadata=json_field(name="decision", omitempty=True))
-    Result: str = dataclasses.field(default="", metadata=json_field(name="result", omitempty=True))
-    Error: str = dataclasses.field(default="", metadata=json_field(name="error", omitempty=True))
+    type: str = dataclasses.field(default="", metadata=json_field(name="type"))
+    time: datetime | None = dataclasses.field(default=None, metadata=json_field(name="time"))
+    tool_call: ToolCall | None = dataclasses.field(default=None, metadata=json_field(name="tool_call", omitempty=True))
+    decision: str = dataclasses.field(default="", metadata=json_field(name="decision", omitempty=True))
+    result: str = dataclasses.field(default="", metadata=json_field(name="result", omitempty=True))
+    error: str = dataclasses.field(default="", metadata=json_field(name="error", omitempty=True))
 
 
 def workspaceSpecPointer(spec: WorkspaceSpec) -> WorkspaceSpec:
     """A copy of ``spec``, so a caller cannot mutate what was persisted."""
-    return WorkspaceSpec(PrimaryRoot=spec.PrimaryRoot, CWD=spec.CWD, Roots=tuple(spec.Roots))
+    return WorkspaceSpec(primary_root=spec.primary_root, cwd=spec.cwd, roots=tuple(spec.roots))
 
 
 class Repository(Protocol):
@@ -122,54 +122,54 @@ class Repository(Protocol):
     the session layer only decides *when* each of them must be durable.
     """
 
-    def Create(self, metadata: Metadata, initial: list[Message]) -> Metadata:
+    def create(self, metadata: Metadata, initial: list[Message]) -> Metadata:
         """Create a new session, or raise."""
         ...
 
-    def AssignNewTurnID(self, session_id: SessionID) -> None: ...
+    def assign_new_turn_id(self, session_id: SessionID) -> None: ...
 
-    def SaveMessage(self, session_id: SessionID, message: Message) -> None: ...
+    def save_message(self, session_id: SessionID, message: Message) -> None: ...
 
-    def SaveApproval(self, session_id: SessionID, decision: ApprovalDecision, call: ToolCall | None) -> None: ...
+    def save_approval(self, session_id: SessionID, decision: ApprovalDecision, call: ToolCall | None) -> None: ...
 
-    def SaveError(self, session_id: SessionID, error: BaseException) -> None: ...
+    def save_error(self, session_id: SessionID, error: BaseException) -> None: ...
 
-    def SaveCancel(self, session_id: SessionID) -> None: ...
+    def save_cancel(self, session_id: SessionID) -> None: ...
 
-    def SaveReset(self, session_id: SessionID) -> None: ...
+    def save_reset(self, session_id: SessionID) -> None: ...
 
-    def SaveConversationReplacement(self, session_id: SessionID, messages: list[Message]) -> None: ...
+    def save_conversation_replacement(self, session_id: SessionID, messages: list[Message]) -> None: ...
 
-    def SaveCompaction(
+    def save_compaction(
         self, session_id: SessionID, summary: str, original: list[Message], kept: list[Message]
     ) -> None: ...
 
-    def SaveCheckpoint(self, session_id: SessionID, call: ToolCall, files: list[FileSnapshot]) -> None: ...
+    def save_checkpoint(self, session_id: SessionID, call: ToolCall, files: list[FileSnapshot]) -> None: ...
 
-    def List(self) -> list[Summary]: ...
+    def list(self) -> list[Summary]: ...
 
-    def Load(self, session_id: SessionID) -> tuple[list[Message], Metadata]: ...
+    def load(self, session_id: SessionID) -> tuple[list[Message], Metadata]: ...
 
-    def LoadAuditEvents(self, session_id: SessionID) -> list[AuditEvent]: ...
+    def load_audit_events(self, session_id: SessionID) -> list[AuditEvent]: ...
 
-    def RenameSession(self, session_id: SessionID, title: str) -> None: ...
+    def rename_session(self, session_id: SessionID, title: str) -> None: ...
 
-    def Delete(self, session_id: SessionID) -> None: ...
+    def delete(self, session_id: SessionID) -> None: ...
 
-    def LoadUndoPoint(self, session_id: SessionID) -> tuple[list[FileSnapshot], list[Message], int]:
+    def load_undo_point(self, session_id: SessionID) -> tuple[list[FileSnapshot], list[Message], int]:
         """The files of the most recent non-empty checkpoint, the transcript as of
         that checkpoint, and the record index for :meth:`TruncateAfter`."""
         ...
 
-    def TruncateAfter(self, session_id: SessionID, index: int) -> None:
+    def truncate_after(self, session_id: SessionID, index: int) -> None:
         """Drop every record after ``index``, keeping the checkpoint record itself."""
         ...
 
-    def LoadMemory(self) -> list[str]: ...
+    def load_memory(self) -> list[str]: ...
 
-    def SaveMemory(self, items: list[str]) -> None: ...
+    def save_memory(self, items: list[str]) -> None: ...
 
-    def SaveWorkspaceDescription(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
+    def save_workspace_description(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
         """Persist the durable workspace description and its canonical cwd without
         touching unrelated metadata.
 
@@ -182,11 +182,11 @@ class Repository(Protocol):
 class Workspace(Protocol):
     """The outbound filesystem port used by checkpoints, attachments, and exports."""
 
-    def Spec(self) -> WorkspaceSpec: ...
+    def spec(self) -> WorkspaceSpec: ...
 
-    def Validate(self, spec: WorkspaceSpec) -> None: ...
+    def validate(self, spec: WorkspaceSpec) -> None: ...
 
-    def Canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
+    def canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
         """Re-resolve every path in ``spec`` against the current filesystem.
 
         Resume uses it once to upgrade legacy metadata, whose saved cwd never
@@ -194,8 +194,8 @@ class Workspace(Protocol):
         """
         ...
 
-    def Activate(self, spec: WorkspaceSpec) -> None: ...
+    def activate(self, spec: WorkspaceSpec) -> None: ...
 
-    def Capture(self, paths: list[str]) -> list[FileSnapshot]: ...
+    def capture(self, paths: list[str]) -> list[FileSnapshot]: ...
 
-    def Restore(self, files: list[FileSnapshot]) -> None: ...
+    def restore(self, files: list[FileSnapshot]) -> None: ...

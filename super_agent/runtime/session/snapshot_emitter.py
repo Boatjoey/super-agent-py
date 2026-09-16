@@ -66,18 +66,18 @@ class SnapshotEmitter:
         that renders as it reads must never show an approval against the wrong
         state.
         """
-        await notifications.put(StateChanged(State=snapshot.State))
+        await notifications.put(StateChanged(state=snapshot.state))
 
-        pending = snapshot.PendingTool
+        pending = snapshot.pending_tool
         if pending is not None:
             if not self.hasApproval or self.lastApprovalCall is None or self.lastApprovalCall != pending:
                 await notifications.put(
                     ToolApprovalRequested(
-                        ToolCall=pending,
-                        Request=permission_request(snapshot),
-                        BatchID=snapshot.PendingToolBatchID,
-                        BatchIndex=snapshot.PendingToolBatchIndex,
-                        BatchTotal=snapshot.PendingToolBatchTotal,
+                        tool_call=pending,
+                        request=permission_request(snapshot),
+                        batch_id=snapshot.pending_tool_batch_id,
+                        batch_index=snapshot.pending_tool_batch_index,
+                        batch_total=snapshot.pending_tool_batch_total,
                     )
                 )
                 self.lastApprovalCall = pending
@@ -88,18 +88,18 @@ class SnapshotEmitter:
             self.hasApproval = False
             self.lastApprovalCall = None
 
-        messages = snapshot.Messages
+        messages = snapshot.messages
         if self.emittedMessages > len(messages):
             self.emittedMessages = 0
         for message in messages[self.emittedMessages :]:
-            await notifications.put(MessageAppended(Message=message))
+            await notifications.put(MessageAppended(message=message))
             if onMessage is not None:
                 onMessage(message)
         self.emittedMessages = len(messages)
 
 
 def permission_request(snapshot: EngineView) -> PermissionRequest:
-    permission = snapshot.PendingPermission
+    permission = snapshot.pending_permission
     return permission if permission is not None else PermissionRequest()
 
 

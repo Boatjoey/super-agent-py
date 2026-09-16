@@ -26,15 +26,15 @@ class ScheduledActionResult:
 class ModelReplied(ScheduledActionResult):
     kind: ClassVar[str] = "ModelReplied"
 
-    Response: ModelResponse = dataclasses.field(default_factory=ModelResponse)
+    response: ModelResponse = dataclasses.field(default_factory=ModelResponse)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolFinished(ScheduledActionResult):
     kind: ClassVar[str] = "ToolFinished"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Result: str = ""
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    result: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -46,12 +46,12 @@ class ToolQueueChecked(ScheduledActionResult):
 class ApprovalReceived(ScheduledActionResult):
     kind: ClassVar[str] = "ApprovalReceived"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Decision: ApprovalDecision = ApprovalDecision.ApproveOnce
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    decision: ApprovalDecision = ApprovalDecision.APPROVE_ONCE
 
 
 #: Every result type as a zero value, in declaration order.
-AllScheduledActionResults: tuple[ScheduledActionResult, ...] = (
+ALL_SCHEDULED_ACTION_RESULTS: tuple[ScheduledActionResult, ...] = (
     ModelReplied(),
     ToolFinished(),
     ToolQueueChecked(),

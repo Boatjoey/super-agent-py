@@ -87,41 +87,41 @@ RESERVED_COMMAND_NAMES: Final[frozenset[str]] = frozenset(
 class ExtensionSettings:
     """The ``extensions`` block of ``settings.json``."""
 
-    Commands: dict[str, str] = dataclasses.field(default_factory=dict[str, str], metadata=json_field(name="commands"))
-    Hooks: dict[str, tuple[str, ...]] = dataclasses.field(
+    commands: dict[str, str] = dataclasses.field(default_factory=dict[str, str], metadata=json_field(name="commands"))
+    hooks: dict[str, tuple[str, ...]] = dataclasses.field(
         default_factory=dict[str, tuple[str, ...]], metadata=json_field(name="hooks")
     )
-    Skills: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="skills"))
-    Plugins: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="plugins"))
+    skills: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="skills"))
+    plugins: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="plugins"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class PluginManifest:
     """``plugin.json``, which contributes commands, hooks, and skills."""
 
-    Commands: dict[str, str] = dataclasses.field(default_factory=dict[str, str], metadata=json_field(name="commands"))
-    Hooks: dict[str, tuple[str, ...]] = dataclasses.field(
+    commands: dict[str, str] = dataclasses.field(default_factory=dict[str, str], metadata=json_field(name="commands"))
+    hooks: dict[str, tuple[str, ...]] = dataclasses.field(
         default_factory=dict[str, tuple[str, ...]], metadata=json_field(name="hooks")
     )
-    Skills: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="skills"))
+    skills: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="skills"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Extensions:
     """Everything the extension roots and settings together provide."""
 
-    Commands: dict[str, str] = dataclasses.field(default_factory=dict[str, str])
-    Hooks: dict[str, tuple[str, ...]] = dataclasses.field(default_factory=dict[str, tuple[str, ...]])
-    SkillPrompt: str = ""
-    Skills: tuple[str, ...] = ()
-    Plugins: tuple[str, ...] = ()
+    commands: dict[str, str] = dataclasses.field(default_factory=dict[str, str])
+    hooks: dict[str, tuple[str, ...]] = dataclasses.field(default_factory=dict[str, tuple[str, ...]])
+    skill_prompt: str = ""
+    skills: tuple[str, ...] = ()
+    plugins: tuple[str, ...] = ()
 
 
 def loadExtensions(settings: ExtensionSettings, cwd: str) -> Extensions:
     """Resolve the effective extensions for ``cwd``."""
-    commands = cloneStringMap(settings.Commands)
-    hooks = cloneHooks(settings.Hooks)
-    skill_paths = list(settings.Skills)
+    commands = cloneStringMap(settings.commands)
+    hooks = cloneHooks(settings.hooks)
+    skill_paths = list(settings.skills)
 
     home = os.path.expanduser("~")
     roots = (
@@ -133,7 +133,7 @@ def loadExtensions(settings: ExtensionSettings, cwd: str) -> Extensions:
             commands.setdefault(name, prompt)
         skill_paths.extend(discoverSkills(os.path.join(root, "skills")))
 
-    plugin_paths = list(settings.Plugins)
+    plugin_paths = list(settings.plugins)
     for root in (
         os.path.join(home, USER_CONFIG_DIRECTORY, "plugins"),
         os.path.join(cwd, PROJECT_EXTENSIONS_DIRECTORY, "plugins"),
@@ -153,14 +153,14 @@ def loadExtensions(settings: ExtensionSettings, cwd: str) -> Extensions:
             parsed = jsonutil.loads(content, PluginManifest)
         except (ValueError, TypeError) as error:
             raise ValueError(f"decode plugin {plugin_path}: {error}") from error
-        for name, prompt in parsed.Commands.items():
+        for name, prompt in parsed.commands.items():
             name = name.strip().removeprefix("/")
             if name in commands:
                 raise ValueError("duplicate custom command: " + name)
             commands[name] = prompt
-        for event, event_commands in parsed.Hooks.items():
+        for event, event_commands in parsed.hooks.items():
             hooks[event] = (*hooks.get(event, ()), *event_commands)
-        for path in parsed.Skills:
+        for path in parsed.skills:
             skill_paths.append(os.path.join(plugin_root, path))
 
     _validate(commands, hooks)
@@ -177,11 +177,11 @@ def loadExtensions(settings: ExtensionSettings, cwd: str) -> Extensions:
 
     plugin_names = sorted({os.path.basename(path) for path in seen_plugins})
     return Extensions(
-        Commands=commands,
-        Hooks=hooks,
-        SkillPrompt="\n\n".join(skills),
-        Skills=tuple(sorted(skill_names)),
-        Plugins=tuple(plugin_names),
+        commands=commands,
+        hooks=hooks,
+        skill_prompt="\n\n".join(skills),
+        skills=tuple(sorted(skill_names)),
+        plugins=tuple(plugin_names),
     )
 
 

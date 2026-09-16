@@ -27,8 +27,8 @@ from collections.abc import Callable
 import pytest
 
 from super_agent.runtime import machine
-from super_agent.runtime.engine import Engine, NewEngine
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.engine import Engine, new_engine
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.protocol.types import ModelResponse, StreamChunk, ToolCall, ToolSpec
 
 #: How many times each test repeats its scenario. The point is coverage of
@@ -55,7 +55,7 @@ class YieldingModel:
         self.calls = 0
         self.torn = False
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[machine.Message],
@@ -66,11 +66,11 @@ class YieldingModel:
         for piece in ("wor", "king"):
             await yield_repeatedly()
             if on_stream_chunk is not None:
-                on_stream_chunk(StreamChunk(ContentDelta=piece))
+                on_stream_chunk(StreamChunk(content_delta=piece))
         await yield_repeatedly()
         if self.calls == 1:
-            return ModelResponse(Content="calling", ToolCalls=(ToolCall(ID="call-1", Name="bash", Input=COMMAND),))
-        return ModelResponse(Content="done")
+            return ModelResponse(content="calling", tool_calls=(ToolCall(id="call-1", name="bash", input=COMMAND),))
+        return ModelResponse(content="done")
 
 
 class YieldingToolRunner:
@@ -79,12 +79,12 @@ class YieldingToolRunner:
     def __init__(self) -> None:
         self.ran: list[str] = []
 
-    def Specs(self) -> list[ToolSpec]:
-        return [ToolSpec(Name="bash", Description="run", Risky=False)]
+    def specs(self) -> list[ToolSpec]:
+        return [ToolSpec(name="bash", description="run", risky=False)]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         await yield_repeatedly()
-        self.ran.append(call.Name)
+        self.ran.append(call.name)
         await yield_repeatedly()
         return "tool output"
 
@@ -110,16 +110,16 @@ class ProbingReader:
 
     async def _loop(self) -> None:
         while True:
-            view = self.engine.Snapshot()
+            view = self.engine.snapshot()
             self.reads += 1
             # A snapshot must never be internally inconsistent: the batch counters
             # only exist while a tool is pending, and a pending tool always carries
             # its permission request.
-            if view.PendingToolBatchTotal and view.PendingTool is None:
+            if view.pending_tool_batch_total and view.pending_tool is None:
                 self.torn = True
-            if view.PendingTool is not None and view.PendingPermission is None:
+            if view.pending_tool is not None and view.pending_permission is None:
                 self.torn = True
-            if view.StreamingMessage is not None and view.State != machine.StateWaitingLLM:
+            if view.streaming_message is not None and view.state != machine.STATE_WAITING_LLM:
                 self.torn = True
             await asyncio.sleep(0)
 
@@ -127,7 +127,7 @@ class ProbingReader:
 def build_engine() -> tuple[Engine, YieldingModel, YieldingToolRunner]:
     model = YieldingModel()
     tools = YieldingToolRunner()
-    engine = NewEngine(model, tools, None)  # type: ignore[arg-type]
+    engine = new_engine(model, tools, None)  # type: ignore[arg-type]
     return engine, model, tools
 
 
@@ -141,18 +141,18 @@ async def settle() -> None:
 async def test_turn_completes_correctly_under_constant_concurrent_reading() -> None:
     for round_number in range(ROUNDS):
         engine, model, tools = build_engine()
-        await engine.Ready()
+        await engine.ready()
         reader = ProbingReader(engine)
         reader.start()
         try:
-            await engine.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content=PROMPT), None, None)
+            await engine.run_turn(live_context(), machine.UserMessageSubmitted(content=PROMPT), None, None)
         finally:
             await reader.stop()
 
         assert not reader.torn, f"round {round_number}: a snapshot was internally inconsistent"
         assert reader.reads > 0, f"round {round_number}: the reader never ran; it proved nothing"
-        assert engine.State() == machine.StateIdle, f"round {round_number}"
-        assert [str(message.Role) for message in engine.Messages()] == [
+        assert engine.state() == machine.STATE_IDLE, f"round {round_number}"
+        assert [str(message.role) for message in engine.messages()] == [
             "user",
             "assistant",
             "tool",
@@ -180,7 +180,7 @@ async def test_a_cancel_that_lands_first_never_leaves_a_stale_reply() -> None:
                 self._entered = entered
                 self._release = release
 
-            async def Next(
+            async def next(
                 self,
                 ctx: RunContext,
                 messages: list[machine.Message],
@@ -190,30 +190,30 @@ async def test_a_cancel_that_lands_first_never_leaves_a_stale_reply() -> None:
                 type(self).calls += 1
                 self._entered.set()
                 await self._release.wait()
-                return ModelResponse(Content="stale reply")
+                return ModelResponse(content="stale reply")
 
         model = GatedModel(entered, release)
-        engine = NewEngine(model, YieldingToolRunner(), None)  # type: ignore[arg-type]
-        await engine.Ready()
+        engine = new_engine(model, YieldingToolRunner(), None)  # type: ignore[arg-type]
+        await engine.ready()
 
         turn = asyncio.create_task(
-            engine.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content="first"), None, None)
+            engine.run_turn(live_context(), machine.UserMessageSubmitted(content="first"), None, None)
         )
         await entered.wait()
-        await engine.Cancel()
+        await engine.cancel()
         release.set()
         await turn
         await settle()
 
-        assert engine.State() == machine.StateIdle, f"round {round_number}"
-        contents = [message.Content for message in engine.Messages()]
+        assert engine.state() == machine.STATE_IDLE, f"round {round_number}"
+        contents = [message.content for message in engine.messages()]
         assert "stale reply" not in contents, f"round {round_number}: {contents}"
 
         # The next turn must be unaffected by the run that was cancelled.
-        clean = NewEngine(YieldingModel(), YieldingToolRunner(), None)  # type: ignore[arg-type]
-        await clean.Ready()
-        await clean.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content="second"), None, None)
-        assert [message.Content for message in clean.Messages()][-1] == "done", f"round {round_number}"
+        clean = new_engine(YieldingModel(), YieldingToolRunner(), None)  # type: ignore[arg-type]
+        await clean.ready()
+        await clean.run_turn(live_context(), machine.UserMessageSubmitted(content="second"), None, None)
+        assert [message.content for message in clean.messages()][-1] == "done", f"round {round_number}"
 
 
 @pytest.mark.asyncio
@@ -228,7 +228,7 @@ async def test_reset_during_a_streaming_turn_is_not_written_into() -> None:
                 self._entered = entered
                 self._release = release
 
-            async def Next(
+            async def next(
                 self,
                 ctx: RunContext,
                 messages: list[machine.Message],
@@ -236,25 +236,25 @@ async def test_reset_during_a_streaming_turn_is_not_written_into() -> None:
                 on_stream_chunk: Callable[[StreamChunk], None],
             ) -> ModelResponse:
                 if on_stream_chunk is not None:
-                    on_stream_chunk(StreamChunk(ContentDelta="partial"))
+                    on_stream_chunk(StreamChunk(content_delta="partial"))
                 self._entered.set()
                 await self._release.wait()
-                return ModelResponse(Content="late")
+                return ModelResponse(content="late")
 
-        engine = NewEngine(GatedStreamer(entered, release), YieldingToolRunner(), None)  # type: ignore[arg-type]
-        await engine.Ready()
+        engine = new_engine(GatedStreamer(entered, release), YieldingToolRunner(), None)  # type: ignore[arg-type]
+        await engine.ready()
 
         turn = asyncio.create_task(
-            engine.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content="hello"), None, None)
+            engine.run_turn(live_context(), machine.UserMessageSubmitted(content="hello"), None, None)
         )
         await entered.wait()
-        await engine.Reset()
+        await engine.reset()
         release.set()
         await turn
         await settle()
 
-        assert engine.State() == machine.StateIdle, f"round {round_number}"
-        contents = [message.Content for message in engine.Messages()]
+        assert engine.state() == machine.STATE_IDLE, f"round {round_number}"
+        contents = [message.content for message in engine.messages()]
         assert contents == [], f"round {round_number}: the reset was written into: {contents}"
 
 
@@ -264,25 +264,27 @@ async def test_approval_and_cancel_racing_leaves_exactly_one_answer_per_call() -
     for round_number in range(ROUNDS):
         approvals: asyncio.Queue[machine.ApprovalDecision] = asyncio.Queue()
         engine, _model, tools = build_engine()
-        await engine.Ready()
+        await engine.ready()
 
         class QueuedWaiter:
             def __init__(self, queue: asyncio.Queue[machine.ApprovalDecision]) -> None:
                 self._queue = queue
 
-            async def WaitApproval(
+            async def wait_approval(
                 self, ctx: RunContext, call: ToolCall, request: machine.PermissionRequest
             ) -> machine.ApprovalDecision:
                 await yield_repeatedly()
                 return await self._queue.get()
 
-        approvals.put_nowait(machine.ApproveOnce)
-        await engine.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content=PROMPT), None, QueuedWaiter(approvals))
+        approvals.put_nowait(machine.APPROVE_ONCE)
+        await engine.run_turn(
+            live_context(), machine.UserMessageSubmitted(content=PROMPT), None, QueuedWaiter(approvals)
+        )
         await settle()
 
-        tool_messages = [message for message in engine.Messages() if message.Role == machine.RoleTool]
-        assert len(tool_messages) == 1, f"round {round_number}: {[m.Content for m in tool_messages]}"
-        assert tool_messages[0].ToolCallID == "call-1", f"round {round_number}"
+        tool_messages = [message for message in engine.messages() if message.role == machine.ROLE_TOOL]
+        assert len(tool_messages) == 1, f"round {round_number}: {[m.content for m in tool_messages]}"
+        assert tool_messages[0].tool_call_id == "call-1", f"round {round_number}"
         assert tools.ran == ["bash"], f"round {round_number}"
 
 
@@ -291,7 +293,7 @@ async def test_state_observer_never_runs_while_the_lock_is_held_under_interleavi
     """The lock rule, checked with the loop given every chance to interleave."""
     for round_number in range(ROUNDS):
         engine, _model, _tools = build_engine()
-        await engine.Ready()
+        await engine.ready()
         held: list[bool] = []
 
         class LockProbe:
@@ -303,9 +305,9 @@ async def test_state_observer_never_runs_while_the_lock_is_held_under_interleavi
                 await yield_repeatedly()
                 self._held.append(self._engine.lock.locked())
 
-        engine.SetStateObserver(LockProbe(engine, held))
-        await engine.RunTurn(LiveContext(), machine.UserMessageSubmitted(Content=PROMPT), None, None)
-        engine.SetStateObserver(None)
+        engine.set_state_observer(LockProbe(engine, held))
+        await engine.run_turn(live_context(), machine.UserMessageSubmitted(content=PROMPT), None, None)
+        engine.set_state_observer(None)
 
         assert held, f"round {round_number}: the observer never ran"
         assert not any(held), f"round {round_number}: the observer saw the lock held"

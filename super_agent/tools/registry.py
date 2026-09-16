@@ -23,11 +23,11 @@ from super_agent.tools.workspace import WorkspaceContext
 class Tool(Protocol):
     """One tool: what it advertises and how it runs."""
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         """Every spec this tool exposes."""
         ...
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         """Execute ``call``, raising on failure."""
         ...
 
@@ -52,15 +52,15 @@ class Registry:
             self._order.append(name)
             self._tools[name] = item
 
-    def SetToolObserver(self, observer: ToolObserver | None) -> None:
+    def set_tool_observer(self, observer: ToolObserver | None) -> None:
         """Install the pre/post hook, or clear it."""
         self._observer = observer
 
-    def SetCheckpointCallback(self, callback: CheckpointCallback | None) -> None:
+    def set_checkpoint_callback(self, callback: CheckpointCallback | None) -> None:
         """Install the risky-tool checkpoint, or clear it."""
         self._checkpoint = callback
 
-    def Add(self, *items: Tool | None) -> None:
+    def add(self, *items: Tool | None) -> None:
         """Atomically add dynamically discovered tools.
 
         No tool is added when a name is empty, duplicated in the batch, or
@@ -88,14 +88,14 @@ class Registry:
             self._order.append(name)
             self._tools[name] = item
 
-    def Remove(self, *names: str) -> None:
+    def remove(self, *names: str) -> None:
         """Forget every named tool."""
         remove = set(names)
         for name in remove:
             self._tools.pop(name, None)
         self._order = [name for name in self._order if name not in remove]
 
-    def Replace(self, remove_names: Sequence[str], *items: Tool | None) -> None:
+    def replace(self, remove_names: Sequence[str], *items: Tool | None) -> None:
         """Atomically remove old names and register a replacement batch."""
         remove = set(remove_names)
         existing = {name for name in self._tools if name not in remove}
@@ -123,23 +123,23 @@ class Registry:
             self._tools[name] = item
         self._order = order
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         """Every visible tool's specs, in registration order."""
         specs: list[ToolSpec] = []
         for name in self._order:
-            specs.extend(self._tools[name].Specs())
+            specs.extend(self._tools[name].specs())
         return specs
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         """Run ``call`` through the lifecycle hooks."""
         observer = self._observer
         if observer is None:
-            return await self.RunDirect(ctx, call)
+            return await self.run_direct(ctx, call)
         observer(ctx, "pre_tool", call, None)
         result = ""
         error: BaseException | None = None
         try:
-            result = await self.RunDirect(ctx, call)
+            result = await self.run_direct(ctx, call)
         except BaseException as exc:
             error = exc
         try:
@@ -155,43 +155,43 @@ class Registry:
             raise error
         return result
 
-    async def RunDirect(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run_direct(self, ctx: RunContext, call: ToolCall) -> str:
         """Run ``call`` without hooks; hooks use this to avoid recursing."""
-        tool = self._tools.get(call.Name)
+        tool = self._tools.get(call.name)
         if tool is None:
-            raise RuntimeError("unknown tool: " + call.Name)
-        if self._checkpoint is not None and _is_risky(tool, call.Name):
+            raise RuntimeError("unknown tool: " + call.name)
+        if self._checkpoint is not None and _is_risky(tool, call.name):
             self._checkpoint(call)
-        return await tool.Run(ctx, call)
+        return await tool.run(ctx, call)
 
 
-def NewRegistry(*items: Tool) -> Registry:
+def new_registry(*items: Tool) -> Registry:
     """Build a registry over ``items``, in order."""
     return Registry(*items)
 
 
-def DefaultRegistry(workspace: WorkspaceContext | None) -> Registry:
+def default_registry(workspace: WorkspaceContext | None) -> Registry:
     """Every built-in tool, with commands run directly."""
     return registry_with_runner(None, workspace)
 
 
-def RegistryForWorkspace(workspace: WorkspaceContext | None) -> Registry:
+def registry_for_workspace(workspace: WorkspaceContext | None) -> Registry:
     """``DefaultRegistry`` for one workspace binding."""
-    return DefaultRegistry(workspace)
+    return default_registry(workspace)
 
 
-def SandboxedRegistry(config: SandboxConfig, workspace: WorkspaceContext | None) -> Registry:
+def sandboxed_registry(config: SandboxConfig, workspace: WorkspaceContext | None) -> Registry:
     """Every built-in tool, with commands run under ``config``."""
     if workspace is None:
         raise RuntimeError("workspace is not configured")
-    config.Workspace = workspace.GetPrimaryRoot()
+    config.workspace = workspace.get_primary_root()
     runner = new_command_runner(config, workspace)
     return registry_with_runner(runner, workspace)
 
 
 def registry_with_runner(runner: command_runner | None, workspace: WorkspaceContext | None) -> Registry:
     """The built-in set, wired to ``runner``."""
-    return NewRegistry(
+    return new_registry(
         ReadFileTool(workspace=workspace),
         ListFilesTool(workspace=workspace),
         SearchTool(workspace=workspace),
@@ -210,12 +210,12 @@ def registry_with_runner(runner: command_runner | None, workspace: WorkspaceCont
 
 def _tool_name(item: Tool) -> str:
     """The name a tool is registered under."""
-    specs = item.Specs()
+    specs = item.specs()
     if not specs:
         raise RuntimeError("tool exposes no spec")
-    return specs[0].Name
+    return specs[0].name
 
 
 def _is_risky(tool: Tool, name: str) -> bool:
     """Whether the spec ``name`` selects is a risky one."""
-    return any(spec.Risky for spec in tool.Specs() if spec.Name == name)
+    return any(spec.risky for spec in tool.specs() if spec.name == name)

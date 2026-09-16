@@ -40,9 +40,9 @@ class RunContext:
         self._children: list[RunContext] = []
         self._values: dict[object, object] = {}
         if parent is not None:
-            parent.Adopt(self)
+            parent.adopt(self)
 
-    def WithValue(self, key: object, value: object) -> RunContext:
+    def with_value(self, key: object, value: object) -> RunContext:
         """A context derived from this one that also carries ``key``.
 
         The derived context *shares* the cancellation event rather than
@@ -56,26 +56,26 @@ class RunContext:
         derived._values = {**self._values, key: value}
         return derived
 
-    def Value(self, key: object) -> object | None:
+    def value(self, key: object) -> object | None:
         """The value attached to ``key``, or ``None``."""
         return self._values.get(key)
 
-    def Adopt(self, child: RunContext) -> None:
+    def adopt(self, child: RunContext) -> None:
         """Make ``child`` follow this context's cancellation."""
         if self.cancelled.is_set():
-            child.Cancel()
+            child.cancel()
             return
         self._children.append(child)
 
-    def Done(self) -> asyncio.Event:
+    def done(self) -> asyncio.Event:
         """The event to wait on for cancellation."""
         return self.cancelled
 
-    def Err(self) -> Exception | None:
+    def err(self) -> Exception | None:
         """``None`` while the run is live, a :class:`Cancelled` once it is not."""
         return Cancelled(DEFAULT_CANCEL_REASON) if self.cancelled.is_set() else None
 
-    def Cancel(self) -> None:
+    def cancel(self) -> None:
         """Cancel the run and everything derived from it.
 
         Idempotent, like closing a channel once: a second call does not re-notify
@@ -85,9 +85,9 @@ class RunContext:
             return
         self.cancelled.set()
         for child in self._children:
-            child.Cancel()
+            child.cancel()
 
-    def RaiseIfCancelled(self) -> None:
+    def raise_if_cancelled(self) -> None:
         """Raise :class:`Cancelled` when the run has already been cancelled."""
         if self.cancelled.is_set():
             raise Cancelled(DEFAULT_CANCEL_REASON)
@@ -96,7 +96,7 @@ class RunContext:
         return f"RunContext(cancelled={self.cancelled.is_set()})"
 
 
-def LiveContext() -> RunContext:
+def live_context() -> RunContext:
     """A context that is never cancelled by itself, for helpers outside a run.
 
     The engine uses this for the commands that are not part of a turn.

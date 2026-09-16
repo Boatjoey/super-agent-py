@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Protocol
 
-from super_agent.runtime.execution.approval_store import ApprovalStore, NewApprovalKey
+from super_agent.runtime.execution.approval_store import ApprovalStore, new_approval_key
 from super_agent.runtime.execution.policy import Policy, ToolDecision, ToolPolicyInput
 from super_agent.runtime.execution.scheduled_action_result import (
     ApprovalReceived,
@@ -20,10 +20,10 @@ from super_agent.runtime.execution.scheduled_action_result import (
     ToolQueueChecked,
 )
 from super_agent.runtime.machine.approval import (
+    APPROVE_ALWAYS,
+    APPROVE_ONCE,
+    DENY_APPROVAL,
     ApprovalDecision,
-    ApproveAlways,
-    ApproveOnce,
-    DenyApproval,
 )
 from super_agent.runtime.machine.event import (
     ApprovalAlwaysGranted,
@@ -46,14 +46,14 @@ from super_agent.runtime.protocol.types import ToolCall, ToolSpec
 class ActionResultInput:
     """Machine state the resolver needs to interpret a result."""
 
-    ToolBatch: ToolCallBatch | None = None
-    ToolSpecs: tuple[ToolSpec, ...] = ()
+    tool_batch: ToolCallBatch | None = None
+    tool_specs: tuple[ToolSpec, ...] = ()
 
 
 class ActionResultResolver(Protocol):
     """Turns an action result into a machine event."""
 
-    def Resolve(self, result: ScheduledActionResult, input: ActionResultInput) -> Event: ...
+    def resolve(self, result: ScheduledActionResult, input: ActionResultInput) -> Event: ...
 
 
 class DefaultActionResultResolver:
@@ -65,19 +65,19 @@ class DefaultActionResultResolver:
         self._policy = policy
         self._approvals = approvals
 
-    def SetPolicy(self, policy: Policy) -> None:
+    def set_policy(self, policy: Policy) -> None:
         """Swap the policy when the permission mode changes mid-session."""
         self._policy = policy
 
-    def Resolve(self, result: ScheduledActionResult, input: ActionResultInput) -> Event:
+    def resolve(self, result: ScheduledActionResult, input: ActionResultInput) -> Event:
         if isinstance(result, ModelReplied):
             return self._resolve_model_reply(result, input)
         if isinstance(result, ToolFinished):
-            return ToolResultReceived(Call=result.Call, Result=result.Result)
+            return ToolResultReceived(call=result.call, result=result.result)
         if isinstance(result, ToolQueueChecked):
-            if input.ToolBatch is None or input.ToolBatch.Index >= len(input.ToolBatch.Calls):
+            if input.tool_batch is None or input.tool_batch.index >= len(input.tool_batch.calls):
                 return ToolBatchFinished()
-            return self.resolveToolCall(input.ToolBatch.Calls[input.ToolBatch.Index], input.ToolSpecs)
+            return self.resolveToolCall(input.tool_batch.calls[input.tool_batch.index], input.tool_specs)
         if isinstance(result, ApprovalReceived):
             return self._resolve_approval(result)
         raise ValueError(f"unknown action result type: {type(result).__name__}")
@@ -85,42 +85,42 @@ class DefaultActionResultResolver:
     def resolveToolCall(self, call: ToolCall, specs: tuple[ToolSpec, ...]) -> Event:
         """Classify the next batch call into exactly one of three events."""
         decision = self.decision(call, specs)
-        if decision == ToolDecision.DecisionDenied:
-            request = self._policy.PermissionRequest(call, ToolPolicyInput(ToolSpecs=specs))
-            return ToolCallDenied(Call=call, Reason=request.Reason)
-        if decision == ToolDecision.DecisionRunDirectly:
-            return ToolCallReadyToRun(Call=call)
+        if decision == ToolDecision.DECISION_DENIED:
+            request = self._policy.permission_request(call, ToolPolicyInput(tool_specs=specs))
+            return ToolCallDenied(call=call, reason=request.reason)
+        if decision == ToolDecision.DECISION_RUN_DIRECTLY:
+            return ToolCallReadyToRun(call=call)
         return ToolCallNeedsApproval(
-            Call=call,
-            Request=self._policy.PermissionRequest(call, ToolPolicyInput(ToolSpecs=specs)),
+            call=call,
+            request=self._policy.permission_request(call, ToolPolicyInput(tool_specs=specs)),
         )
 
     def decision(self, call: ToolCall, specs: tuple[ToolSpec, ...]) -> ToolDecision:
         """An always-allow decision short-circuits classification."""
-        if self._approvals.IsAlwaysAllowed(NewApprovalKey(call)):
-            return ToolDecision.DecisionRunDirectly
-        return self._policy.ClassifyToolCall(call, ToolPolicyInput(ToolSpecs=specs))
+        if self._approvals.is_always_allowed(new_approval_key(call)):
+            return ToolDecision.DECISION_RUN_DIRECTLY
+        return self._policy.classify_tool_call(call, ToolPolicyInput(tool_specs=specs))
 
     def _resolve_model_reply(self, result: ModelReplied, input: ActionResultInput) -> Event:
-        if not result.Response.ToolCalls:
-            return AssistantMessageReceived(Response=result.Response)
-        if not input.ToolSpecs:
+        if not result.response.tool_calls:
+            return AssistantMessageReceived(response=result.response)
+        if not input.tool_specs:
             # A model that asks for tools when none are advertised would produce a
             # transcript with an unanswered tool call, which the provider rejects.
             # Failing here answers the turn with an error instead.
             raise ValueError("model returned tool call while tools are disabled")
         return ToolBatchReceived(
-            Content=result.Response.Content,
-            Calls=result.Response.ToolCalls,
-            ReasoningContent=result.Response.ReasoningContent,
+            content=result.response.content,
+            calls=result.response.tool_calls,
+            reasoning_content=result.response.reasoning_content,
         )
 
     def _resolve_approval(self, result: ApprovalReceived) -> Event:
-        decision: ApprovalDecision = result.Decision
-        if decision == ApproveOnce:
-            return ApprovalGranted(Call=result.Call)
-        if decision == ApproveAlways:
-            return ApprovalAlwaysGranted(Call=result.Call)
-        if decision == DenyApproval:
-            return ApprovalDenied(Call=result.Call)
+        decision: ApprovalDecision = result.decision
+        if decision == APPROVE_ONCE:
+            return ApprovalGranted(call=result.call)
+        if decision == APPROVE_ALWAYS:
+            return ApprovalAlwaysGranted(call=result.call)
+        if decision == DENY_APPROVAL:
+            return ApprovalDenied(call=result.call)
         raise ValueError("unknown approval decision")

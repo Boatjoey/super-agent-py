@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ToolCall
-from super_agent.tools import NewRegistry
-from super_agent.tools.mcp import Connect, Manager, RemoteTool, ServerConfig
+from super_agent.tools import new_registry
+from super_agent.tools.mcp import Manager, RemoteTool, ServerConfig, connect
 from super_agent.tools.mcp.client import command_environment, format_result, max_result_bytes, tool_spec
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -25,47 +25,47 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def fake_config(name: str, *extra: str) -> ServerConfig:
     """A config for the fake echo server, with the extra flags appended."""
     return ServerConfig(
-        Name=name,
-        Command=sys.executable,
-        Args=["-m", "tests.helpers.mcp_echo_server", *extra],
-        Env={"PYTHONPATH": str(REPO_ROOT)},
-        ConnectTimeout=5.0,
-        CallTimeout=5.0,
+        name=name,
+        command=sys.executable,
+        args=["-m", "tests.helpers.mcp_echo_server", *extra],
+        env={"PYTHONPATH": str(REPO_ROOT)},
+        connect_timeout=5.0,
+        call_timeout=5.0,
     )
 
 
 @pytest.mark.asyncio
 async def test_mcp_stdio_discovers_and_calls_tool() -> None:
-    manager = await Connect(LiveContext(), [fake_config("fake")])
+    manager = await connect(live_context(), [fake_config("fake")])
     try:
-        discovered = manager.Tools()
+        discovered = manager.tools()
         assert len(discovered) == 1
-        spec = discovered[0].Specs()[0]
-        assert spec.Name == "echo"
-        assert spec.Description == "Echo text"
-        assert spec.Risky
-        assert spec.Parameters is not None
-        assert spec.Parameters["type"] == "object"
+        spec = discovered[0].specs()[0]
+        assert spec.name == "echo"
+        assert spec.description == "Echo text"
+        assert spec.risky
+        assert spec.parameters is not None
+        assert spec.parameters["type"] == "object"
 
-        registry = NewRegistry()
-        registry.Add(*discovered)
-        result = await registry.Run(LiveContext(), ToolCall(Name="echo", Input='{"text":"hello"}'))
+        registry = new_registry()
+        registry.add(*discovered)
+        result = await registry.run(live_context(), ToolCall(name="echo", input='{"text":"hello"}'))
         assert result == "echo: hello"
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
 async def test_mcp_manager_adds_removes_and_restarts_servers() -> None:
-    manager = await Connect(LiveContext(), [])
+    manager = await connect(live_context(), [])
     try:
-        added = await manager.Add(LiveContext(), fake_config("dynamic"))
+        added = await manager.add(live_context(), fake_config("dynamic"))
         assert len(added) == 1
 
-        servers = manager.Servers()
+        servers = manager.servers()
         assert len(servers) == 1
-        assert servers[0].Name == "dynamic"
-        assert list(servers[0].Tools) == ["echo"]
+        assert servers[0].name == "dynamic"
+        assert list(servers[0].tools) == ["echo"]
 
         seen: dict[str, int] = {}
 
@@ -73,55 +73,55 @@ async def test_mcp_manager_adds_removes_and_restarts_servers() -> None:
             seen["old"] = len(old_names)
             seen["new"] = len(replacement)
 
-        await manager.Restart(LiveContext(), "dynamic", replace)
+        await manager.restart(live_context(), "dynamic", replace)
         assert seen == {"old": 1, "new": 1}
 
-        removed = await manager.Remove("dynamic")
+        removed = await manager.remove("dynamic")
         assert removed == ["echo"]
-        assert manager.Tools() == []
+        assert manager.tools() == []
 
         with pytest.raises(RuntimeError):
-            await manager.Remove("dynamic")
+            await manager.remove("dynamic")
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
 async def test_mcp_connect_normalizes_server_failure() -> None:
     config = ServerConfig(
-        Name="broken",
-        Command=sys.executable,
-        Args=["-c", "pass"],
-        ConnectTimeout=1.0,
+        name="broken",
+        command=sys.executable,
+        args=["-c", "pass"],
+        connect_timeout=1.0,
     )
 
     with pytest.raises(RuntimeError, match='MCP server "broken"'):
-        await Connect(LiveContext(), [config])
+        await connect(live_context(), [config])
 
 
 @pytest.mark.asyncio
 async def test_mcp_manager_rejects_a_duplicated_server(tmp_path: Path) -> None:
-    manager = await Connect(LiveContext(), [])
+    manager = await connect(live_context(), [])
     try:
-        await manager.Add(LiveContext(), fake_config("dynamic"))
+        await manager.add(live_context(), fake_config("dynamic"))
         with pytest.raises(RuntimeError, match="is duplicated"):
-            await manager.Add(LiveContext(), fake_config("dynamic"))
-        assert len(manager.Servers()) == 1
+            await manager.add(live_context(), fake_config("dynamic"))
+        assert len(manager.servers()) == 1
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 @pytest.mark.asyncio
 async def test_mcp_call_has_a_deadline() -> None:
     config = fake_config("slow", "--call-delay", "1.0")
-    config.CallTimeout = 0.1
-    manager = await Connect(LiveContext(), [config])
+    config.call_timeout = 0.1
+    manager = await connect(live_context(), [config])
     try:
-        tool = manager.Tools()[0]
+        tool = manager.tools()[0]
         with pytest.raises(RuntimeError, match=r"call MCP tool slow\.echo"):
-            await tool.Run(LiveContext(), ToolCall(Name="echo", Input='{"text":"hello"}'))
+            await tool.run(live_context(), ToolCall(name="echo", input='{"text":"hello"}'))
     finally:
-        await manager.Close()
+        await manager.close()
 
 
 def test_mcp_environment_keeps_only_basic_variables(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -140,8 +140,8 @@ def test_mcp_environment_keeps_only_basic_variables(monkeypatch: pytest.MonkeyPa
 def test_mcp_tool_specs_are_always_risky() -> None:
     spec = tool_spec({"name": "x", "description": "d", "inputSchema": {"type": "object", "properties": {}}})
 
-    assert spec.Risky
-    assert spec.Parameters == {"type": "object", "properties": {}}
+    assert spec.risky
+    assert spec.parameters == {"type": "object", "properties": {}}
 
 
 def test_mcp_result_at_the_limit_is_not_truncated() -> None:
@@ -169,7 +169,7 @@ def test_mcp_empty_error_result_reports_an_error() -> None:
 @pytest.mark.asyncio
 async def test_mcp_manager_rejects_add_after_close() -> None:
     manager = Manager()
-    await manager.Close()
+    await manager.close()
 
     with pytest.raises(RuntimeError, match="MCP manager is closed"):
-        await manager.Add(LiveContext(), fake_config("late"))
+        await manager.add(live_context(), fake_config("late"))

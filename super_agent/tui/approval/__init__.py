@@ -7,12 +7,12 @@ The package surface, re-exported so callers keep writing
 from __future__ import annotations
 
 from super_agent.tui.approval.model import (
-    ApproveAlways as ApproveAlways,
-    ApproveOnce as ApproveOnce,
+    APPROVE_ALWAYS as APPROVE_ALWAYS,
+    APPROVE_ONCE as APPROVE_ONCE,
+    DENY as DENY,
     Decision as Decision,
-    Deny as Deny,
     Model as Model,
     Request as Request,
 )
 
-__all__ = ["ApproveAlways", "ApproveOnce", "Decision", "Deny", "Model", "Request"]
+__all__ = ["APPROVE_ALWAYS", "APPROVE_ONCE", "DENY", "Decision", "Model", "Request"]

@@ -40,12 +40,12 @@ _html: Any = lxml.html
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _WebSearchArgs:
-    Query: str = dataclasses.field(default="", metadata=json_field(name="query"))
+    query: str = dataclasses.field(default="", metadata=json_field(name="query"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _BrowserFetchArgs:
-    URL: str = dataclasses.field(default="", metadata=json_field(name="url"))
+    url: str = dataclasses.field(default="", metadata=json_field(name="url"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -54,19 +54,19 @@ class WebSearchTool:
 
     transport: httpx.AsyncBaseTransport | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="web_search",
-                Description="Search the public web.",
-                Risky=True,
-                Parameters=object_schema({"query": {"type": "string"}}, ["query"]),
+                name="web_search",
+                description="Search the public web.",
+                risky=True,
+                parameters=object_schema({"query": {"type": "string"}}, ["query"]),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _WebSearchArgs)
-        query = args.Query.strip()
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _WebSearchArgs)
+        query = args.query.strip()
         if query == "":
             raise RuntimeError("search query is required")
         endpoint = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote_plus(query)
@@ -80,19 +80,19 @@ class BrowserFetchTool:
 
     transport: httpx.AsyncBaseTransport | None = None
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [
             ToolSpec(
-                Name="browser_fetch",
-                Description="Fetch and extract text from a public HTTP(S) page.",
-                Risky=True,
-                Parameters=object_schema({"url": {"type": "string"}}, ["url"]),
+                name="browser_fetch",
+                description="Fetch and extract text from a public HTTP(S) page.",
+                risky=True,
+                parameters=object_schema({"url": {"type": "string"}}, ["url"]),
             )
         ]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.Input, _BrowserFetchArgs)
-        content, final_url = await fetch_public(ctx, args.URL.strip(), self.transport)
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
+        args = decode_args(call.input, _BrowserFetchArgs)
+        content, final_url = await fetch_public(ctx, args.url.strip(), self.transport)
         return extracted_page(final_url, content)
 
 
@@ -115,7 +115,7 @@ async def fetch_public(
             headers={"User-Agent": _user_agent},
         ) as client:
             for hop in range(_max_redirects + 1):
-                ctx.RaiseIfCancelled()
+                ctx.raise_if_cancelled()
                 async with client.stream("GET", url) as response:
                     if response.is_redirect and "location" in response.headers:
                         if hop >= _max_redirects:

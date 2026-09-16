@@ -33,22 +33,22 @@ from super_agent.app.agents import AgentProfile, filteredToolRunner, initialMess
 from super_agent.app.config import firstNonEmpty, instructionSourcePaths
 from super_agent.jsonutil import json_field
 from super_agent.runtime import (
+    DENY_APPROVAL,
+    ROLE_ASSISTANT,
+    ROLE_SYSTEM,
     ApprovalDecision,
-    CreatePersistentSession,
     DefaultScheduledActionExecutor,
-    DenyApproval,
     Message,
     Metadata,
-    NewEngineWithExecutorAndPolicy,
-    NewPolicy,
     PermissionRules,
-    RoleAssistant,
-    RoleSystem,
     Session,
     ToolCall,
     ToolSpec,
+    create_persistent_session,
+    new_engine_with_executor_and_policy,
+    new_policy,
 )
-from super_agent.runtime.protocol.run_context import LiveContext, RunContext
+from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.protocol.types import Model
 from super_agent.runtime.session import (
     ApprovalsClosed,
@@ -58,7 +58,7 @@ from super_agent.runtime.session import (
 )
 from super_agent.store import Repository
 from super_agent.tools.sandbox import SandboxConfig
-from super_agent.workspace import New as newWorkspace, NewDefaultContext, Workspace
+from super_agent.workspace import Workspace, new as newWorkspace, new_default_context
 
 __all__ = [
     "finalAssistantContent",
@@ -84,9 +84,9 @@ WORKTREE_TIMEOUT_SECONDS: Final[float] = 60.0
 class subagentInput:
     """The ``delegate`` tool's arguments."""
 
-    Prompt: str = dataclasses.field(default="", metadata=json_field(name="prompt"))
-    Agent: str = dataclasses.field(default="", metadata=json_field(name="agent"))
-    Worktree: bool = dataclasses.field(default=False, metadata=json_field(name="worktree"))
+    prompt: str = dataclasses.field(default="", metadata=json_field(name="prompt"))
+    agent: str = dataclasses.field(default="", metadata=json_field(name="agent"))
+    worktree: bool = dataclasses.field(default=False, metadata=json_field(name="worktree"))
 
 
 @dataclasses.dataclass(slots=True)
@@ -103,15 +103,15 @@ class subagentTool:
     workspace: Workspace | None
     sequence: Iterator[int] = dataclasses.field(default_factory=lambda: itertools.count(1))
 
-    def Specs(self) -> list[ToolSpec]:
-        return [self.Spec()]
+    def specs(self) -> list[ToolSpec]:
+        return [self.spec()]
 
-    def Spec(self) -> ToolSpec:
+    def spec(self) -> ToolSpec:
         return ToolSpec(
-            Name="delegate",
-            Description="Run a task in a child agent and return its final result.",
-            Risky=True,
-            Parameters={
+            name="delegate",
+            description="Run a task in a child agent and return its final result.",
+            risky=True,
+            parameters={
                 "type": "object",
                 "properties": {
                     "prompt": {"type": "string"},
@@ -122,30 +122,30 @@ class subagentTool:
             },
         )
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         """Run one delegation and return the child's final result."""
-        rawDepth = ctx.Value(subagentDepthKey)
+        rawDepth = ctx.value(subagentDepthKey)
         depth = rawDepth if isinstance(rawDepth, int) else 0
         if depth >= maxSubagentDepth:
             raise ValueError("maximum subagent depth reached")
         try:
-            input = jsonutil.loads(call.Input, subagentInput)
+            input = jsonutil.loads(call.input, subagentInput)
         except (ValueError, TypeError) as error:
             raise ValueError(f"decode delegate input: {error}") from error
-        prompt = input.Prompt.strip()
+        prompt = input.prompt.strip()
         if prompt == "":
             raise ValueError("delegate prompt is required")
-        name = firstNonEmpty(input.Agent.strip(), "build")
+        name = firstNonEmpty(input.agent.strip(), "build")
         profile = self.profiles.get(name)
         if profile is None:
             raise ValueError("unknown subagent profile: " + name)
-        modelConfig = self.providers[profile.Provider]
-        if profile.Model != "":
-            modelConfig = dataclasses.replace(modelConfig, Model=profile.Model)
-        model = llm.NewModel(profile.Provider, modelConfig)
+        modelConfig = self.providers[profile.provider]
+        if profile.model != "":
+            modelConfig = dataclasses.replace(modelConfig, model=profile.model)
+        model = llm.new_model(profile.provider, modelConfig)
         cwd = self.base
         created = False
-        if input.Worktree:
+        if input.worktree:
             cwd = await self.createWorktree(ctx)
             created = True
         try:
@@ -161,53 +161,53 @@ class subagentTool:
     ) -> str:
         """Build the child session, run one turn, and return its final result."""
         initial, bundle = initialMessagesWithAgent(cwd, profile)
-        memories = self.repository.LoadMemory()
+        memories = self.repository.load_memory()
         if memories:
             initial = [
                 *initial,
-                Message(Role=RoleSystem, Content="Cross-session memory:\n- " + "\n- ".join(memories)),
+                Message(role=ROLE_SYSTEM, content="Cross-session memory:\n- " + "\n- ".join(memories)),
             ]
-        sandbox = dataclasses.replace(self.sandbox, Workspace=cwd)
-        childWorkspace = NewDefaultContext(cwd)
+        sandbox = dataclasses.replace(self.sandbox, workspace=cwd)
+        childWorkspace = new_default_context(cwd)
         childWorkspaceRuntime = newWorkspace(childWorkspace)
-        registry = tools.SandboxedRegistry(sandbox, childWorkspaceRuntime)
+        registry = tools.sandboxed_registry(sandbox, childWorkspaceRuntime)
         childDelegate = dataclasses.replace(self, base=cwd, workspace=childWorkspaceRuntime)
-        registry.Add(childDelegate)
+        registry.add(childDelegate)
         filtered = filteredToolRunner(registry)
-        filtered.setAllowed(profile.Tools)
-        engine = NewEngineWithExecutorAndPolicy(
+        filtered.setAllowed(profile.tools)
+        engine = new_engine_with_executor_and_policy(
             DefaultScheduledActionExecutor(model, filtered),
-            NewPolicy(profile.PermissionMode, self.rules),
+            new_policy(profile.permission_mode, self.rules),
             initial,
         )
-        await engine.Ready()
-        parentMeta = self.parent.Metadata()
-        child = CreatePersistentSession(
+        await engine.ready()
+        parentMeta = self.parent.metadata()
+        child = create_persistent_session(
             engine,
             self.repository,
             childWorkspaceRuntime,
             Metadata(
-                ParentID=parentMeta.ID,
-                Provider=profile.Provider,
-                Model=profile.Model,
-                CWD=cwd,
-                Title="subagent: " + truncate(prompt, 48),
-                InstructionSources=instructionSourcePaths(bundle),
-                ProjectID=parentMeta.ProjectID,
-                ConfigRoot=cwd,
+                parent_id=parentMeta.id,
+                provider=profile.provider,
+                model=profile.model,
+                cwd=cwd,
+                title="subagent: " + truncate(prompt, 48),
+                instruction_sources=instructionSourcePaths(bundle),
+                project_id=parentMeta.project_id,
+                config_root=cwd,
             ),
             initial,
         )
         result = ""
         try:
             await self.runTurn(ctx, child, prompt, depth)
-            result = finalAssistantContent(child.Snapshot().Messages)
+            result = finalAssistantContent(child.snapshot().messages)
         finally:
             with contextlib.suppress(Exception):
-                await child.Close()
+                await child.close()
         if result == "":
             raise ValueError("subagent returned no assistant result")
-        return f"Child session: {child.Metadata().ID}\nWorkspace: {cwd}\n\n{result}"
+        return f"Child session: {child.metadata().id}\nWorkspace: {cwd}\n\n{result}"
 
     async def runTurn(self, ctx: RunContext, child: Session, prompt: str, depth: int) -> None:
         """Run one child turn, denying every approval it asks for.
@@ -225,11 +225,11 @@ class subagentTool:
                 if isinstance(notification, NotificationsClosed):
                     return
                 if isinstance(notification, ToolApprovalRequested):
-                    await approvals.put(DenyApproval)
+                    await approvals.put(DENY_APPROVAL)
 
         denier = asyncio.create_task(denyApprovals())
         try:
-            await child.RunTurn(ctx.WithValue(subagentDepthKey, depth + 1), prompt, notifications, approvals)
+            await child.run_turn(ctx.with_value(subagentDepthKey, depth + 1), prompt, notifications, approvals)
         finally:
             denier.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -240,15 +240,15 @@ class subagentTool:
         if self.workspace is None:
             raise ValueError("workspace context is required")
         identifier = f"{time.time_ns()}-{next(self.sequence)}"
-        path = self.workspace.ResolvePath(os.path.join(".super-agent", "worktrees", identifier))
-        if not self.workspace.CanWrite(path):
+        path = self.workspace.resolve_path(os.path.join(".super-agent", "worktrees", identifier))
+        if not self.workspace.can_write(path):
             raise ValueError("worktree path is outside writable workspace roots")
         os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
         command = "git worktree add --detach " + json.dumps(path) + " HEAD"
         payload = jsonutil.dumps({"command": command, "cwd": self.base, "timeout_seconds": 60})
-        registry = tools.SandboxedRegistry(self.sandbox, self.workspace)
+        registry = tools.sandboxed_registry(self.sandbox, self.workspace)
         try:
-            await registry.Run(ctx, ToolCall(Name="run_command", Input=payload))
+            await registry.run(ctx, ToolCall(name="run_command", input=payload))
         except Exception as error:
             raise ValueError(f"create worktree: {error}") from error
         return path
@@ -266,9 +266,9 @@ class subagentTool:
             shutil.rmtree(path, ignore_errors=True)
             return
         try:
-            registry = tools.SandboxedRegistry(self.sandbox, self.workspace)
+            registry = tools.sandboxed_registry(self.sandbox, self.workspace)
             await asyncio.wait_for(
-                registry.Run(LiveContext(), ToolCall(Name="run_command", Input=payload)),
+                registry.run(live_context(), ToolCall(name="run_command", input=payload)),
                 timeout=WORKTREE_TIMEOUT_SECONDS,
             )
         except Exception:
@@ -278,8 +278,8 @@ class subagentTool:
 def finalAssistantContent(messages: Sequence[Message]) -> str:
     """The newest assistant message's text, or the empty string."""
     for index in range(len(messages) - 1, -1, -1):
-        if messages[index].Role == RoleAssistant:
-            return messages[index].Content.strip()
+        if messages[index].role == ROLE_ASSISTANT:
+            return messages[index].content.strip()
     return ""
 
 

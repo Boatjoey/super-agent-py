@@ -14,10 +14,10 @@ def test_resolve_uses_explicit_directory(tmp_path: Path) -> None:
     explicit.mkdir()
     other.mkdir()
 
-    got = project.Resolve(str(explicit), str(other))
+    got = project.resolve(str(explicit), str(other))
 
-    assert got.Root == os.path.realpath(str(explicit))
-    assert got.ID != ""
+    assert got.root == os.path.realpath(str(explicit))
+    assert got.id != ""
 
 
 def test_resolve_finds_nearest_git_ancestor(tmp_path: Path) -> None:
@@ -26,15 +26,15 @@ def test_resolve_finds_nearest_git_ancestor(tmp_path: Path) -> None:
     nested = root / "a" / "b"
     nested.mkdir(parents=True)
 
-    got = project.Resolve("", str(nested))
+    got = project.resolve("", str(nested))
 
-    assert got.Root == os.path.realpath(str(root))
+    assert got.root == os.path.realpath(str(root))
 
 
 def test_resolve_falls_back_to_current_directory(tmp_path: Path) -> None:
     cwd = tmp_path / "cwd"
     cwd.mkdir()
 
-    got = project.Resolve("", str(cwd))
+    got = project.resolve("", str(cwd))
 
-    assert got.Root == os.path.realpath(str(cwd))
+    assert got.root == os.path.realpath(str(cwd))

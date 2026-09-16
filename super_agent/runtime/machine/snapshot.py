@@ -13,13 +13,13 @@ import dataclasses
 from super_agent.runtime.machine.errors import InvariantViolationError
 from super_agent.runtime.machine.runtime_data import RuntimeData
 from super_agent.runtime.machine.state import (
+    STATE_ADVANCING_QUEUE,
+    STATE_IDLE,
+    STATE_INITIALIZING,
+    STATE_RUNNING_TOOL,
+    STATE_WAITING_APPROVAL,
+    STATE_WAITING_LLM,
     State,
-    StateAdvancingQueue,
-    StateIdle,
-    StateInitializing,
-    StateRunningTool,
-    StateWaitingApproval,
-    StateWaitingLLM,
 )
 from super_agent.runtime.machine.tool_batch import ToolCallBatch
 from super_agent.runtime.protocol.types import ToolCall
@@ -50,72 +50,76 @@ class MachineSnapshot:
     queue: QueueView = dataclasses.field(default_factory=QueueView)
 
 
-def SnapshotFrom(runtime_data: RuntimeData) -> MachineSnapshot:
+def snapshot_from(runtime_data: RuntimeData) -> MachineSnapshot:
     """Validate ``runtime_data`` and build the snapshot a transition reads."""
-    ValidateRuntimeData(runtime_data)
+    validate_runtime_data(runtime_data)
 
-    view = QueueView(has_batch=runtime_data.ToolBatch is not None)
-    batch = runtime_data.ToolBatch
-    if batch is not None and batch.Index < len(batch.Calls):
+    view = QueueView(has_batch=runtime_data.tool_batch is not None)
+    batch = runtime_data.tool_batch
+    if batch is not None and batch.index < len(batch.calls):
         view = QueueView(
             has_batch=True,
-            next=batch.Calls[batch.Index],
-            remaining=tuple(batch.Calls[batch.Index :]),
+            next=batch.calls[batch.index],
+            remaining=tuple(batch.calls[batch.index :]),
         )
     return MachineSnapshot(
-        state=runtime_data.State,
-        pending_tool=runtime_data.PendingTool,
-        current_tool=runtime_data.CurrentTool,
+        state=runtime_data.state,
+        pending_tool=runtime_data.pending_tool,
+        current_tool=runtime_data.current_tool,
         queue=view,
     )
 
 
-def ValidateRuntimeData(runtime_data: RuntimeData) -> None:
+def validate_runtime_data(runtime_data: RuntimeData) -> None:
     """Raise :class:`InvariantViolationError` unless the data is coherent."""
-    batch = runtime_data.ToolBatch
-    if batch is not None and (batch.Index < 0 or batch.Index > len(batch.Calls)):
+    batch = runtime_data.tool_batch
+    if batch is not None and (batch.index < 0 or batch.index > len(batch.calls)):
         raise InvariantViolationError("tool batch index is out of range")
-    if runtime_data.PendingTool is None and runtime_data.PendingPermission is not None:
+    if runtime_data.pending_tool is None and runtime_data.pending_permission is not None:
         raise InvariantViolationError("pending permission has no pending tool")
-    if (runtime_data.StreamingContent != "" or runtime_data.StreamingReasoning != "") and (
-        runtime_data.State != StateWaitingLLM
+    if (runtime_data.streaming_content != "" or runtime_data.streaming_reasoning != "") and (
+        runtime_data.state != STATE_WAITING_LLM
     ):
         raise InvariantViolationError("streaming content exists outside WaitingLLM")
 
-    state = runtime_data.State
-    if state in (StateInitializing, StateIdle, StateWaitingLLM):
+    state = runtime_data.state
+    if state in (STATE_INITIALIZING, STATE_IDLE, STATE_WAITING_LLM):
         if (
-            runtime_data.PendingTool is not None
-            or runtime_data.PendingPermission is not None
-            or runtime_data.CurrentTool is not None
-            or runtime_data.ToolBatch is not None
+            runtime_data.pending_tool is not None
+            or runtime_data.pending_permission is not None
+            or runtime_data.current_tool is not None
+            or runtime_data.tool_batch is not None
         ):
             raise InvariantViolationError(f"{state} contains tool execution context")
         return
-    if state == StateAdvancingQueue:
-        if runtime_data.ToolBatch is None:
+    if state == STATE_ADVANCING_QUEUE:
+        if runtime_data.tool_batch is None:
             raise InvariantViolationError("AdvancingQueue has no tool batch")
         if (
-            runtime_data.PendingTool is not None
-            or runtime_data.PendingPermission is not None
-            or runtime_data.CurrentTool is not None
+            runtime_data.pending_tool is not None
+            or runtime_data.pending_permission is not None
+            or runtime_data.current_tool is not None
         ):
             raise InvariantViolationError("AdvancingQueue contains a pending or current tool")
         return
-    if state == StateWaitingApproval:
-        if runtime_data.ToolBatch is None or runtime_data.PendingTool is None or runtime_data.PendingPermission is None:
+    if state == STATE_WAITING_APPROVAL:
+        if (
+            runtime_data.tool_batch is None
+            or runtime_data.pending_tool is None
+            or runtime_data.pending_permission is None
+        ):
             raise InvariantViolationError("WaitingApproval requires a batch, pending tool, and permission")
-        if runtime_data.CurrentTool is not None:
+        if runtime_data.current_tool is not None:
             raise InvariantViolationError("WaitingApproval contains a current tool")
-        if not _batch_previous_call_matches(runtime_data.ToolBatch, runtime_data.PendingTool):
+        if not _batch_previous_call_matches(runtime_data.tool_batch, runtime_data.pending_tool):
             raise InvariantViolationError("pending tool does not match the advanced batch call")
         return
-    if state == StateRunningTool:
-        if runtime_data.ToolBatch is None or runtime_data.CurrentTool is None:
+    if state == STATE_RUNNING_TOOL:
+        if runtime_data.tool_batch is None or runtime_data.current_tool is None:
             raise InvariantViolationError("RunningTool requires a batch and current tool")
-        if runtime_data.PendingTool is not None or runtime_data.PendingPermission is not None:
+        if runtime_data.pending_tool is not None or runtime_data.pending_permission is not None:
             raise InvariantViolationError("RunningTool contains pending approval context")
-        if not _batch_previous_call_matches(runtime_data.ToolBatch, runtime_data.CurrentTool):
+        if not _batch_previous_call_matches(runtime_data.tool_batch, runtime_data.current_tool):
             raise InvariantViolationError("current tool does not match the advanced batch call")
         return
     raise InvariantViolationError(f"unknown state {state}")
@@ -126,9 +130,9 @@ def _batch_previous_call_matches(batch: ToolCallBatch | None, call: ToolCall | N
     return (
         batch is not None
         and call is not None
-        and batch.Index > 0
-        and batch.Index <= len(batch.Calls)
-        and same_tool_call(batch.Calls[batch.Index - 1], call)
+        and batch.index > 0
+        and batch.index <= len(batch.calls)
+        and same_tool_call(batch.calls[batch.index - 1], call)
     )
 
 
@@ -139,6 +143,6 @@ def same_tool_call(left: ToolCall, right: ToolCall) -> bool:
     comparing by ID first means an adapter that rewrites the input cannot make a
     stale result look current.
     """
-    if left.ID != "" or right.ID != "":
-        return left.ID != "" and left.ID == right.ID
-    return left.Name == right.Name and left.Input == right.Input
+    if left.id != "" or right.id != "":
+        return left.id != "" and left.id == right.id
+    return left.name == right.name and left.input == right.input

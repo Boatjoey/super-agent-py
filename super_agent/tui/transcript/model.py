@@ -21,19 +21,19 @@ from rich.style import Style
 from rich.text import Text
 
 __all__ = [
+    "ROLE_ASSISTANT",
     "Attachment",
-    "DefaultStyles",
-    "ExtractCodeBlocks",
     "Intent",
     "MarkdownRenderer",
     "Message",
     "Model",
-    "New",
     "Role",
-    "RoleAssistant",
     "Styles",
     "ToolCall",
     "ToolDisplayGroup",
+    "default_styles",
+    "extract_code_blocks",
+    "new",
     "toolDisplay",
     "toolGroups",
 ]
@@ -53,24 +53,24 @@ class MarkdownRenderer(Protocol):
 class Styles:
     """The styles the transcript renders with."""
 
-    Status: Style
-    UserLabel: Style
-    ToolLabel: Style
-    Thinking: Style
-    Footer: Style
-    MarkdownRenderer: MarkdownRenderer
+    status: Style
+    user_label: Style
+    tool_label: Style
+    thinking: Style
+    footer: Style
+    markdown_renderer: MarkdownRenderer
 
 
-def DefaultStyles() -> Styles:
+def default_styles() -> Styles:
     """The transcript's own defaults, used when a model is built bare."""
     secondary, accent = "color(8)", "color(6)"
     return Styles(
-        Status=Style(color=accent, italic=True),
-        UserLabel=Style(color="color(2)", bold=True),
-        ToolLabel=Style(color=accent, bold=True),
-        Thinking=Style(color=secondary, italic=True),
-        Footer=Style(color=secondary, italic=True),
-        MarkdownRenderer=_PlainMarkdownRenderer(),
+        status=Style(color=accent, italic=True),
+        user_label=Style(color="color(2)", bold=True),
+        tool_label=Style(color=accent, bold=True),
+        thinking=Style(color=secondary, italic=True),
+        footer=Style(color=secondary, italic=True),
+        markdown_renderer=_PlainMarkdownRenderer(),
     )
 
 
@@ -96,47 +96,47 @@ class Role(str):
         return f"Role({str.__repr__(self)})"
 
 
-RoleUser: Final[Role] = Role("user")
-RoleAssistant: Final[Role] = Role("assistant")
+ROLE_USER: Final[Role] = Role("user")
+ROLE_ASSISTANT: Final[Role] = Role("assistant")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolCall:
     """One tool call, exactly as the model emitted it."""
 
-    ID: str = ""
-    Name: str = ""
-    Input: str = ""
+    id: str = ""
+    name: str = ""
+    input: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Attachment:
     """One file a message carries."""
 
-    Name: str = ""
-    MIME: str = ""
+    name: str = ""
+    mime: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Message:
     """One transcript entry. Frozen, so a rendered transcript never mutates."""
 
-    Role: Role = RoleUser
-    Content: str = ""
-    ReasoningContent: str = ""
-    ToolCallID: str = ""
-    ToolName: str = ""
-    ToolCalls: tuple[ToolCall, ...] = ()
-    Interrupted: bool = False
-    Attachments: tuple[Attachment, ...] = ()
+    role: Role = ROLE_USER
+    content: str = ""
+    reasoning_content: str = ""
+    tool_call_id: str = ""
+    tool_name: str = ""
+    tool_calls: tuple[ToolCall, ...] = ()
+    interrupted: bool = False
+    attachments: tuple[Attachment, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Intent:
     """A copy request, or the reason there is nothing to copy."""
 
-    CopyText: str = ""
-    Error: str = ""
+    copy_text: str = ""
+    error: str = ""
 
 
 @dataclasses.dataclass(slots=True)
@@ -144,7 +144,7 @@ class Model:
     """The managed transcript and the four expansion flags."""
 
     welcome: str = ""
-    styles: Styles = dataclasses.field(default_factory=DefaultStyles)
+    styles: Styles = dataclasses.field(default_factory=default_styles)
     messages: list[Message] = dataclasses.field(default_factory=list[Message])
     streaming: Message | None = None
     busy: bool = False
@@ -154,31 +154,31 @@ class Model:
     expandLatestThink: bool = False
     expandAllThink: bool = False
 
-    def SetWidth(self, width: int) -> None:
+    def set_width(self, width: int) -> None:
         """The terminal got narrower or wider."""
         self.width = max(1, width)
 
-    def Replace(self, messages: Sequence[Message]) -> None:
+    def replace(self, messages: Sequence[Message]) -> None:
         """Rebuild the transcript from conversation state."""
         self.messages = list(messages)
 
-    def Append(self, message: Message) -> None:
+    def append(self, message: Message) -> None:
         """Commit one message."""
         self.messages.append(message)
 
-    def SetStreaming(self, message: Message | None) -> None:
+    def set_streaming(self, message: Message | None) -> None:
         """Show, or stop showing, the message being streamed."""
         self.streaming = message
 
-    def ClearStreaming(self) -> None:
+    def clear_streaming(self) -> None:
         """Stop showing the streaming message."""
         self.streaming = None
 
-    def SetBusy(self, busy: bool) -> None:
+    def set_busy(self, busy: bool) -> None:
         """Whether a turn is running with nothing to show yet."""
         self.busy = busy
 
-    def Update(self, key: str) -> tuple[Model, Intent | None, bool]:
+    def update(self, key: str) -> tuple[Model, Intent | None, bool]:
         """Apply one key press.
 
         The boolean reports whether the key belonged to this feature, which is
@@ -203,14 +203,14 @@ class Model:
                 return self, None, True
             case "ctrl+y":
                 for message in reversed(self.messages):
-                    blocks = ExtractCodeBlocks(message.Content)
+                    blocks = extract_code_blocks(message.content)
                     if blocks:
-                        return self, Intent(CopyText=blocks[-1]), True
-                return self, Intent(Error="No code blocks found to copy"), True
+                        return self, Intent(copy_text=blocks[-1]), True
+                return self, Intent(error="No code blocks found to copy"), True
             case _:
                 return self, None, False
 
-    def View(self) -> Text:
+    def view(self) -> Text:
         """The transcript followed by whatever is streaming."""
         parts = [self.transcriptView()]
         if (stream := self.streamingView()) and stream.plain:
@@ -221,9 +221,9 @@ class Model:
         """The welcome block and every committed message, in order."""
         latestTool, latestThinking = -1, -1
         for index, message in enumerate(self.messages):
-            if message.ToolCalls:
+            if message.tool_calls:
                 latestTool = index
-            if message.Role == RoleAssistant and message.ReasoningContent.strip():
+            if message.role == ROLE_ASSISTANT and message.reasoning_content.strip():
                 latestThinking = index
         blocks = [Text(self.welcome)]
         for index, message in enumerate(self.messages):
@@ -239,24 +239,24 @@ class Model:
         styles = self._styles()
         if self.streaming is None:
             if self.busy:
-                return Text("Thinking...", style=styles.Thinking)
+                return Text("Thinking...", style=styles.thinking)
             return Text()
-        if self.streaming.Content == "" and self.streaming.ReasoningContent != "":
-            return Text("Thinking...", style=styles.Thinking)
+        if self.streaming.content == "" and self.streaming.reasoning_content != "":
+            return Text("Thinking...", style=styles.thinking)
         return self.renderMessage(self.streaming, False)
 
     def renderCommitted(self, message: Message, toolsExpanded: bool, thinkingExpanded: bool) -> Text:
         """One committed message, with its reasoning line and expanded body."""
         content = self.renderMessage(message, toolsExpanded)
-        if message.Role != RoleAssistant:
+        if message.role != ROLE_ASSISTANT:
             return content
         styles = self._styles()
-        thinking = Text("Thinking...", style=styles.Thinking)
-        if thinkingExpanded and message.ReasoningContent.strip():
-            for index, line in enumerate(message.ReasoningContent.strip().split("\n")):
+        thinking = Text("Thinking...", style=styles.thinking)
+        if thinkingExpanded and message.reasoning_content.strip():
+            for index, line in enumerate(message.reasoning_content.strip().split("\n")):
                 prefix = "    " if index else "  └ "
                 thinking.append("\n")
-                thinking.append(prefix + line, style=styles.Thinking)
+                thinking.append(prefix + line, style=styles.thinking)
         if not content.plain.strip():
             return thinking
         thinking.append("\n")
@@ -266,21 +266,21 @@ class Model:
     def renderMessage(self, message: Message, toolsExpanded: bool) -> Text:
         """One message body: prose, tool summaries, and attachment lines."""
         styles = self._styles()
-        if message.Role == RoleUser:
+        if message.role == ROLE_USER:
             rendered = Text(_PROMPT_GLYPH + " ")
-            rendered.stylize(styles.UserLabel)
-            rendered.append(message.Content)
+            rendered.stylize(styles.user_label)
+            rendered.append(message.content)
             return _indent(rendered, 1)
         rendered = Text()
-        if message.Role == RoleAssistant and message.Content != "":
-            rendered.append_text(self._renderMarkdown(message.Content))
-        if message.ToolCalls:
+        if message.role == ROLE_ASSISTANT and message.content != "":
+            rendered.append_text(self._renderMarkdown(message.content))
+        if message.tool_calls:
             if rendered.plain:
                 rendered.append("\n")
-            rendered.append_text(self.renderToolCalls(message.ToolCalls, toolsExpanded))
-        for attachment in message.Attachments:
+            rendered.append_text(self.renderToolCalls(message.tool_calls, toolsExpanded))
+        for attachment in message.attachments:
             rendered.append("\n")
-            rendered.append(f"  attachment: {attachment.Name} ({attachment.MIME})", style=styles.Status)
+            rendered.append(f"  attachment: {attachment.name} ({attachment.mime})", style=styles.status)
         return rendered
 
     def renderToolCalls(self, calls: Sequence[ToolCall], expanded: bool) -> Text:
@@ -293,17 +293,17 @@ class Model:
                 summary = f"{group.verb} {len(group.items)} {group.kind}"
             if index:
                 rendered.append("\n")
-            rendered.append("● " + summary, style=styles.ToolLabel)
+            rendered.append("● " + summary, style=styles.tool_label)
             if expanded:
                 for item_index, item in enumerate(group.items):
                     branch = "└" if item_index == len(group.items) - 1 else "├"
                     rendered.append("\n")
-                    rendered.append(f"  {branch} {item}", style=styles.Footer)
+                    rendered.append(f"  {branch} {item}", style=styles.footer)
         return rendered
 
     def _renderMarkdown(self, content: str) -> Text:
         """Assistant prose through the configured markdown renderer."""
-        renderer = self._styles().MarkdownRenderer
+        renderer = self._styles().markdown_renderer
         try:
             return renderer.render(content, max(1, self.width))
         except Exception:
@@ -323,12 +323,12 @@ class ToolDisplayGroup:
     items: tuple[str, ...] = ()
 
 
-def New(welcome: str, styles: Styles) -> Model:
+def new(welcome: str, styles: Styles) -> Model:
     """Build the model with its welcome text and styles."""
     return Model(welcome=welcome, styles=styles)
 
 
-def ExtractCodeBlocks(content: str) -> list[str]:
+def extract_code_blocks(content: str) -> list[str]:
     """Every fenced code block in ``content``, in order.
 
     A fence is any line whose trimmed form starts with ````` ``` `````; the
@@ -365,7 +365,7 @@ def toolGroups(calls: Sequence[ToolCall]) -> list[ToolDisplayGroup]:
 
 def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
     """The verb, the noun, and the items one tool call contributes."""
-    args = _parseArgs(call.Input)
+    args = _parseArgs(call.input)
 
     def value(key: str) -> str:
         """A string argument, or the empty string when it is absent."""
@@ -376,31 +376,31 @@ def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
         """One item, falling back to the tool's own name."""
         return [primary or fallback]
 
-    match call.Name:
+    match call.name:
         case "read_file":
-            return "Read", "files", item(value("path"), call.Name)
+            return "Read", "files", item(value("path"), call.name)
         case "write_file" | "apply_patch":
-            return "Edited", "files", item(value("path"), call.Name)
+            return "Edited", "files", item(value("path"), call.name)
         case "go_test":
             packages = _stringSlice(args.get("packages")) or ["./..."]
             return "Ran", "commands", ["go test " + " ".join(packages)]
         case "run_command" | "bash":
-            return "Ran", "commands", item(value("command"), call.Name)
+            return "Ran", "commands", item(value("command"), call.name)
         case "search" | "web_search":
-            return "Searched", "queries", item(value("query"), call.Name)
+            return "Searched", "queries", item(value("query"), call.name)
         case "browser_fetch":
-            return "Fetched", "pages", item(value("url"), call.Name)
+            return "Fetched", "pages", item(value("url"), call.name)
         case "list_files":
             return "Listed", "paths", item(value("path"), ".")
         case "format":
-            files = _stringSlice(args.get("files")) or [call.Name]
+            files = _stringSlice(args.get("files")) or [call.name]
             return "Formatted", "files", files
         case "git_status":
             return "Ran", "commands", ["git status --short"]
         case "git_diff":
             return "Ran", "commands", ["git diff"]
         case _:
-            return "Called", "tools", [call.Name]
+            return "Called", "tools", [call.name]
 
 
 def _parseArgs(input_text: str) -> dict[str, Any]:

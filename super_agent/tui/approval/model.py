@@ -14,10 +14,10 @@ from rich.style import Style
 from rich.text import Text
 
 __all__ = [
-    "ApproveAlways",
-    "ApproveOnce",
+    "APPROVE_ALWAYS",
+    "APPROVE_ONCE",
+    "DENY",
     "Decision",
-    "Deny",
     "Model",
     "Request",
 ]
@@ -45,23 +45,23 @@ class Decision(str):
         return f"Decision({str.__repr__(self)})"
 
 
-ApproveOnce: Final[Decision] = Decision("once")
-ApproveAlways: Final[Decision] = Decision("always")
-Deny: Final[Decision] = Decision("deny")
+APPROVE_ONCE: Final[Decision] = Decision("once")
+APPROVE_ALWAYS: Final[Decision] = Decision("always")
+DENY: Final[Decision] = Decision("deny")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Request:
     """One pending permission request, as the menu displays it."""
 
-    ToolName: str = ""
-    Input: str = ""
-    CommandClass: str = ""
-    CWD: str = ""
-    TouchedPaths: tuple[str, ...] = ()
-    Reason: str = ""
-    BatchIndex: int = 0
-    BatchTotal: int = 0
+    tool_name: str = ""
+    input: str = ""
+    command_class: str = ""
+    cwd: str = ""
+    touched_paths: tuple[str, ...] = ()
+    reason: str = ""
+    batch_index: int = 0
+    batch_total: int = 0
 
 
 @dataclasses.dataclass(slots=True)
@@ -72,23 +72,23 @@ class Model:
     selection: int = 0
     submitted: bool = False
 
-    def Active(self) -> bool:
+    def active(self) -> bool:
         """Whether a request is waiting for an answer."""
         return self.request is not None
 
-    def Open(self, request: Request) -> None:
+    def open(self, request: Request) -> None:
         """Show ``request``, forget any previous selection and latch."""
         self.request = request
         self.selection = 0
         self.submitted = False
 
-    def Clear(self) -> None:
+    def clear(self) -> None:
         """Close the menu. A closed menu is not active and not submitted."""
         self.request = None
         self.selection = 0
         self.submitted = False
 
-    def Update(self, key: str) -> tuple[Model, Decision, bool]:
+    def update(self, key: str) -> tuple[Model, Decision, bool]:
         """Apply one key. The boolean reports a decision was submitted.
 
         The latch is what makes a double keypress harmless: once submitted, every
@@ -110,27 +110,27 @@ class Model:
             case "enter":
                 decision = Decision(_DECISIONS_BY_ROW[self.selection])
             case "1" | "y":
-                decision = ApproveOnce
+                decision = APPROVE_ONCE
             case "2" | "a":
-                decision = ApproveAlways
+                decision = APPROVE_ALWAYS
             case "3" | "n":
-                decision = Deny
+                decision = DENY
             case _:
                 return self, Decision(""), False
         self.submitted = True
         return self, decision, True
 
-    def View(self, fallbackCWD: str) -> Text:
+    def view(self, fallbackCWD: str) -> Text:
         """The menu, or an empty :class:`Text` when nothing is pending."""
         request = self.request
         if request is None:
             return Text()
         rendered = Text()
         rendered.append(" ACTION REQUIRED ", style=_BANNER)
-        if request.BatchTotal > 0:
-            rendered.append(f" tool {request.BatchIndex}/{request.BatchTotal}:")
+        if request.batch_total > 0:
+            rendered.append(f" tool {request.batch_index}/{request.batch_total}:")
         rendered.append(" approve ")
-        rendered.append(request.ToolName, style=_BOLD)
+        rendered.append(request.tool_name, style=_BOLD)
         rendered.append("?")
         for index, option in enumerate(("1. Yes, run once", "2. Yes, always allow", "3. No, deny")):
             prefix, style = "  ", _DIM
@@ -141,17 +141,17 @@ class Model:
         if self.submitted:
             rendered.append("\n")
             rendered.append(" Decision submitted…", style=_ACCENT)
-        if request.CommandClass != "" or request.Reason != "":
-            cwd = request.CWD or fallbackCWD
-            meta = f" class: {request.CommandClass} cwd: {cwd}"
-            if request.TouchedPaths:
-                meta += " paths: " + ",".join(request.TouchedPaths)
-            if request.Reason != "":
-                meta += " reason: " + request.Reason
+        if request.command_class != "" or request.reason != "":
+            cwd = request.cwd or fallbackCWD
+            meta = f" class: {request.command_class} cwd: {cwd}"
+            if request.touched_paths:
+                meta += " paths: " + ",".join(request.touched_paths)
+            if request.reason != "":
+                meta += " reason: " + request.reason
             rendered.append("\n")
             rendered.append(meta, style=_DIM)
-        elif request.Input != "":
-            user_input = request.Input
+        elif request.input != "":
+            user_input = request.input
             if len(user_input) > 240:
                 user_input = user_input[:240] + "..."
             rendered.append("\n")

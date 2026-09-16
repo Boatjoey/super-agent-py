@@ -21,19 +21,19 @@ import sys
 from typing import TYPE_CHECKING
 
 from super_agent.tui import runtime
-from super_agent.tui.transcript import ExtractCodeBlocks as ExtractCodeBlocks
+from super_agent.tui.transcript import extract_code_blocks as extract_code_blocks
 
 if TYPE_CHECKING:
     from super_agent.tui.app import App, Msg
 
 __all__ = [
     "ClipboardDone",
-    "ExtractCodeBlocks",
-    "Osc52",
     "cancelRun",
     "copyCommand",
     "defaultClipboardWrite",
+    "extract_code_blocks",
     "finishCopy",
+    "osc52",
 ]
 
 
@@ -41,11 +41,11 @@ __all__ = [
 class ClipboardDone:
     """The outcome of an asynchronous clipboard write."""
 
-    Lines: int = 0
-    Err: BaseException | None = None
+    lines: int = 0
+    err: BaseException | None = None
 
 
-def Osc52(text: str) -> str:
+def osc52(text: str) -> str:
     """The OSC 52 sequence that puts ``text`` on the terminal's clipboard."""
     encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
     return f"\x1b]52;c;{encoded}\x07"
@@ -59,7 +59,7 @@ def defaultClipboardWrite(text: str) -> None:
     is a terminal, so anything else goes through ``pyperclip``.
     """
     if _stdout_is_terminal():
-        sys.stdout.write(Osc52(text))
+        sys.stdout.write(osc52(text))
         sys.stdout.flush()
         return
     import pyperclip
@@ -90,21 +90,21 @@ def copyCommand(app: App, text: str) -> runtime.Command[Msg] | None:
         try:
             await asyncio.to_thread(write, text)
         except Exception as err:
-            return ClipboardDone(Lines=lines, Err=err)
-        return ClipboardDone(Lines=lines)
+            return ClipboardDone(lines=lines, err=err)
+        return ClipboardDone(lines=lines)
 
     return run
 
 
 def finishCopy(app: App, message: ClipboardDone) -> App:
     """Report the outcome of an asynchronous clipboard write."""
-    if message.Err is not None:
-        app.err = f"Failed to copy: {message.Err}"
+    if message.err is not None:
+        app.err = f"Failed to copy: {message.err}"
         app.status = ""
         return app
     app.err = ""
-    label = "line" if message.Lines == 1 else "lines"
-    app.status = f"Copied {message.Lines} {label}"
+    label = "line" if message.lines == 1 else "lines"
+    app.status = f"Copied {message.lines} {label}"
     return app
 
 
@@ -114,13 +114,13 @@ async def cancelRun(app: App, clearQueue: bool) -> App:
     A steering cancellation keeps the queue: the user is mid-thought rather than
     abandoning the work.
     """
-    if app.approval.Active():
-        err = await app.turnPort.Cancel()
+    if app.approval.active():
+        err = await app.turnPort.cancel()
         if err is not None:
             app.err = str(err)
     if app.cancellation is not None:
-        app.cancellation.Cancel()
+        app.cancellation.cancel()
     if clearQueue:
-        app.composer.ClearQueue()
+        app.composer.clear_queue()
         app.status = "Turn canceled"
     return app

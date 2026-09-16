@@ -16,11 +16,11 @@ import os
 class Project:
     """The selected project: its stable id and its canonical root."""
 
-    ID: str = ""
-    Root: str = ""
+    id: str = ""
+    root: str = ""
 
 
-def Resolve(explicit: str, cwd: str) -> Project:
+def resolve(explicit: str, cwd: str) -> Project:
     """Select an explicit directory, otherwise walk up to the nearest ``.git``.
 
     An explicitly selected directory wins outright. Without one, resolution walks
@@ -48,7 +48,7 @@ def Resolve(explicit: str, cwd: str) -> Project:
             else:
                 root = current
                 break
-    return Project(ID=root, Root=root)
+    return Project(id=root, root=root)
 
 
 def canonicalDirectory(path: str) -> str:

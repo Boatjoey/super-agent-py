@@ -21,7 +21,7 @@ from typing import Final
 import pytest
 
 from super_agent import llm
-from super_agent.app import Flags, LoadConfig, LoadSettingsFile, NewSessionWithExtensions
+from super_agent.app import Flags, load_config, load_settings_file, new_session_with_extensions
 from super_agent.app.config import Lookup
 from super_agent.llm import ProviderConfig
 from super_agent.runtime.protocol.run_context import RunContext
@@ -61,15 +61,15 @@ def test_load_config_combines_flags_env_and_settings(monkeypatch: pytest.MonkeyP
         '"model":"claude-test"}}}',
     )
 
-    cfg = LoadConfig(Flags(AutoApproveTools=True), lookup({"LLM_PROVIDER": "openai", "NO_TOOLS": "true"}))
+    cfg = load_config(Flags(auto_approve_tools=True), lookup({"LLM_PROVIDER": "openai", "NO_TOOLS": "true"}))
 
-    assert cfg.Provider == "claude"
-    assert cfg.ModelConfig.BaseURL == "https://claude.test"
-    assert cfg.ModelConfig.APIKey == "claude-key"
-    assert cfg.ModelConfig.Model == "claude-test"
-    assert cfg.NoTools is True
-    assert cfg.PermissionMode == "bypass"
-    assert list(cfg.PermissionRules.AllowPrefixes) == ["git status"]
+    assert cfg.provider == "claude"
+    assert cfg.model_config.base_url == "https://claude.test"
+    assert cfg.model_config.api_key == "claude-key"
+    assert cfg.model_config.model == "claude-test"
+    assert cfg.no_tools is True
+    assert cfg.permission_mode == "bypass"
+    assert list(cfg.permission_rules.allow_prefixes) == ["git status"]
 
 
 def test_load_config_reads_custom_agent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -81,10 +81,10 @@ def test_load_config_reads_custom_agent(monkeypatch: pytest.MonkeyPatch, tmp_pat
         '"agent":"reviewer","agents":{"reviewer":{"prompt":"Review only.","permission_mode":"plan"}}}',
     )
 
-    cfg = LoadConfig(Flags(), None)
+    cfg = load_config(Flags(), None)
 
-    assert cfg.Agent == "reviewer"
-    assert cfg.Agents["reviewer"].Prompt == "Review only."
+    assert cfg.agent == "reviewer"
+    assert cfg.agents["reviewer"].prompt == "Review only."
 
 
 def test_load_config_builds_project_and_workspace_from_explicit_directory(
@@ -101,16 +101,16 @@ def test_load_config_builds_project_and_workspace_from_explicit_directory(
     process_cwd.mkdir()
     monkeypatch.chdir(process_cwd)
 
-    cfg = LoadConfig(Flags(CWD=str(selected)), None)
+    cfg = load_config(Flags(cwd=str(selected)), None)
 
     canonical = os.path.realpath(selected)
-    assert cfg.Project.Root == canonical
-    assert cfg.ConfigRoot == canonical
-    workspace = cfg.Workspace
+    assert cfg.project.root == canonical
+    assert cfg.config_root == canonical
+    workspace = cfg.workspace
     assert workspace is not None
-    assert workspace.GetPrimaryRoot() == canonical
-    assert workspace.GetCWD() == canonical
-    assert cfg.Sandbox.Workspace == canonical
+    assert workspace.get_primary_root() == canonical
+    assert workspace.get_cwd() == canonical
+    assert cfg.sandbox.workspace == canonical
 
 
 def test_load_config_reads_lsp_servers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -122,11 +122,11 @@ def test_load_config_reads_lsp_servers(monkeypatch: pytest.MonkeyPatch, tmp_path
         '"lsp_servers":{"go":{"command":"gopls","args":["serve"],"extensions":["go"],"language_id":"go"}}}',
     )
 
-    cfg = LoadConfig(Flags(), None)
+    cfg = load_config(Flags(), None)
 
-    assert len(cfg.LSPServers) == 1
-    assert cfg.LSPServers[0].Command == "gopls"
-    assert cfg.LSPServers[0].LanguageID == "go"
+    assert len(cfg.lsp_servers) == 1
+    assert cfg.lsp_servers[0].command == "gopls"
+    assert cfg.lsp_servers[0].language_id == "go"
 
 
 def test_load_config_combines_skills_commands_and_plugins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -148,12 +148,12 @@ def test_load_config_combines_skills_commands_and_plugins(monkeypatch: pytest.Mo
         '"extensions":{"commands":{"explain":"Explain $ARGUMENTS"},"skills":["skill"],"plugins":["plugin"]}}',
     )
 
-    cfg = LoadConfig(Flags(), None)
+    cfg = load_config(Flags(), None)
 
-    assert cfg.Extensions.Commands["audit"] != ""
-    assert cfg.Extensions.Commands["explain"] != ""
-    assert "Use focused tests." in cfg.Extensions.SkillPrompt
-    assert len(cfg.Extensions.Hooks["after_turn"]) == 1
+    assert cfg.extensions.commands["audit"] != ""
+    assert cfg.extensions.commands["explain"] != ""
+    assert "Use focused tests." in cfg.extensions.skill_prompt
+    assert len(cfg.extensions.hooks["after_turn"]) == 1
 
 
 def test_load_config_uses_settings_permission_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -164,9 +164,9 @@ def test_load_config_uses_settings_permission_mode(monkeypatch: pytest.MonkeyPat
         '{"provider":"openai","permissions":{"mode":"plan"},"providers":{"openai":{"api_key":"key","model":"model"}}}',
     )
 
-    cfg = LoadConfig(Flags(), lookup())
+    cfg = load_config(Flags(), lookup())
 
-    assert cfg.PermissionMode == "plan"
+    assert cfg.permission_mode == "plan"
 
 
 def test_load_config_rejects_invalid_permission_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -178,7 +178,7 @@ def test_load_config_rejects_invalid_permission_mode(monkeypatch: pytest.MonkeyP
     )
 
     with pytest.raises(ValueError) as failure:
-        LoadConfig(Flags(), lookup())
+        load_config(Flags(), lookup())
 
     assert "invalid permission mode: root" in str(failure.value)
 
@@ -186,13 +186,13 @@ def test_load_config_rejects_invalid_permission_mode(monkeypatch: pytest.MonkeyP
 def test_load_config_creates_default_settings_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
-    cfg = LoadConfig(Flags(), lookup({"DEEPSEEK_API_KEY": "env-key"}))
+    cfg = load_config(Flags(), lookup({"DEEPSEEK_API_KEY": "env-key"}))
 
-    assert cfg.Provider == "deepseek"
-    assert cfg.ModelConfig.Model == "deepseek-reasoner"
-    assert cfg.PermissionMode == "ask"
-    assert cfg.Sandbox.Mode == "strict"
-    assert cfg.Sandbox.AllowNetwork is False
+    assert cfg.provider == "deepseek"
+    assert cfg.model_config.model == "deepseek-reasoner"
+    assert cfg.permission_mode == "ask"
+    assert cfg.sandbox.mode == "strict"
+    assert cfg.sandbox.allow_network is False
 
 
 def test_load_config_maps_sandbox_and_network_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -205,14 +205,14 @@ def test_load_config_maps_sandbox_and_network_settings(monkeypatch: pytest.Monke
         '"providers":{"openai":{"api_key":"key","model":"model"}}}',
     )
 
-    cfg = LoadConfig(Flags(), lookup())
+    cfg = load_config(Flags(), lookup())
 
-    assert cfg.Sandbox.Mode == "off"
-    assert cfg.Sandbox.AllowNetwork is True
-    assert cfg.Sandbox.CPUSeconds == 9
-    assert cfg.Sandbox.MemoryBytes == 64 << 20
-    assert cfg.Sandbox.MaxProcesses == 7
-    assert cfg.Sandbox.MaxOpenFiles == 11
+    assert cfg.sandbox.mode == "off"
+    assert cfg.sandbox.allow_network is True
+    assert cfg.sandbox.cpu_seconds == 9
+    assert cfg.sandbox.memory_bytes == 64 << 20
+    assert cfg.sandbox.max_processes == 7
+    assert cfg.sandbox.max_open_files == 11
 
 
 def test_load_config_rejects_invalid_sandbox_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -224,7 +224,7 @@ def test_load_config_rejects_invalid_sandbox_mode(monkeypatch: pytest.MonkeyPatc
     )
 
     with pytest.raises(ValueError) as failure:
-        LoadConfig(Flags(), lookup())
+        load_config(Flags(), lookup())
 
     assert "invalid sandbox mode: maybe" in str(failure.value)
 
@@ -241,29 +241,29 @@ def test_load_config_maps_mcp_servers_in_name_order(monkeypatch: pytest.MonkeyPa
         '"providers":{"openai":{"api_key":"key","model":"model"}}}',
     )
 
-    cfg = LoadConfig(Flags(), lookup())
+    cfg = load_config(Flags(), lookup())
 
-    assert [server.Name for server in cfg.MCPServers] == ["a", "z"]
-    server = cfg.MCPServers[0]
-    assert server.Command == "a-server"
-    assert list(server.Args) == ["--stdio"]
-    assert server.Env["TOKEN"] == "explicit"
-    assert os.path.isabs(server.CWD)
-    assert server.ConnectTimeout == 3.0
-    assert server.CallTimeout == 4.0
+    assert [server.name for server in cfg.mcp_servers] == ["a", "z"]
+    server = cfg.mcp_servers[0]
+    assert server.command == "a-server"
+    assert list(server.args) == ["--stdio"]
+    assert server.env["TOKEN"] == "explicit"
+    assert os.path.isabs(server.cwd)
+    assert server.connect_timeout == 3.0
+    assert server.call_timeout == 4.0
 
 
 def test_load_settings_file_creates_template_when_missing(tmp_path: Path) -> None:
     path = tmp_path / ".superagent" / "settings.json"
 
-    settings = LoadSettingsFile(str(path))
+    settings = load_settings_file(str(path))
 
     content = path.read_text(encoding="utf-8")
     assert content != ""
-    assert settings.Provider == "deepseek"
-    assert settings.Providers["deepseek"].Model == "deepseek-reasoner"
-    assert settings.Permissions.Mode == "ask"
-    assert settings.Permissions.Network == "deny"
+    assert settings.provider == "deepseek"
+    assert settings.providers["deepseek"].model == "deepseek-reasoner"
+    assert settings.permissions.mode == "ask"
+    assert settings.permissions.network == "deny"
     assert '"permissions"' in content
     # The disk format is a contract: two-space indent,
     # a trailing newline, and a file nobody else may read.
@@ -277,30 +277,30 @@ def test_load_settings_file_does_not_overwrite_existing_settings(tmp_path: Path)
     existing = '{"provider":"openai","providers":{"openai":{"api_key":"keep","model":"custom"}}}'
     path.write_text(existing, encoding="utf-8")
 
-    settings = LoadSettingsFile(str(path))
+    settings = load_settings_file(str(path))
 
     assert path.read_text(encoding="utf-8") == existing
-    assert settings.Provider == "openai"
-    assert settings.Providers["openai"].APIKey == "keep"
+    assert settings.provider == "openai"
+    assert settings.providers["openai"].api_key == "keep"
 
 
 def test_yolo_env_does_not_override_explicit_approval_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
-    cfg = LoadConfig(Flags(PermissionMode="ask"), lookup({"YOLO": "true", "DEEPSEEK_API_KEY": "env-key"}))
+    cfg = load_config(Flags(permission_mode="ask"), lookup({"YOLO": "true", "DEEPSEEK_API_KEY": "env-key"}))
 
-    assert cfg.PermissionMode == "ask", "an explicit --approval-mode flag must win over YOLO"
+    assert cfg.permission_mode == "ask", "an explicit --approval-mode flag must win over YOLO"
 
 
 def test_yolo_env_enables_bypass_without_explicit_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
-    cfg = LoadConfig(Flags(), lookup({"YOLO": "true", "DEEPSEEK_API_KEY": "env-key"}))
-    assert cfg.PermissionMode == "bypass"
+    cfg = load_config(Flags(), lookup({"YOLO": "true", "DEEPSEEK_API_KEY": "env-key"}))
+    assert cfg.permission_mode == "bypass"
 
     # Only the exact string counts: True, 1, and yes must not enable bypass.
-    cfg = LoadConfig(Flags(), lookup({"YOLO": "True", "DEEPSEEK_API_KEY": "env-key"}))
-    assert cfg.PermissionMode == "ask"
+    cfg = load_config(Flags(), lookup({"YOLO": "True", "DEEPSEEK_API_KEY": "env-key"}))
+    assert cfg.permission_mode == "ask"
 
 
 class _RecordingModel:
@@ -311,7 +311,7 @@ class _RecordingModel:
     def __init__(self, config: ProviderConfig) -> None:
         self.config = config
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
@@ -342,10 +342,10 @@ async def test_model_uses_resolved_credential_not_placeholder(monkeypatch: pytes
     project.mkdir()
     monkeypatch.chdir(project)
 
-    cfg = LoadConfig(Flags(), None)
-    assert cfg.ModelConfig.APIKey == "resolved-key"
-    assert cfg.ProviderConfigs["deepseek"].APIKey == PLACEHOLDER
-    cfg.NoTools = True
+    cfg = load_config(Flags(), None)
+    assert cfg.model_config.api_key == "resolved-key"
+    assert cfg.provider_configs["deepseek"].api_key == PLACEHOLDER
+    cfg.no_tools = True
 
     built: list[ProviderConfig] = []
 
@@ -353,10 +353,10 @@ async def test_model_uses_resolved_credential_not_placeholder(monkeypatch: pytes
         built.append(config)
         return _RecordingModel(config)
 
-    monkeypatch.setattr(llm, "NewModel", build)
+    monkeypatch.setattr(llm, "new_model", build)
 
-    session, _mcp, _agents = await NewSessionWithExtensions(cfg)
+    session, _mcp, _agents = await new_session_with_extensions(cfg)
     try:
-        assert [config.APIKey for config in built] == ["resolved-key"]
+        assert [config.api_key for config in built] == ["resolved-key"]
     finally:
-        await session.Close()
+        await session.close()

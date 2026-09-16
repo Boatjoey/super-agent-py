@@ -19,11 +19,11 @@ from super_agent import llm
 from super_agent.llm import openai as _openai_module
 from super_agent.runtime.protocol.run_context import RunContext
 from super_agent.runtime.protocol.types import (
+    ROLE_ASSISTANT,
+    ROLE_SYSTEM,
+    ROLE_USER,
     Attachment,
     Message,
-    RoleAssistant,
-    RoleSystem,
-    RoleUser,
     StreamChunk,
     ToolSpec,
 )
@@ -77,7 +77,7 @@ async def _transport(monkeypatch: pytest.MonkeyPatch, handler: _Handler) -> Asyn
 
 
 def _config() -> llm.ProviderConfig:
-    return llm.ProviderConfig(BaseURL="https://openai.test", APIKey="test-key", Model="test-model")
+    return llm.ProviderConfig(base_url="https://openai.test", api_key="test-key", model="test-model")
 
 
 def _body(request: httpx2.Request) -> dict[str, Any]:
@@ -95,10 +95,10 @@ async def test_openai_model_sends_chat_completion(monkeypatch: pytest.MonkeyPatc
         return _response(_CONTENT_STREAM)
 
     spec = ToolSpec(
-        Name="bash",
-        Description="Run a bash command after user approval.",
-        Risky=True,
-        Parameters={
+        name="bash",
+        description="Run a bash command after user approval.",
+        risky=True,
+        parameters={
             "type": "object",
             "properties": {"command": {"type": "string"}},
             "required": ["command"],
@@ -106,14 +106,14 @@ async def test_openai_model_sends_chat_completion(monkeypatch: pytest.MonkeyPatc
     )
 
     async with _transport(monkeypatch, handler):
-        response = await llm.NewOpenAI(_config()).Next(
+        response = await llm.new_open_ai(_config()).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="hi")],
+            [Message(role=ROLE_USER, content="hi")],
             [spec],
             _discard,
         )
 
-    assert response.Content == "hello from llm"
+    assert response.content == "hello from llm"
     assert captured["path"] == "/chat/completions"
     assert captured["authorization"] == "Bearer test-key"
     assert captured["model"] == "test-model"
@@ -133,11 +133,11 @@ async def test_openai_model_sends_system_message(monkeypatch: pytest.MonkeyPatch
         return _response(_OK_STREAM)
 
     async with _transport(monkeypatch, handler):
-        await llm.NewOpenAI(_config()).Next(
+        await llm.new_open_ai(_config()).next(
             RunContext(),
             [
-                Message(Role=RoleSystem, Content="project instructions"),
-                Message(Role=RoleUser, Content="hi"),
+                Message(role=ROLE_SYSTEM, content="project instructions"),
+                Message(role=ROLE_USER, content="hi"),
             ],
             [],
             _discard,
@@ -158,15 +158,15 @@ async def test_openai_model_sends_image_and_file_attachments(monkeypatch: pytest
         return _response(_OK_STREAM)
 
     async with _transport(monkeypatch, handler):
-        await llm.NewOpenAI(_config()).Next(
+        await llm.new_open_ai(_config()).next(
             RunContext(),
             [
                 Message(
-                    Role=RoleUser,
-                    Content="inspect",
-                    Attachments=(
-                        Attachment(Name="pixel.png", MIME="image/png", Data="aW1hZ2U="),
-                        Attachment(Name="note.txt", MIME="text/plain", Data="dGV4dA=="),
+                    role=ROLE_USER,
+                    content="inspect",
+                    attachments=(
+                        Attachment(name="pixel.png", mime="image/png", data="aW1hZ2U="),
+                        Attachment(name="note.txt", mime="text/plain", data="dGV4dA=="),
                     ),
                 )
             ],
@@ -195,13 +195,13 @@ async def test_openai_model_uses_sdk_default_base_url_when_config_base_url_is_em
         return _response(_OK_STREAM)
 
     async with _transport(monkeypatch, handler):
-        response = await llm.NewOpenAI(llm.ProviderConfig(APIKey="test-key", Model="test-model")).Next(
-            RunContext(), [Message(Role=RoleUser, Content="hi")], [], _discard
+        response = await llm.new_open_ai(llm.ProviderConfig(api_key="test-key", model="test-model")).next(
+            RunContext(), [Message(role=ROLE_USER, content="hi")], [], _discard
         )
 
     assert captured["host"] == "api.openai.com"
     assert captured["path"] == "/v1/chat/completions"
-    assert response.Content == "ok"
+    assert response.content == "ok"
 
 
 @pytest.mark.asyncio
@@ -218,17 +218,17 @@ async def test_openai_model_replays_reasoning_content(monkeypatch: pytest.Monkey
         )
 
     async with _transport(monkeypatch, handler):
-        response = await llm.NewOpenAI(_config()).Next(
+        response = await llm.new_open_ai(_config()).next(
             RunContext(),
             [
-                Message(Role=RoleAssistant, Content="old", ReasoningContent="old thinking"),
-                Message(Role=RoleUser, Content="next"),
+                Message(role=ROLE_ASSISTANT, content="old", reasoning_content="old thinking"),
+                Message(role=ROLE_USER, content="next"),
             ],
             [],
             _discard,
         )
 
-    assert response.ReasoningContent == "thinking"
+    assert response.reasoning_content == "thinking"
     assert captured["messages"][0]["reasoning_content"] == "old thinking"
 
 
@@ -256,15 +256,15 @@ async def test_openai_model_leaves_tool_risk_to_runtime(monkeypatch: pytest.Monk
         return _response(body)
 
     async with _transport(monkeypatch, handler):
-        response = await llm.NewOpenAI(_config()).Next(
+        response = await llm.new_open_ai(_config()).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="list files")],
-            [ToolSpec(Name="bash", Risky=True)],
+            [Message(role=ROLE_USER, content="list files")],
+            [ToolSpec(name="bash", risky=True)],
             _discard,
         )
 
-    assert len(response.ToolCalls) == 1
-    assert response.ToolCalls[0].Name == "bash"
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0].name == "bash"
 
 
 @pytest.mark.asyncio
@@ -297,14 +297,14 @@ async def test_openai_model_returns_all_tool_calls(monkeypatch: pytest.MonkeyPat
         return _response(body)
 
     async with _transport(monkeypatch, handler):
-        response = await llm.NewOpenAI(_config()).Next(
+        response = await llm.new_open_ai(_config()).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="use tools")],
-            [ToolSpec(Name="first"), ToolSpec(Name="second", Risky=True)],
+            [Message(role=ROLE_USER, content="use tools")],
+            [ToolSpec(name="first"), ToolSpec(name="second", risky=True)],
             _discard,
         )
 
-    assert [call.Name for call in response.ToolCalls] == ["first", "second"]
+    assert [call.name for call in response.tool_calls] == ["first", "second"]
 
 
 @pytest.mark.asyncio
@@ -331,10 +331,10 @@ async def test_openai_model_fails_on_truncated_tool_call(monkeypatch: pytest.Mon
 
     async with _transport(monkeypatch, handler):
         with pytest.raises(RuntimeError, match="truncated"):
-            await llm.NewOpenAI(_config()).Next(
+            await llm.new_open_ai(_config()).next(
                 RunContext(),
-                [Message(Role=RoleUser, Content="write the file")],
-                [ToolSpec(Name="write_file", Risky=True)],
+                [Message(role=ROLE_USER, content="write the file")],
+                [ToolSpec(name="write_file", risky=True)],
                 _discard,
             )
 
@@ -359,18 +359,18 @@ async def test_openai_model_reports_usage(monkeypatch: pytest.MonkeyPatch) -> No
         return _response(body)
 
     async with _transport(monkeypatch, handler):
-        response = await llm.NewOpenAI(_config()).Next(
+        response = await llm.new_open_ai(_config()).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="hi")],
+            [Message(role=ROLE_USER, content="hi")],
             [],
             _discard,
         )
 
     assert captured["stream_options"]["include_usage"] is True
-    assert response.Usage is not None
-    assert response.Usage.InputTokens == 11
-    assert response.Usage.OutputTokens == 7
-    assert response.Usage.TotalTokens == 18
+    assert response.usage is not None
+    assert response.usage.input_tokens == 11
+    assert response.usage.output_tokens == 7
+    assert response.usage.total_tokens == 18
 
 
 @pytest.mark.asyncio
@@ -394,9 +394,9 @@ async def test_openai_model_uses_environment_api_key_when_config_key_is_empty(
         return _response(_OK_STREAM)
 
     async with _transport(monkeypatch, handler):
-        await llm.NewOpenAI(llm.ProviderConfig(Model="test-model")).Next(
+        await llm.new_open_ai(llm.ProviderConfig(model="test-model")).next(
             RunContext(),
-            [Message(Role=RoleUser, Content="hi")],
+            [Message(role=ROLE_USER, content="hi")],
             [],
             _discard,
         )

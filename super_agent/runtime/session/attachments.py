@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class AttachmentReader(Protocol):
     """A workspace that can turn a path into an attachment."""
 
-    def ReadAttachment(self, path: str) -> Attachment: ...
+    def read_attachment(self, path: str) -> Attachment: ...
 
 
 class AttachmentsMixin:
@@ -29,14 +29,14 @@ class AttachmentsMixin:
         workspace: Workspace | None
         _attachments: list[Attachment]
 
-    def Attach(self, path: str) -> Attachment:
+    def attach(self, path: str) -> Attachment:
         """Stage the file at ``path`` for the next turn."""
         if not isinstance(self.workspace, AttachmentReader):
             raise RuntimeError("attachments are unavailable")
-        attachment = self.workspace.ReadAttachment(path)
+        attachment = self.workspace.read_attachment(path)
         self._attachments.append(attachment)
         return attachment
 
-    def PendingAttachments(self) -> list[Attachment]:
+    def pending_attachments(self) -> list[Attachment]:
         """A copy of what is staged; staging is consumed once per turn."""
         return list(self._attachments)

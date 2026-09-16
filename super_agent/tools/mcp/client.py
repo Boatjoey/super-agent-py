@@ -61,21 +61,21 @@ environment_keys: Final[tuple[str, ...]] = (
 class ServerConfig:
     """One configured MCP stdio server."""
 
-    Name: str = ""
-    Command: str = ""
-    Args: list[str] = dataclasses.field(default_factory=list[str])
-    Env: dict[str, str] = dataclasses.field(default_factory=dict[str, str])
-    CWD: str = ""
-    ConnectTimeout: float = 0.0
-    CallTimeout: float = 0.0
+    name: str = ""
+    command: str = ""
+    args: list[str] = dataclasses.field(default_factory=list[str])
+    env: dict[str, str] = dataclasses.field(default_factory=dict[str, str])
+    cwd: str = ""
+    connect_timeout: float = 0.0
+    call_timeout: float = 0.0
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ServerInfo:
     """One connected server, as reported by :meth:`Manager.Servers`."""
 
-    Name: str = ""
-    Tools: tuple[str, ...] = ()
+    name: str = ""
+    tools: tuple[str, ...] = ()
 
 
 def command_environment(overrides: Mapping[str, str]) -> dict[str, str]:
@@ -110,10 +110,10 @@ def tool_spec(tool: Mapping[str, Any]) -> ToolSpec:
         for key, value in cast("Mapping[str, Any]", schema).items():
             parameters[str(key)] = value
     return ToolSpec(
-        Name=name,
-        Description=description if isinstance(description, str) else "",
-        Parameters=parameters,
-        Risky=True,
+        name=name,
+        description=description if isinstance(description, str) else "",
+        parameters=parameters,
+        risky=True,
     )
 
 
@@ -190,7 +190,7 @@ class _Session:
         self._write_lock = asyncio.Lock()
         self._read_task = asyncio.create_task(self._read_loop(stdout))
 
-    async def Initialize(self) -> None:
+    async def initialize(self) -> None:
         """Complete the MCP handshake."""
         await self.request(
             "initialize",
@@ -202,7 +202,7 @@ class _Session:
         )
         await self.notify("notifications/initialized", {})
 
-    async def ListTools(self) -> list[Mapping[str, Any]]:
+    async def list_tools(self) -> list[Mapping[str, Any]]:
         """The tool descriptors the server advertises."""
         result = await self.request("tools/list", {})
         if not isinstance(result, Mapping):
@@ -216,7 +216,7 @@ class _Session:
                 entries.append(cast("Mapping[str, Any]", tool))
         return entries
 
-    async def CallTool(self, name: str, arguments: Any) -> Any:
+    async def call_tool(self, name: str, arguments: Any) -> Any:
         """Invoke one remote tool."""
         return await self.request("tools/call", {"name": name, "arguments": arguments})
 
@@ -296,7 +296,7 @@ class _Session:
         if future is not None and not future.done():
             future.set_result(message)
 
-    async def Close(self) -> None:
+    async def close(self) -> None:
         """Shut the connection down and make sure the process is gone."""
         self._stdin.close()
         if self._process.returncode is None:
@@ -322,9 +322,9 @@ class _Server:
         self.call_timeout = call_timeout
         self.tool_names: list[str] = []
 
-    async def Close(self) -> None:
+    async def close(self) -> None:
         """Close the underlying connection."""
-        await self.session.Close()
+        await self.session.close()
 
 
 class RemoteTool:
@@ -335,20 +335,20 @@ class RemoteTool:
         self.remote_name = remote_name
         self.spec = spec
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return [self.spec]
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         arguments: Any = {}
-        if call.Input.strip() != "":
+        if call.input.strip() != "":
             try:
-                arguments = json.loads(call.Input)
+                arguments = json.loads(call.input)
             except ValueError as err:
                 raise RuntimeError(f"MCP tool {self.server.name}.{self.remote_name} input: {err}") from err
         try:
             result = await _with_deadline(
                 ctx,
-                self.server.session.CallTool(self.remote_name, arguments),
+                self.server.session.call_tool(self.remote_name, arguments),
                 self.server.call_timeout,
             )
         except Exception as err:
@@ -359,12 +359,12 @@ class RemoteTool:
 async def _with_deadline[T](ctx: RunContext, work: Awaitable[T], timeout: float) -> T:
     """Await ``work``, failing when ``timeout`` elapses or ``ctx`` is cancelled."""
     task = asyncio.ensure_future(work)
-    cancel_task = asyncio.ensure_future(ctx.Done().wait())
+    cancel_task = asyncio.ensure_future(ctx.done().wait())
     try:
         await asyncio.wait({task, cancel_task}, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
         if task.done():
             return task.result()
-        ctx.RaiseIfCancelled()
+        ctx.raise_if_cancelled()
         raise TimeoutError(f"MCP request timed out after {timeout} seconds")
     finally:
         for pending in (task, cancel_task):
@@ -377,15 +377,15 @@ async def _with_deadline[T](ctx: RunContext, work: Awaitable[T], timeout: float)
 
 async def connect_server(ctx: RunContext, config: ServerConfig) -> tuple[_Server, list[RemoteTool]]:
     """Start one server, complete the handshake, and discover its tools."""
-    if config.Name == "" or config.Command == "":
+    if config.name == "" or config.command == "":
         raise RuntimeError("MCP server name and command are required")
-    connect_timeout = config.ConnectTimeout if config.ConnectTimeout > 0 else default_connect_timeout
-    call_timeout = config.CallTimeout if config.CallTimeout > 0 else default_call_timeout
+    connect_timeout = config.connect_timeout if config.connect_timeout > 0 else default_connect_timeout
+    call_timeout = config.call_timeout if config.call_timeout > 0 else default_call_timeout
     process = await asyncio.create_subprocess_exec(
-        config.Command,
-        *config.Args,
-        cwd=config.CWD or None,
-        env=command_environment(config.Env),
+        config.command,
+        *config.args,
+        cwd=config.cwd or None,
+        env=command_environment(config.env),
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,
@@ -394,26 +394,26 @@ async def connect_server(ctx: RunContext, config: ServerConfig) -> tuple[_Server
     session = _Session(process)
     try:
         try:
-            await _with_deadline(ctx, session.Initialize(), connect_timeout)
+            await _with_deadline(ctx, session.initialize(), connect_timeout)
         except Exception as err:
-            raise RuntimeError(f"connect MCP server {_quote(config.Name)}: {err}") from err
+            raise RuntimeError(f"connect MCP server {_quote(config.name)}: {err}") from err
         try:
-            listed = await _with_deadline(ctx, session.ListTools(), connect_timeout)
+            listed = await _with_deadline(ctx, session.list_tools(), connect_timeout)
         except Exception as err:
-            raise RuntimeError(f"list tools from MCP server {_quote(config.Name)}: {err}") from err
-        connected = _Server(name=config.Name, config=config, session=session, call_timeout=call_timeout)
+            raise RuntimeError(f"list tools from MCP server {_quote(config.name)}: {err}") from err
+        connected = _Server(name=config.name, config=config, session=session, call_timeout=call_timeout)
         batch: list[RemoteTool] = []
         for tool in listed:
             try:
                 spec = tool_spec(tool)
             except Exception as err:
-                raise RuntimeError(f"map MCP tool from server {_quote(config.Name)}: {err}") from err
-            batch.append(RemoteTool(server=connected, remote_name=spec.Name, spec=spec))
-            connected.tool_names.append(spec.Name)
+                raise RuntimeError(f"map MCP tool from server {_quote(config.name)}: {err}") from err
+            batch.append(RemoteTool(server=connected, remote_name=spec.name, spec=spec))
+            connected.tool_names.append(spec.name)
         return connected, batch
     except BaseException:
         with contextlib.suppress(Exception):
-            await session.Close()
+            await session.close()
         raise
 
 
@@ -432,32 +432,32 @@ class Manager:
         # maps without yielding, so it is atomic by construction.
         self._lock = asyncio.Lock()
 
-    async def Add(self, ctx: RunContext, config: ServerConfig) -> list[RemoteTool]:
+    async def add(self, ctx: RunContext, config: ServerConfig) -> list[RemoteTool]:
         """Connect a server and install the tools it contributes."""
         async with self._lock:
             if self._closed:
                 raise RuntimeError("MCP manager is closed")
-            if config.Name in self._servers:
-                raise RuntimeError(f"MCP server {_quote(config.Name)} is duplicated")
+            if config.name in self._servers:
+                raise RuntimeError(f"MCP server {_quote(config.name)} is duplicated")
         connected, batch = await connect_server(ctx, config)
         async with self._lock:
             if self._closed:
-                await connected.Close()
+                await connected.close()
                 raise RuntimeError("MCP manager is closed")
-            if config.Name in self._servers:
-                await connected.Close()
-                raise RuntimeError(f"MCP server {_quote(config.Name)} is duplicated")
-            existing = {tool.Specs()[0].Name for tool in self._tools}
+            if config.name in self._servers:
+                await connected.close()
+                raise RuntimeError(f"MCP server {_quote(config.name)} is duplicated")
+            existing = {tool.specs()[0].name for tool in self._tools}
             for tool in batch:
-                name = tool.Specs()[0].Name
+                name = tool.specs()[0].name
                 if name in existing:
-                    await connected.Close()
+                    await connected.close()
                     raise RuntimeError(f"MCP tool {_quote(name)} is duplicated")
-            self._servers[config.Name] = connected
+            self._servers[config.name] = connected
             self._tools.extend(batch)
         return list(batch)
 
-    async def Remove(self, name: str) -> list[str]:
+    async def remove(self, name: str) -> list[str]:
         """Disconnect a server and forget its tools."""
         async with self._lock:
             connected = self._servers.pop(name, None)
@@ -465,10 +465,10 @@ class Manager:
                 raise RuntimeError(f"MCP server {_quote(name)} not found")
             self._tools = [tool for tool in self._tools if tool.server is not connected]
             names = list(connected.tool_names)
-        await connected.Close()
+        await connected.close()
         return names
 
-    async def Restart(self, ctx: RunContext, name: str, replace: ReplaceTools | None = None) -> None:
+    async def restart(self, ctx: RunContext, name: str, replace: ReplaceTools | None = None) -> None:
         """Reconnect a server, optionally rewriting its tools in the registry."""
         async with self._lock:
             old = self._servers.get(name)
@@ -488,21 +488,21 @@ class Manager:
                 self._servers[name] = replacement
         except BaseException:
             with contextlib.suppress(Exception):
-                await replacement.Close()
+                await replacement.close()
             raise
-        await old.Close()
+        await old.close()
 
-    def Servers(self) -> list[ServerInfo]:
+    def servers(self) -> list[ServerInfo]:
         """Every connected server, ordered by name."""
-        infos = [ServerInfo(Name=name, Tools=tuple(server.tool_names)) for name, server in self._servers.items()]
-        infos.sort(key=lambda info: info.Name)
+        infos = [ServerInfo(name=name, tools=tuple(server.tool_names)) for name, server in self._servers.items()]
+        infos.sort(key=lambda info: info.name)
         return infos
 
-    def Tools(self) -> list[RemoteTool]:
+    def tools(self) -> list[RemoteTool]:
         """Every tool discovered so far."""
         return list(self._tools)
 
-    async def Close(self) -> None:
+    async def close(self) -> None:
         """Close every server, aggregating the failures into one error."""
         async with self._lock:
             if self._closed:
@@ -513,21 +513,21 @@ class Manager:
         errors: list[BaseException] = []
         for name, server in zip(names, servers, strict=True):
             try:
-                await server.Close()
+                await server.close()
             except Exception as err:
                 errors.append(RuntimeError(f"close MCP server {_quote(name)}: {err}"))
         if errors:
             raise JoinedError(*errors)
 
 
-async def Connect(ctx: RunContext, configs: Sequence[ServerConfig]) -> Manager:
+async def connect(ctx: RunContext, configs: Sequence[ServerConfig]) -> Manager:
     """Connect every configured server, or close what was connected already."""
     manager = Manager()
     for config in configs:
         try:
-            await manager.Add(ctx, config)
+            await manager.add(ctx, config)
         except BaseException:
             with contextlib.suppress(Exception):
-                await manager.Close()
+                await manager.close()
             raise
     return manager

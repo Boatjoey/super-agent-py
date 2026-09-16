@@ -20,20 +20,21 @@ from typing import TYPE_CHECKING, Any
 
 from super_agent.errors import Cancelled, errors_is
 from super_agent.runtime.execution import (
+    ERR_APPROVAL_DISMISSED,
     ActionResultInput,
     ActionResultResolver,
     ApprovalStore,
     ApprovalWaiter,
-    ErrApprovalDismissed,
     ModelReplied,
-    NewApprovalKey,
     QueuedAction,
     RunController,
     RunID,
     ScheduledActionInput,
     ScheduledActionRunner,
+    new_approval_key,
 )
 from super_agent.runtime.machine import (
+    STATE_IDLE,
     AppendStreamingAssistant,
     ApprovalAlwaysGranted,
     AwaitApproval,
@@ -46,14 +47,13 @@ from super_agent.runtime.machine import (
     Message,
     RuntimeData,
     RunTool,
-    SnapshotFrom,
     State,
-    StateIdle,
     ToolCallBatch,
-    Transition,
     TransitionResult,
     UserMessageSubmitted,
-    ValidateRuntimeData,
+    snapshot_from,
+    transition,
+    validate_runtime_data,
 )
 from super_agent.runtime.protocol.run_context import RunContext
 from super_agent.runtime.protocol.types import ToolSpec, Usage
@@ -81,14 +81,14 @@ def estimateTokens(value: str) -> int:
 
 
 def estimateMessageTokens(messages: tuple[Message, ...] | list[Message]) -> int:
-    return sum(estimateTokens(message.Content + message.ReasoningContent) for message in messages)
+    return sum(estimateTokens(message.content + message.reasoning_content) for message in messages)
 
 
 def cloneToolBatch(batch: ToolCallBatch | None) -> ToolCallBatch | None:
     """A copy the resolver may read while the queue keeps advancing."""
     if batch is None:
         return None
-    return ToolCallBatch(ID=batch.ID, Calls=list(batch.Calls), Index=batch.Index)
+    return ToolCallBatch(id=batch.id, calls=list(batch.calls), index=batch.index)
 
 
 def millis_since(started: float) -> int:
@@ -105,7 +105,7 @@ def _is_cancellation(error: BaseException) -> bool:
     """
     return (
         errors_is(error, Cancelled)
-        or errors_is(error, ErrApprovalDismissed)
+        or errors_is(error, ERR_APPROVAL_DISMISSED)
         or isinstance(error, asyncio.CancelledError)
     )
 
@@ -124,10 +124,10 @@ class ActionLoopMixin:
         _runs: RunController
         lock: Any
 
-        def Messages(self) -> list[Message]: ...
+        def messages(self) -> list[Message]: ...
         async def _notify_state_observer(self) -> None: ...
 
-    async def DispatchEvent(
+    async def dispatch_event(
         self,
         ctx: RunContext,
         event: Event,
@@ -144,7 +144,7 @@ class ActionLoopMixin:
         if error is not None:
             raise error
 
-    async def RunTurn(
+    async def run_turn(
         self,
         ctx: RunContext,
         event: UserMessageSubmitted,
@@ -158,7 +158,7 @@ class ActionLoopMixin:
         """
         started = time.monotonic()
         run_id, error = await self._dispatch_event(ctx, event, on_stream_chunk, approval_waiter)
-        telemetry.Record(
+        telemetry.record(
             "run",
             {
                 "run_id": str(run_id),
@@ -189,10 +189,10 @@ class ActionLoopMixin:
             run_ctx = ctx
             started_run = False
             if isinstance(event, UserMessageSubmitted):
-                _, run_ctx = self._runs.StartRun(ctx)
+                _, run_ctx = self._runs.start_run(ctx)
                 started_run = True
-            elif decision.ActionPlan.Schedule:
-                current_ctx, active = self._runs.CurrentContext()
+            elif decision.action_plan.schedule:
+                current_ctx, active = self._runs.current_context()
                 if not active or current_ctx is None:
                     raise RuntimeError("event scheduled actions without an active run")
                 run_ctx = current_ctx
@@ -203,19 +203,19 @@ class ActionLoopMixin:
                 # A run that could not commit its first transition must not be
                 # left live: nothing is going to finish it.
                 if started_run:
-                    self._runs.CancelRun()
+                    self._runs.cancel_run()
                 raise
 
-            state = self._runtime_data.State
-            run_id = self._runs.CurrentRunID()
+            state = self._runtime_data.state
+            run_id = self._runs.current_run_id()
 
-        telemetry.Record(
+        telemetry.record(
             "transition",
             {
                 "run_id": str(run_id),
                 "event": typeName(event),
                 "state": str(state),
-                "scheduled_actions": len(decision.ActionPlan.Schedule),
+                "scheduled_actions": len(decision.action_plan.schedule),
             },
         )
         await self._notify_state_observer()
@@ -226,8 +226,8 @@ class ActionLoopMixin:
         return run_id, None
 
     def _calculate_transition_locked(self, event: Event) -> TransitionResult:
-        snapshot: MachineSnapshot = SnapshotFrom(self._runtime_data)
-        return Transition(snapshot, event)
+        snapshot: MachineSnapshot = snapshot_from(self._runtime_data)
+        return transition(snapshot, event)
 
     def _commit_transition_locked(self, decision: TransitionResult) -> None:
         """Commit runtime data and the action plan as one decision.
@@ -236,13 +236,13 @@ class ActionLoopMixin:
         inside one lock hold, so the queue can never belong to a state that no
         longer exists.
         """
-        change_result = self._applier.ApplyRuntimeDataChanges(self._runtime_data, decision)
-        ValidateRuntimeData(change_result.RuntimeData)
-        self._runtime_data = change_result.RuntimeData
-        if decision.ActionPlan.ClearExisting:
-            self._action_queue.Clear()
-        for action in decision.ActionPlan.Schedule:
-            self._action_queue.Queue(self._runs.CurrentRunID(), action)
+        change_result = self._applier.apply_runtime_data_changes(self._runtime_data, decision)
+        validate_runtime_data(change_result.runtime_data)
+        self._runtime_data = change_result.runtime_data
+        if decision.action_plan.clear_existing:
+            self._action_queue.clear()
+        for action in decision.action_plan.schedule:
+            self._action_queue.queue(self._runs.current_run_id(), action)
 
     async def _run_scheduled_actions(
         self,
@@ -250,25 +250,25 @@ class ActionLoopMixin:
         on_stream_chunk: Callable[[Any], None] | None,
         approval_waiter: ApprovalWaiter | None,
     ) -> None:
-        run_id = self._runs.CurrentRunID()
+        run_id = self._runs.current_run_id()
         while True:
             async with self.lock:
-                action = self._action_queue.Pop()
+                action = self._action_queue.pop()
                 if action is None:
-                    if self._runtime_data.State == StateIdle:
-                        self._runs.FinishRun(run_id)
+                    if self._runtime_data.state == STATE_IDLE:
+                        self._runs.finish_run(run_id)
                         return
-                    state: State = self._runtime_data.State
+                    state: State = self._runtime_data.state
                     raise InvariantViolationError(f"action queue is empty in state {state}")
 
             try:
                 await self._execute_scheduled_action(ctx, action, on_stream_chunk, approval_waiter)
             except BaseException as failure:
                 if _is_cancellation(failure):
-                    self._runs.CancelRun()
+                    self._runs.cancel_run()
                     await self._dispatch_ignoring_failure(ctx, CancelRequested())
                 else:
-                    await self._dispatch_ignoring_failure(ctx, ErrorOccurred(Err=failure))
+                    await self._dispatch_ignoring_failure(ctx, ErrorOccurred(err=failure))
                 raise
             # The action may have committed a transition; notify so observers see
             # the states that pass between snapshot points, such as RunningTool
@@ -283,7 +283,7 @@ class ActionLoopMixin:
         cleanup path would replace it.
         """
         with contextlib.suppress(BaseException):
-            await self.DispatchEvent(ctx, event, None)
+            await self.dispatch_event(ctx, event, None)
 
     async def _execute_scheduled_action(
         self,
@@ -297,27 +297,27 @@ class ActionLoopMixin:
         if on_stream_chunk is not None:
             callback = on_stream_chunk
 
-            def teed(chunk: Any, _run_id: RunID = action.RunID, _cb: Callable[[Any], None] = callback) -> None:
+            def teed(chunk: Any, _run_id: RunID = action.run_id, _cb: Callable[[Any], None] = callback) -> None:
                 self._record_stream_chunk(_run_id, chunk)
                 _cb(chunk)
 
             stream = teed
 
         env = ScheduledActionInput(
-            Messages=tuple(self.Messages()),
-            ToolSpecs=tuple(self._tool_specs()),
-            ApprovalWaiter=approval_waiter,
+            messages=tuple(self.messages()),
+            tool_specs=tuple(self._tool_specs()),
+            approval_waiter=approval_waiter,
         )
-        action_ctx = telemetry.WithIDs(ctx, str(action.RunID), str(action.ActionID))
+        action_ctx = telemetry.with_i_ds(ctx, str(action.run_id), str(action.action_id))
         try:
-            completion = await self._runner.Run(action_ctx, action, env, stream)  # type: ignore[arg-type]
+            completion = await self._runner.run(action_ctx, action, env, stream)  # type: ignore[arg-type]
         except BaseException as error:
-            telemetry.Record(
+            telemetry.record(
                 "action",
                 {
-                    "run_id": str(action.RunID),
-                    "action_id": str(action.ActionID),
-                    "action": typeName(action.Action),
+                    "run_id": str(action.run_id),
+                    "action_id": str(action.action_id),
+                    "action": typeName(action.action),
                     "duration_ms": millis_since(started),
                     "error": str(error),
                 },
@@ -325,30 +325,30 @@ class ActionLoopMixin:
             raise
 
         fields: dict[str, Any] = {
-            "run_id": str(action.RunID),
-            "action_id": str(action.ActionID),
-            "action": typeName(action.Action),
+            "run_id": str(action.run_id),
+            "action_id": str(action.action_id),
+            "action": typeName(action.action),
             "duration_ms": millis_since(started),
         }
-        if isinstance(action.Action, CallModel):
+        if isinstance(action.action, CallModel):
             fields["component"] = "model"
-        elif isinstance(action.Action, RunTool):
+        elif isinstance(action.action, RunTool):
             fields["component"] = "tool"
-            fields["tool"] = action.Action.Call.Name
-        elif isinstance(action.Action, AwaitApproval):
+            fields["tool"] = action.action.call.name
+        elif isinstance(action.action, AwaitApproval):
             fields["component"] = "approval"
 
-        if isinstance(completion.Result, ModelReplied):
-            fields["input_tokens_estimate"] = estimateMessageTokens(env.Messages)
+        if isinstance(completion.result, ModelReplied):
+            fields["input_tokens_estimate"] = estimateMessageTokens(env.messages)
             fields["output_tokens_estimate"] = estimateTokens(
-                completion.Result.Response.Content + completion.Result.Response.ReasoningContent
+                completion.result.response.content + completion.result.response.reasoning_content
             )
             # Exact provider counts win over the rune-count estimates when the
             # adapter could obtain them.
-            fields.update(_usage_fields(completion.Result.Response.Usage))
-        telemetry.Record("action", fields)
+            fields.update(_usage_fields(completion.result.response.usage))
+        telemetry.record("action", fields)
 
-        if not self._runs.IsCurrent(completion.RunID):
+        if not self._runs.is_current(completion.run_id):
             # A stale completion is discarded, not applied. This is the whole
             # mechanism that keeps a cancelled turn out of the next one.
             return
@@ -360,19 +360,19 @@ class ActionLoopMixin:
         # next action re-fetches.
         tool_specs = self._tool_specs()
         async with self.lock:
-            batch = cloneToolBatch(self._runtime_data.ToolBatch)
-            event = self._resolver.Resolve(
-                completion.Result,  # type: ignore[arg-type]
-                ActionResultInput(ToolBatch=batch, ToolSpecs=tuple(tool_specs)),
+            batch = cloneToolBatch(self._runtime_data.tool_batch)
+            event = self._resolver.resolve(
+                completion.result,  # type: ignore[arg-type]
+                ActionResultInput(tool_batch=batch, tool_specs=tuple(tool_specs)),
             )
             decision = self._calculate_transition_locked(event)
             self._commit_transition_locked(decision)
 
         if isinstance(event, ApprovalAlwaysGranted):
-            self._approvals.AllowAlways(NewApprovalKey(event.Call))
+            self._approvals.allow_always(new_approval_key(event.call))
 
     def _tool_specs(self) -> list[ToolSpec]:
-        return self._runner.ToolSpecs()
+        return self._runner.tool_specs()
 
     def _record_stream_chunk(self, run_id: RunID, chunk: Any) -> None:
         """Append streaming content, re-checking staleness under the lock.
@@ -383,26 +383,26 @@ class ActionLoopMixin:
         No lock is taken: this method never awaits, so the event loop cannot
         switch tasks inside it.
         """
-        if not self._runs.IsCurrent(run_id):
+        if not self._runs.is_current(run_id):
             return
         try:
             self._commit_transition_locked(
                 TransitionResult(
-                    NextState=self._runtime_data.State,
-                    RuntimeDataChanges=(AppendStreamingAssistant(Chunk=chunk),),
+                    next_state=self._runtime_data.state,
+                    runtime_data_changes=(AppendStreamingAssistant(chunk=chunk),),
                 )
             )
         except Exception as error:
-            telemetry.Record("stream_chunk_rejected", {"run_id": str(run_id), "error": str(error)})
+            telemetry.record("stream_chunk_rejected", {"run_id": str(run_id), "error": str(error)})
 
 
 def _usage_fields(usage: Usage | None) -> dict[str, Any]:
     if usage is None:
         return {}
     return {
-        "input_tokens": usage.InputTokens,
-        "output_tokens": usage.OutputTokens,
-        "total_tokens": usage.TotalTokens,
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "total_tokens": usage.total_tokens,
     }
 
 

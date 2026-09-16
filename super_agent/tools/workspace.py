@@ -21,23 +21,23 @@ class WorkspaceContext(Protocol):
     this port answers only "where may this call read and write".
     """
 
-    def GetPrimaryRoot(self) -> str:
+    def get_primary_root(self) -> str:
         """The root a sandbox binds read-write."""
         ...
 
-    def GetCWD(self) -> str:
+    def get_cwd(self) -> str:
         """The directory a command or relative path starts from."""
         ...
 
-    def ResolvePath(self, path: str) -> str:
+    def resolve_path(self, path: str) -> str:
         """Canonicalize ``path``; raises when it cannot be resolved."""
         ...
 
-    def CanRead(self, path: str) -> bool:
+    def can_read(self, path: str) -> bool:
         """Whether ``path`` falls inside a readable root."""
         ...
 
-    def CanWrite(self, path: str) -> bool:
+    def can_write(self, path: str) -> bool:
         """Whether ``path`` falls inside a writable root."""
         ...
 
@@ -46,8 +46,8 @@ def resolve_readable(workspace: WorkspaceContext | None, path: str) -> tuple[str
     """Return ``(resolved, display)`` for a path the caller may read."""
     if workspace is None:
         raise RuntimeError("workspace is not configured")
-    resolved = workspace.ResolvePath(path)
-    if not workspace.CanRead(resolved):
+    resolved = workspace.resolve_path(path)
+    if not workspace.can_read(resolved):
         raise RuntimeError("path is outside readable workspace roots")
     return resolved, display_path(workspace, resolved)
 
@@ -56,8 +56,8 @@ def resolve_writable(workspace: WorkspaceContext | None, path: str) -> tuple[str
     """Return ``(resolved, display)`` for a path the caller may write."""
     if workspace is None:
         raise RuntimeError("workspace is not configured")
-    resolved = workspace.ResolvePath(path)
-    if not workspace.CanWrite(resolved):
+    resolved = workspace.resolve_path(path)
+    if not workspace.can_write(resolved):
         raise RuntimeError("path is outside writable workspace roots")
     return resolved, display_path(workspace, resolved)
 
@@ -65,7 +65,7 @@ def resolve_writable(workspace: WorkspaceContext | None, path: str) -> tuple[str
 def display_path(workspace: WorkspaceContext, path: str) -> str:
     """The path as the model should see it: relative to the workspace cwd."""
     try:
-        relative = os.path.relpath(path, workspace.GetCWD())
+        relative = os.path.relpath(path, workspace.get_cwd())
     except ValueError:
         return path.replace(os.sep, "/")
     return relative.replace(os.sep, "/")

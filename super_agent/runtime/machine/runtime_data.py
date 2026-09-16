@@ -18,11 +18,11 @@ from super_agent.runtime.protocol.types import Message, ToolCall
 
 @dataclasses.dataclass(slots=True)
 class RuntimeData:
-    State: State
-    Messages: list[Message] = dataclasses.field(default_factory=list[Message])
-    PendingTool: ToolCall | None = None  # awaiting approval
-    PendingPermission: PermissionRequest | None = None
-    CurrentTool: ToolCall | None = None  # executing
-    ToolBatch: ToolCallBatch | None = None  # remaining queue
-    StreamingContent: str = ""
-    StreamingReasoning: str = ""
+    state: State
+    messages: list[Message] = dataclasses.field(default_factory=list[Message])
+    pending_tool: ToolCall | None = None  # awaiting approval
+    pending_permission: PermissionRequest | None = None
+    current_tool: ToolCall | None = None  # executing
+    tool_batch: ToolCallBatch | None = None  # remaining queue
+    streaming_content: str = ""
+    streaming_reasoning: str = ""

@@ -33,8 +33,8 @@ def formatSessions(summaries: list[SessionSummary]) -> str:
         return "No saved sessions"
     lines: list[str] = []
     for summary in summaries:
-        parent = f"  child-of:{summary.ParentID}" if summary.ParentID else ""
-        lines.append(f"{summary.ID}  {summary.Title}  {summary.Provider}/{summary.Model}{parent}")
+        parent = f"  child-of:{summary.parent_id}" if summary.parent_id else ""
+        lines.append(f"{summary.id}  {summary.title}  {summary.provider}/{summary.model}{parent}")
     return "\n".join(lines)
 
 
@@ -44,8 +44,8 @@ def formatMCPServers(servers: list[MCPServerSummary]) -> str:
         return "No MCP servers"
     lines: list[str] = []
     for server in servers:
-        tools = ", ".join(server.Tools) or "no tools"
-        lines.append(f"{server.Name}  {tools}")
+        tools = ", ".join(server.tools) or "no tools"
+        lines.append(f"{server.name}  {tools}")
     return "\n".join(lines)
 
 
@@ -60,9 +60,9 @@ def formatPermissions(config: Config, mode: str, autoApprove: bool) -> str:
     """The runtime's own policy values, so the display cannot drift from them."""
     return (
         f"Permission mode: {mode or 'ask'}\n"
-        f"Tools: {_onOff(not config.NoTools)}\n"
+        f"Tools: {_onOff(not config.no_tools)}\n"
         f"Approval: {_onOff(autoApprove)}\n"
-        f"CWD: {config.CWD}"
+        f"CWD: {config.cwd}"
     )
 
 

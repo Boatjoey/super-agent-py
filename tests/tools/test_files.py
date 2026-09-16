@@ -9,18 +9,18 @@ from typing import Any
 
 import pytest
 
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ToolCall
 from super_agent.tools import (
-    DefaultRegistry,
+    SANDBOX_MODE_OFF,
     Registry,
-    RegistryForWorkspace,
     SandboxConfig,
-    SandboxedRegistry,
-    SandboxModeOff,
+    default_registry,
+    registry_for_workspace,
+    sandboxed_registry,
 )
 from super_agent.tools.files import max_tool_output_lines
-from tests.tools.test_workspace import ACCESS_READ, ACCESS_READ_WRITE, NewContext, Root, workspace_for
+from tests.tools.test_workspace import ACCESS_READ, ACCESS_READ_WRITE, Root, new_context, workspace_for
 
 
 def must_write(root: Path, relative: str, content: str) -> None:
@@ -35,23 +35,23 @@ def sandboxed_registry_for(root: Path) -> Registry:
 
     This is how a delegation worktree is jailed.
     """
-    return SandboxedRegistry(
-        SandboxConfig(Mode=SandboxModeOff, Workspace=str(root)),
+    return sandboxed_registry(
+        SandboxConfig(mode=SANDBOX_MODE_OFF, workspace=str(root)),
         workspace_for(root),
     )
 
 
 async def must_succeed(registry: Registry, name: str, payload: dict[str, Any]) -> str:
-    return await registry.Run(LiveContext(), ToolCall(Name=name, Input=json.dumps(payload)))
+    return await registry.run(live_context(), ToolCall(name=name, input=json.dumps(payload)))
 
 
 async def must_fail(registry: Registry, name: str, payload: dict[str, Any]) -> None:
     with pytest.raises(RuntimeError):
-        await registry.Run(LiveContext(), ToolCall(Name=name, Input=json.dumps(payload)))
+        await registry.run(live_context(), ToolCall(name=name, input=json.dumps(payload)))
 
 
 def test_file_tools_expose_the_first_priority_tools(tmp_path: Path) -> None:
-    names = {spec.Name for spec in DefaultRegistry(workspace_for(tmp_path)).Specs()}
+    names = {spec.name for spec in default_registry(workspace_for(tmp_path)).specs()}
 
     for name in ("read_file", "list_files", "search", "apply_patch", "write_file", "bash"):
         assert name in names
@@ -60,7 +60,7 @@ def test_file_tools_expose_the_first_priority_tools(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_read_file_supports_a_line_range(tmp_path: Path) -> None:
     must_write(tmp_path, "notes.txt", "one\ntwo\nthree\n")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await must_succeed(registry, "read_file", {"path": "notes.txt", "start_line": 2, "end_line": 3})
 
@@ -72,7 +72,7 @@ async def test_read_file_rejects_a_path_outside_the_workspace(tmp_path: Path) ->
     worktree = tmp_path / "worktree"
     worktree.mkdir()
     must_write(tmp_path, "secret.txt", "secret")
-    registry = DefaultRegistry(workspace_for(worktree))
+    registry = default_registry(workspace_for(worktree))
 
     await must_fail(registry, "read_file", {"path": "../secret.txt"})
 
@@ -82,7 +82,7 @@ async def test_list_files_returns_matching_relative_files(tmp_path: Path) -> Non
     must_write(tmp_path, "a.py", "")
     must_write(tmp_path, "nested/b.py", "")
     must_write(tmp_path, "nested/c.txt", "")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await must_succeed(registry, "list_files", {"path": ".", "pattern": "*.py"})
 
@@ -93,7 +93,7 @@ async def test_list_files_returns_matching_relative_files(tmp_path: Path) -> Non
 async def test_search_finds_text_with_line_numbers(tmp_path: Path) -> None:
     must_write(tmp_path, "a.txt", "alpha\nneedle\n")
     must_write(tmp_path, "nested/b.txt", "needle again\n")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await must_succeed(registry, "search", {"query": "needle", "path": "."})
 
@@ -103,7 +103,7 @@ async def test_search_finds_text_with_line_numbers(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_apply_patch_replaces_expected_text(tmp_path: Path) -> None:
     must_write(tmp_path, "main.py", "def greet():\n    pass\n")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await must_succeed(
         registry,
@@ -117,7 +117,7 @@ async def test_apply_patch_replaces_expected_text(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_write_file_creates_parent_directories(tmp_path: Path) -> None:
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await must_succeed(registry, "write_file", {"path": "nested/out.txt", "content": "hello"})
 
@@ -133,11 +133,11 @@ async def test_file_tools_use_the_injected_root_access(tmp_path: Path) -> None:
     read_only.mkdir()
     shared = read_only / "shared.txt"
     shared.write_text("shared", encoding="utf-8")
-    registry = RegistryForWorkspace(
-        NewContext(
+    registry = registry_for_workspace(
+        new_context(
             primary,
             primary,
-            [Root(Path=str(primary), Access=ACCESS_READ_WRITE), Root(Path=str(read_only), Access=ACCESS_READ)],
+            [Root(path=str(primary), access=ACCESS_READ_WRITE), Root(path=str(read_only), access=ACCESS_READ)],
         )
     )
 

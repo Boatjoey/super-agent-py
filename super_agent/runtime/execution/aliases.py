@@ -8,10 +8,10 @@ The same names live at the same position here.
 from __future__ import annotations
 
 from super_agent.runtime.machine.approval import (
+    APPROVE_ALWAYS as APPROVE_ALWAYS,
+    APPROVE_ONCE as APPROVE_ONCE,
+    DENY_APPROVAL as DENY_APPROVAL,
     ApprovalDecision as ApprovalDecision,
-    ApproveAlways as ApproveAlways,
-    ApproveOnce as ApproveOnce,
-    DenyApproval as DenyApproval,
 )
 from super_agent.runtime.machine.event import (
     ApprovalAlwaysGranted as ApprovalAlwaysGranted,
@@ -38,12 +38,12 @@ from super_agent.runtime.machine.scheduled_action import (
 )
 from super_agent.runtime.machine.tool_batch import ToolCallBatch as ToolCallBatch
 from super_agent.runtime.permission.types import (
+    COMMAND_CLASS_DESTRUCTIVE as COMMAND_CLASS_DESTRUCTIVE,
+    COMMAND_CLASS_NETWORK as COMMAND_CLASS_NETWORK,
+    COMMAND_CLASS_READ_ONLY as COMMAND_CLASS_READ_ONLY,
+    COMMAND_CLASS_UNKNOWN as COMMAND_CLASS_UNKNOWN,
+    COMMAND_CLASS_WRITE as COMMAND_CLASS_WRITE,
     CommandClass as CommandClass,
-    CommandClassDestructive as CommandClassDestructive,
-    CommandClassNetwork as CommandClassNetwork,
-    CommandClassReadOnly as CommandClassReadOnly,
-    CommandClassUnknown as CommandClassUnknown,
-    CommandClassWrite as CommandClassWrite,
     Request as PermissionRequest,
 )
 from super_agent.runtime.protocol.types import (
@@ -57,24 +57,24 @@ from super_agent.runtime.protocol.types import (
 )
 
 __all__ = [
+    "APPROVE_ALWAYS",
+    "APPROVE_ONCE",
+    "COMMAND_CLASS_DESTRUCTIVE",
+    "COMMAND_CLASS_NETWORK",
+    "COMMAND_CLASS_READ_ONLY",
+    "COMMAND_CLASS_UNKNOWN",
+    "COMMAND_CLASS_WRITE",
+    "DENY_APPROVAL",
     "AppendStreamingAssistant",
     "ApprovalAlwaysGranted",
     "ApprovalDecision",
     "ApprovalDenied",
     "ApprovalGranted",
-    "ApproveAlways",
-    "ApproveOnce",
     "AssistantMessageReceived",
     "AwaitApproval",
     "CallModel",
     "CheckToolQueue",
     "CommandClass",
-    "CommandClassDestructive",
-    "CommandClassNetwork",
-    "CommandClassReadOnly",
-    "CommandClassUnknown",
-    "CommandClassWrite",
-    "DenyApproval",
     "Event",
     "Message",
     "Model",

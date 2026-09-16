@@ -30,12 +30,12 @@ from super_agent import app, cli, llm, tui
 def main() -> None:
     """Run the terminal interface."""
     try:
-        flags = cli.Parse(sys.argv[1:])
+        flags = cli.parse(sys.argv[1:])
     except cli.FlagError as error:
         if error.message:
             print(error.message, file=sys.stderr)
         if error.showUsage:
-            sys.stderr.write(cli.Usage())
+            sys.stderr.write(cli.usage())
         raise SystemExit(error.status) from None
 
     # Loaded from the process working directory, and never overriding a variable
@@ -45,7 +45,7 @@ def main() -> None:
         load_dotenv(os.path.join(os.getcwd(), ".env"), override=False)
 
     try:
-        cfg = app.LoadConfig(flags, os.environ.get)
+        cfg = app.load_config(flags, os.environ.get)
     except Exception as error:
         print(error, file=sys.stderr)
         raise SystemExit(1) from None
@@ -55,27 +55,27 @@ def main() -> None:
 async def run(cfg: app.Config) -> int:
     """Build the session and run the interface, returning the exit status."""
     try:
-        session, mcpController, agentController = await app.NewSessionWithExtensions(cfg)
+        session, mcpController, agentController = await app.new_session_with_extensions(cfg)
     except Exception as error:
         print(error, file=sys.stderr)
         return 1
     try:
-        profile = agentController.Current()
-        workspace = cfg.Workspace
-        cwd = cfg.Project.Root if workspace is None else workspace.GetCWD()
+        profile = agentController.active_profile()
+        workspace = cfg.workspace
+        cwd = cfg.project.root if workspace is None else workspace.get_cwd()
         program = tui.Program(
-            model=tui.New(
-                app.NewTUIConversation(session, mcpController, agentController),
+            model=tui.new(
+                app.new_tui_conversation(session, mcpController, agentController),
                 tui.StartupInfo(
-                    ModelName=llm.ModelDisplayName(profile.Provider, llm.ProviderConfig(Model=profile.Model)),
-                    PermissionMode=str(profile.PermissionMode),
-                    NoTools=cfg.NoTools,
-                    CWD=cwd,
-                    InstructionPaths=tuple(cfg.InstructionSources),
+                    model_name=llm.model_display_name(profile.provider, llm.ProviderConfig(model=profile.model)),
+                    permission_mode=str(profile.permission_mode),
+                    no_tools=cfg.no_tools,
+                    cwd=cwd,
+                    instruction_paths=tuple(cfg.instruction_sources),
                 ),
             ),
-            update=tui.Update,
-            view=tui.View,
+            update=tui.update,
+            view=tui.view,
             console=Console(),
         )
         await program.run()
@@ -87,7 +87,7 @@ async def run(cfg: app.Config) -> int:
         # path. That is better hygiene than skipping it, and it changes nothing
         # the user saw.
         with contextlib.suppress(Exception):
-            await session.Close()
+            await session.close()
         with contextlib.suppress(Exception):
             await app.waitPendingClosers()
     return 0

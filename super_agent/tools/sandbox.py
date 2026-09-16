@@ -32,41 +32,41 @@ class SandboxMode(str):
         return f"SandboxMode({str.__repr__(self)})"
 
 
-SandboxModeOff: Final[SandboxMode] = SandboxMode("off")
-SandboxModeStrict: Final[SandboxMode] = SandboxMode("strict")
+SANDBOX_MODE_OFF: Final[SandboxMode] = SandboxMode("off")
+SANDBOX_MODE_STRICT: Final[SandboxMode] = SandboxMode("strict")
 
 #: The zero value for the type; an empty mode means strict, not off.
-ZeroSandboxMode: Final[SandboxMode] = SandboxMode("")
+ZERO_SANDBOX_MODE: Final[SandboxMode] = SandboxMode("")
 
 
 @dataclasses.dataclass(slots=True)
 class SandboxConfig:
     """Parameters for command containment, sourced from top-level settings."""
 
-    Mode: SandboxMode = ZeroSandboxMode
-    Workspace: str = ""
-    AllowNetwork: bool = False
-    CPUSeconds: int = 0
-    MemoryBytes: int = 0
-    MaxProcesses: int = 0
-    MaxOpenFiles: int = 0
+    mode: SandboxMode = ZERO_SANDBOX_MODE
+    workspace: str = ""
+    allow_network: bool = False
+    cpu_seconds: int = 0
+    memory_bytes: int = 0
+    max_processes: int = 0
+    max_open_files: int = 0
 
 
-def DefaultSandboxConfig(workspace: str) -> SandboxConfig:
+def default_sandbox_config(workspace: str) -> SandboxConfig:
     """The strict defaults: one workspace, no network, bounded resources."""
     return SandboxConfig(
-        Mode=SandboxModeStrict,
-        Workspace=workspace,
-        CPUSeconds=120,
-        MemoryBytes=1 << 30,
-        MaxProcesses=128,
-        MaxOpenFiles=256,
+        mode=SANDBOX_MODE_STRICT,
+        workspace=workspace,
+        cpu_seconds=120,
+        memory_bytes=1 << 30,
+        max_processes=128,
+        max_open_files=256,
     )
 
 
-def ValidSandboxMode(mode: SandboxMode) -> bool:
+def valid_sandbox_mode(mode: SandboxMode) -> bool:
     """Whether ``mode`` names a mode this build understands."""
-    return mode in (SandboxModeOff, SandboxModeStrict)
+    return mode in (SANDBOX_MODE_OFF, SANDBOX_MODE_STRICT)
 
 
 class command_sandbox(Protocol):
@@ -102,25 +102,25 @@ def runner_or_default(runner: command_runner | None) -> command_runner:
 
 def new_command_runner(config: SandboxConfig, workspace_context: WorkspaceContext | None) -> command_runner:
     """Build the runner for ``config``, refusing a configuration it cannot honour."""
-    if config.Mode == "":
-        config.Mode = SandboxModeStrict
-    if not ValidSandboxMode(config.Mode):
-        raise RuntimeError("invalid sandbox mode: " + str(config.Mode))
-    if config.Mode == SandboxModeOff:
+    if config.mode == "":
+        config.mode = SANDBOX_MODE_STRICT
+    if not valid_sandbox_mode(config.mode):
+        raise RuntimeError("invalid sandbox mode: " + str(config.mode))
+    if config.mode == SANDBOX_MODE_OFF:
         return command_runner(workspace=workspace_context)
-    if config.Workspace == "":
+    if config.workspace == "":
         raise RuntimeError("strict sandbox requires a workspace")
-    config.Workspace = os.path.realpath(os.path.abspath(config.Workspace), strict=True)
-    if config.CPUSeconds <= 0:
+    config.workspace = os.path.realpath(os.path.abspath(config.workspace), strict=True)
+    if config.cpu_seconds <= 0:
         # The command limits live in ``commands.py``. The import stays local to
         # keep ``sandbox`` and ``commands`` acyclic.
         from super_agent.tools.commands import max_command_timeout
 
-        config.CPUSeconds = int(max_command_timeout)
-    if config.MemoryBytes <= 0:
-        config.MemoryBytes = 1 << 30
-    if config.MaxProcesses <= 0:
-        config.MaxProcesses = 128
-    if config.MaxOpenFiles <= 0:
-        config.MaxOpenFiles = 256
+        config.cpu_seconds = int(max_command_timeout)
+    if config.memory_bytes <= 0:
+        config.memory_bytes = 1 << 30
+    if config.max_processes <= 0:
+        config.max_processes = 128
+    if config.max_open_files <= 0:
+        config.max_open_files = 256
     return command_runner(sandbox=new_platform_sandbox(config), workspace=workspace_context)

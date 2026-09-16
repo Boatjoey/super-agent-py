@@ -19,21 +19,21 @@ import tempfile
 import threading
 
 from super_agent.runtime.session import (
+    WORKSPACE_ACCESS_READ,
+    WORKSPACE_ACCESS_READ_WRITE,
     Attachment,
     FileSnapshot,
     WorkspaceAccessMode,
-    WorkspaceAccessRead,
-    WorkspaceAccessReadWrite,
     WorkspaceRootSpec,
     WorkspaceSpec,
 )
 from super_agent.workspace.context import (
+    ACCESS_READ,
+    ACCESS_READ_WRITE,
     Access,
-    AccessRead,
-    AccessReadWrite,
     Context,
-    NewContext,
     Root,
+    new_context,
 )
 
 
@@ -46,37 +46,37 @@ class Workspace:
 
     # --- the switchable binding ---------------------------------------------
 
-    def GetPrimaryRoot(self) -> str:
+    def get_primary_root(self) -> str:
         context = self._currentOrNone()
-        return "" if context is None else context.GetPrimaryRoot()
+        return "" if context is None else context.get_primary_root()
 
-    def GetCWD(self) -> str:
+    def get_cwd(self) -> str:
         context = self._currentOrNone()
-        return "" if context is None else context.GetCWD()
+        return "" if context is None else context.get_cwd()
 
-    def ResolvePath(self, path: str) -> str:
-        return self._current().ResolvePath(path)
+    def resolve_path(self, path: str) -> str:
+        return self._current().resolve_path(path)
 
-    def CanRead(self, path: str) -> bool:
+    def can_read(self, path: str) -> bool:
         context = self._currentOrNone()
-        return context is not None and context.CanRead(path)
+        return context is not None and context.can_read(path)
 
-    def CanWrite(self, path: str) -> bool:
+    def can_write(self, path: str) -> bool:
         context = self._currentOrNone()
-        return context is not None and context.CanWrite(path)
+        return context is not None and context.can_write(path)
 
-    def Spec(self) -> WorkspaceSpec:
+    def spec(self) -> WorkspaceSpec:
         """The durable description of the active context."""
         context = self._currentOrNone()
         if context is None:
             return WorkspaceSpec()
         return specFromContext(context)
 
-    def Validate(self, spec: WorkspaceSpec) -> None:
+    def validate(self, spec: WorkspaceSpec) -> None:
         """Raise unless ``spec`` resolves to the same paths on the current filesystem."""
         contextFromSpec(spec)
 
-    def Canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
+    def canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
         """Re-resolve every path in ``spec`` against the current filesystem.
 
         Session persistence uses it exactly once to upgrade legacy metadata,
@@ -85,7 +85,7 @@ class Workspace:
         """
         return specFromContext(buildContext(spec))
 
-    def Activate(self, spec: WorkspaceSpec) -> None:
+    def activate(self, spec: WorkspaceSpec) -> None:
         """Atomically switch to a context rebuilt and validated from ``spec``."""
         context = contextFromSpec(spec)
         with self._lock:
@@ -103,7 +103,7 @@ class Workspace:
 
     # --- attachments, exports, checkpoints -----------------------------------
 
-    def ReadAttachment(self, path: str) -> Attachment:
+    def read_attachment(self, path: str) -> Attachment:
         """Read one file as a base64 attachment, capped at 10 MiB."""
         absolute = self._readable(path)
         capture(absolute)
@@ -113,12 +113,12 @@ class Workspace:
         with open(absolute, "rb") as handle:
             content = handle.read()
         return Attachment(
-            Name=os.path.basename(absolute),
-            MIME=detectContentType(content),
-            Data=base64.standard_b64encode(content).decode("ascii"),
+            name=os.path.basename(absolute),
+            mime=detectContentType(content),
+            data=base64.standard_b64encode(content).decode("ascii"),
         )
 
-    def WriteExport(self, relative: str, content: bytes) -> str:
+    def write_export(self, relative: str, content: bytes) -> str:
         """Write an export atomically under the writable roots and return its path."""
         path = self._writable(relative)
         os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
@@ -134,42 +134,42 @@ class Workspace:
             raise
         return path
 
-    def Capture(self, paths: list[str]) -> list[FileSnapshot]:
+    def capture(self, paths: list[str]) -> list[FileSnapshot]:
         """Snapshot each path before a mutating tool call touches it."""
         return [capture(self._writable(path)) for path in paths]
 
-    def Restore(self, files: list[FileSnapshot]) -> None:
+    def restore(self, files: list[FileSnapshot]) -> None:
         """Put snapshotted files back, deleting the ones that did not exist."""
         for file in files:
-            path = self._writable(file.Path)
-            if not file.Exists:
+            path = self._writable(file.path)
+            if not file.exists:
                 with contextlib.suppress(FileNotFoundError):
                     os.remove(path)
                 continue
             os.makedirs(os.path.dirname(path), mode=0o755, exist_ok=True)
-            mode = file.Mode if file.Mode != 0 else 0o644
+            mode = file.mode if file.mode != 0 else 0o644
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
             try:
-                os.write(descriptor, file.Content.encode("utf-8"))
+                os.write(descriptor, file.content.encode("utf-8"))
             finally:
                 os.close(descriptor)
 
     # --- path resolution helpers ---------------------------------------------
 
     def _readable(self, path: str) -> str:
-        resolved = self.ResolvePath(path)
-        if not self.CanRead(resolved):
+        resolved = self.resolve_path(path)
+        if not self.can_read(resolved):
             raise ValueError("path is outside readable workspace roots")
         return resolved
 
     def _writable(self, path: str) -> str:
-        resolved = self.ResolvePath(path)
-        if not self.CanWrite(resolved):
+        resolved = self.resolve_path(path)
+        if not self.can_write(resolved):
             raise ValueError("path is outside writable workspace roots")
         return resolved
 
 
-def New(context: Context) -> Workspace:
+def new(context: Context) -> Workspace:
     """A binding over ``context``."""
     return Workspace(context)
 
@@ -182,31 +182,33 @@ def contextFromSpec(spec: WorkspaceSpec) -> Context:
     different directory than the one that was saved.
     """
     context = buildContext(spec)
-    if not samePath(spec.PrimaryRoot, context.GetPrimaryRoot()) or not samePath(spec.CWD, context.GetCWD()):
+    if not samePath(spec.primary_root, context.get_primary_root()) or not samePath(spec.cwd, context.get_cwd()):
         raise ValueError("saved workspace primary root or cwd resolves to a different path")
-    resolvedRoots = context.GetRoots()
-    for index, root in enumerate(spec.Roots):
-        if not samePath(root.Path, resolvedRoots[index].Path):
+    resolvedRoots = context.get_roots()
+    for index, root in enumerate(spec.roots):
+        if not samePath(root.path, resolvedRoots[index].path):
             raise ValueError("saved workspace root resolves to a different path")
     return context
 
 
 def buildContext(spec: WorkspaceSpec) -> Context:
     """Turn the durable description into a context, before the identity check."""
-    if not os.path.isabs(spec.PrimaryRoot) or not os.path.isabs(spec.CWD) or not spec.Roots:
+    if not os.path.isabs(spec.primary_root) or not os.path.isabs(spec.cwd) or not spec.roots:
         raise ValueError("workspace spec requires absolute primary root, cwd, and roots")
     roots: list[Root] = []
-    for root in spec.Roots:
-        if not os.path.isabs(root.Path):
+    for root in spec.roots:
+        if not os.path.isabs(root.path):
             raise ValueError("workspace spec root is not absolute")
-        roots.append(Root(Path=root.Path, Access=fromSessionAccess(root.Access)))
-    return NewContext(spec.PrimaryRoot, spec.CWD, roots)
+        roots.append(Root(path=root.path, access=fromSessionAccess(root.access)))
+    return new_context(spec.primary_root, spec.cwd, roots)
 
 
 def specFromContext(context: Context) -> WorkspaceSpec:
     """The durable description of a context."""
-    roots = tuple(WorkspaceRootSpec(Path=root.Path, Access=toSessionAccess(root.Access)) for root in context.GetRoots())
-    return WorkspaceSpec(PrimaryRoot=context.GetPrimaryRoot(), CWD=context.GetCWD(), Roots=roots)
+    roots = tuple(
+        WorkspaceRootSpec(path=root.path, access=toSessionAccess(root.access)) for root in context.get_roots()
+    )
+    return WorkspaceSpec(primary_root=context.get_primary_root(), cwd=context.get_cwd(), roots=roots)
 
 
 def samePath(saved: str, resolved: str) -> bool:
@@ -219,16 +221,16 @@ def samePath(saved: str, resolved: str) -> bool:
 
 
 def toSessionAccess(access: Access) -> WorkspaceAccessMode:
-    if access == AccessReadWrite:
-        return WorkspaceAccessReadWrite
-    return WorkspaceAccessRead
+    if access == ACCESS_READ_WRITE:
+        return WORKSPACE_ACCESS_READ_WRITE
+    return WORKSPACE_ACCESS_READ
 
 
 def fromSessionAccess(access: WorkspaceAccessMode) -> Access:
-    if access == WorkspaceAccessRead:
-        return AccessRead
-    if access == WorkspaceAccessReadWrite:
-        return AccessReadWrite
+    if access == WORKSPACE_ACCESS_READ:
+        return ACCESS_READ
+    if access == WORKSPACE_ACCESS_READ_WRITE:
+        return ACCESS_READ_WRITE
     raise ValueError("invalid saved workspace access mode")
 
 
@@ -241,14 +243,14 @@ def capture(path: str) -> FileSnapshot:
     try:
         info = os.stat(path)
     except FileNotFoundError:
-        return FileSnapshot(Path=path, Exists=False)
+        return FileSnapshot(path=path, exists=False)
     with open(path, "rb") as handle:
         content = handle.read()
     return FileSnapshot(
-        Path=path,
-        Exists=True,
-        Content=content.decode("utf-8", errors="replace"),
-        Mode=info.st_mode & 0o777,
+        path=path,
+        exists=True,
+        content=content.decode("utf-8", errors="replace"),
+        mode=info.st_mode & 0o777,
     )
 
 

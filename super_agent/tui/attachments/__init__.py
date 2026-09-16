@@ -12,9 +12,9 @@ from super_agent.tui.attachments.model import (
     Item as Item,
     Loaded as Loaded,
     Model as Model,
-    New as New,
     Outcome as Outcome,
     Port as Port,
+    new as new,
 )
 
-__all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "New", "Outcome", "Port"]
+__all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "Outcome", "Port", "new"]

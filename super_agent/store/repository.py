@@ -12,12 +12,12 @@ import sys
 from datetime import UTC, datetime
 
 from super_agent.runtime.session import (
+    ROLE_TOOL,
     ApprovalDecision,
     AuditEvent,
     FileSnapshot,
     Message,
     Metadata,
-    RoleTool,
     SessionID,
     Summary,
     ToolCall,
@@ -26,25 +26,25 @@ from super_agent.runtime.session import (
     WorkspaceSpec,
 )
 from super_agent.store.store import (
+    EVENT_APPROVAL_DECISION,
+    EVENT_CANCEL,
+    EVENT_CHECKPOINT,
+    EVENT_COMPACT,
+    EVENT_CONTEXT_REPLACED,
+    EVENT_ERROR,
+    EVENT_MESSAGE_APPENDED,
+    EVENT_RESET,
+    EVENT_TOOL_RESULT,
     Checkpoint,
     Compact,
-    EventApprovalDecision,
-    EventCancel,
-    EventCheckpoint,
-    EventCompact,
-    EventContextReplaced,
-    EventError,
-    EventMessageAppended,
-    EventReset,
-    EventToolResult,
     FileSnapshot as StoreFileSnapshot,
     Metadata as StoreMetadata,
-    NewTurnID,
     Record,
     SessionID as StoreSessionID,
     Store,
     WorkspaceRootSpec as StoreWorkspaceRootSpec,
     WorkspaceSpec as StoreWorkspaceSpec,
+    new_turn_id,
 )
 
 
@@ -54,165 +54,167 @@ class Repository:
     def __init__(self, store: Store) -> None:
         self.store = store
 
-    def Create(self, metadata: Metadata, initial: list[Message]) -> Metadata:
+    def create(self, metadata: Metadata, initial: list[Message]) -> Metadata:
         """Persist a new session and return its stored metadata."""
-        return toSessionMetadata(self.store.Create(toStoreMetadata(metadata), initial))
+        return toSessionMetadata(self.store.create(toStoreMetadata(metadata), initial))
 
-    def AssignNewTurnID(self, session_id: SessionID) -> None:
+    def assign_new_turn_id(self, session_id: SessionID) -> None:
         try:
-            self.store.SetCurrentTurn(StoreSessionID(session_id), NewTurnID(datetime.now(UTC)))
+            self.store.set_current_turn(StoreSessionID(session_id), new_turn_id(datetime.now(UTC)))
         except Exception as error:
             logPersistenceFailure("start turn", session_id, error)
             raise
 
-    def SaveMessage(self, session_id: SessionID, message: Message) -> None:
+    def save_message(self, session_id: SessionID, message: Message) -> None:
         """A ``tool`` message is stored as a tool result, everything else as appended."""
-        record = Record(Type=EventMessageAppended, Message=message)
-        if message.Role == RoleTool:
+        record = Record(type=EVENT_MESSAGE_APPENDED, message=message)
+        if message.role == ROLE_TOOL:
             record = Record(
-                Type=EventToolResult,
-                ToolCall=ToolCall(ID=message.ToolCallID, Name=message.ToolName),
-                Result=message.Content,
+                type=EVENT_TOOL_RESULT,
+                tool_call=ToolCall(id=message.tool_call_id, name=message.tool_name),
+                result=message.content,
             )
         try:
-            self.store.Append(StoreSessionID(session_id), record)
+            self.store.append(StoreSessionID(session_id), record)
         except Exception as error:
             logPersistenceFailure("save message", session_id, error)
             raise
 
-    def SaveApproval(self, session_id: SessionID, decision: ApprovalDecision, call: ToolCall | None) -> None:
-        record = Record(Type=EventApprovalDecision, Decision=str(decision), ToolCall=call)
+    def save_approval(self, session_id: SessionID, decision: ApprovalDecision, call: ToolCall | None) -> None:
+        record = Record(type=EVENT_APPROVAL_DECISION, decision=str(decision), tool_call=call)
         try:
-            self.store.Append(StoreSessionID(session_id), record)
+            self.store.append(StoreSessionID(session_id), record)
         except Exception as error:
             logPersistenceFailure("save approval", session_id, error)
             raise
 
-    def SaveError(self, session_id: SessionID, error: BaseException | None) -> None:
+    def save_error(self, session_id: SessionID, error: BaseException | None) -> None:
         if error is None:
             return
         try:
-            self.store.Append(StoreSessionID(session_id), Record(Type=EventError, Error=str(error)))
+            self.store.append(StoreSessionID(session_id), Record(type=EVENT_ERROR, error=str(error)))
         except Exception as append_error:
             logPersistenceFailure("save error", session_id, append_error)
             raise
 
-    def SaveCancel(self, session_id: SessionID) -> None:
+    def save_cancel(self, session_id: SessionID) -> None:
         try:
-            self.store.Append(StoreSessionID(session_id), Record(Type=EventCancel))
+            self.store.append(StoreSessionID(session_id), Record(type=EVENT_CANCEL))
         except Exception as error:
             logPersistenceFailure("save cancel", session_id, error)
             raise
 
-    def SaveReset(self, session_id: SessionID) -> None:
+    def save_reset(self, session_id: SessionID) -> None:
         try:
-            self.store.Append(StoreSessionID(session_id), Record(Type=EventReset))
+            self.store.append(StoreSessionID(session_id), Record(type=EVENT_RESET))
         except Exception as error:
             logPersistenceFailure("save reset", session_id, error)
             raise
 
-    def SaveConversationReplacement(self, session_id: SessionID, messages: list[Message]) -> None:
-        record = Record(Type=EventContextReplaced, Messages=tuple(messages))
+    def save_conversation_replacement(self, session_id: SessionID, messages: list[Message]) -> None:
+        record = Record(type=EVENT_CONTEXT_REPLACED, messages=tuple(messages))
         try:
-            self.store.Append(StoreSessionID(session_id), record)
+            self.store.append(StoreSessionID(session_id), record)
         except Exception as error:
             logPersistenceFailure("replace conversation", session_id, error)
             raise
 
-    def SaveCompaction(self, session_id: SessionID, summary: str, original: list[Message], kept: list[Message]) -> None:
-        compact = Compact(Summary=summary, OriginalMessages=tuple(original), KeptMessages=tuple(kept))
+    def save_compaction(
+        self, session_id: SessionID, summary: str, original: list[Message], kept: list[Message]
+    ) -> None:
+        compact = Compact(summary=summary, original_messages=tuple(original), kept_messages=tuple(kept))
         try:
-            self.store.Append(StoreSessionID(session_id), Record(Type=EventCompact, Compact=compact))
+            self.store.append(StoreSessionID(session_id), Record(type=EVENT_COMPACT, compact=compact))
         except Exception as error:
             logPersistenceFailure("save compaction", session_id, error)
             raise
 
-    def SaveCheckpoint(self, session_id: SessionID, call: ToolCall, files: list[FileSnapshot]) -> None:
+    def save_checkpoint(self, session_id: SessionID, call: ToolCall, files: list[FileSnapshot]) -> None:
         """Record the files a call is about to change; an empty capture is not a checkpoint."""
         if not files:
             return
         checkpoint = Checkpoint(
-            ID=str(NewTurnID(datetime.now(UTC))),
-            Files=tuple(
-                StoreFileSnapshot(Path=file.Path, Exists=file.Exists, Content=file.Content, Mode=file.Mode)
+            id=str(new_turn_id(datetime.now(UTC))),
+            files=tuple(
+                StoreFileSnapshot(path=file.path, exists=file.exists, content=file.content, mode=file.mode)
                 for file in files
             ),
-            Reason=call.Name,
+            reason=call.name,
         )
-        record = Record(Type=EventCheckpoint, ToolCall=call, Checkpoint=checkpoint)
+        record = Record(type=EVENT_CHECKPOINT, tool_call=call, checkpoint=checkpoint)
         try:
-            self.store.Append(StoreSessionID(session_id), record)
+            self.store.append(StoreSessionID(session_id), record)
         except Exception as error:
             logPersistenceFailure("save checkpoint", session_id, error)
             raise
 
-    def List(self) -> list[Summary]:
+    def list(self) -> list[Summary]:
         return [
             Summary(
-                ID=SessionID(item.ID),
-                Title=item.Title,
-                UpdatedAt=item.UpdatedAt,
-                Provider=item.Provider,
-                Model=item.Model,
-                CWD=item.CWD,
-                ParentID=SessionID(item.ParentID),
+                id=SessionID(item.id),
+                title=item.title,
+                updated_at=item.updated_at,
+                provider=item.provider,
+                model=item.model,
+                cwd=item.cwd,
+                parent_id=SessionID(item.parent_id),
             )
-            for item in self.store.List()
+            for item in self.store.list()
         ]
 
-    def Load(self, session_id: SessionID) -> tuple[list[Message], Metadata]:
-        messages = self.store.Messages(StoreSessionID(session_id))
-        meta = self.store.Metadata(StoreSessionID(session_id))
+    def load(self, session_id: SessionID) -> tuple[list[Message], Metadata]:
+        messages = self.store.messages(StoreSessionID(session_id))
+        meta = self.store.metadata(StoreSessionID(session_id))
         return messages, toSessionMetadata(meta)
 
-    def LoadAuditEvents(self, session_id: SessionID) -> list[AuditEvent]:
+    def load_audit_events(self, session_id: SessionID) -> list[AuditEvent]:
         """Approvals, tool results, errors, and cancels; never sent to a model."""
         result: list[AuditEvent] = []
-        for record in self.store.Records(StoreSessionID(session_id)):
-            if record.Type in (EventApprovalDecision, EventToolResult, EventError, EventCancel):
+        for record in self.store.records(StoreSessionID(session_id)):
+            if record.type in (EVENT_APPROVAL_DECISION, EVENT_TOOL_RESULT, EVENT_ERROR, EVENT_CANCEL):
                 result.append(
                     AuditEvent(
-                        Type=record.Type,
-                        Time=record.Time,
-                        ToolCall=record.ToolCall,
-                        Decision=record.Decision,
-                        Result=record.Result,
-                        Error=record.Error,
+                        type=record.type,
+                        time=record.time,
+                        tool_call=record.tool_call,
+                        decision=record.decision,
+                        result=record.result,
+                        error=record.error,
                     )
                 )
         return result
 
-    def RenameSession(self, session_id: SessionID, title: str) -> None:
-        self.store.RenameSession(StoreSessionID(session_id), title)
+    def rename_session(self, session_id: SessionID, title: str) -> None:
+        self.store.rename_session(StoreSessionID(session_id), title)
 
-    def Delete(self, session_id: SessionID) -> None:
-        self.store.Delete(StoreSessionID(session_id))
+    def delete(self, session_id: SessionID) -> None:
+        self.store.delete(StoreSessionID(session_id))
 
-    def LoadUndoPoint(self, session_id: SessionID) -> tuple[list[FileSnapshot], list[Message], int]:
+    def load_undo_point(self, session_id: SessionID) -> tuple[list[FileSnapshot], list[Message], int]:
         """The files of the newest non-empty checkpoint, the transcript as of it, and its index."""
-        checkpoint, messages, index = self.store.CheckpointUndo(StoreSessionID(session_id))
+        checkpoint, messages, index = self.store.checkpoint_undo(StoreSessionID(session_id))
         files = [
-            FileSnapshot(Path=file.Path, Exists=file.Exists, Content=file.Content, Mode=file.Mode)
-            for file in checkpoint.Files
+            FileSnapshot(path=file.path, exists=file.exists, content=file.content, mode=file.mode)
+            for file in checkpoint.files
         ]
         return files, messages, index
 
-    def TruncateAfter(self, session_id: SessionID, index: int) -> None:
-        self.store.TruncateAfter(StoreSessionID(session_id), index)
+    def truncate_after(self, session_id: SessionID, index: int) -> None:
+        self.store.truncate_after(StoreSessionID(session_id), index)
 
-    def LoadMemory(self) -> list[str]:
-        return self.store.LoadMemory()
+    def load_memory(self) -> list[str]:
+        return self.store.load_memory()
 
-    def SaveMemory(self, items: list[str]) -> None:
-        self.store.SaveMemory(items)
+    def save_memory(self, items: list[str]) -> None:
+        self.store.save_memory(items)
 
-    def SaveWorkspaceDescription(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
+    def save_workspace_description(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
         stored = toStoreWorkspaceSpec(spec)
         assert stored is not None
-        self.store.SaveWorkspaceDescription(StoreSessionID(session_id), stored)
+        self.store.save_workspace_description(StoreSessionID(session_id), stored)
 
 
-def NewRepository(store: Store) -> Repository:
+def new_repository(store: Store) -> Repository:
     """The repository over ``store``."""
     return Repository(store)
 
@@ -220,47 +222,47 @@ def NewRepository(store: Store) -> Repository:
 def toSessionMetadata(meta: StoreMetadata) -> Metadata:
     """The session view of a stored metadata record."""
     return Metadata(
-        ID=SessionID(meta.ID),
-        Title=meta.Title,
-        Provider=meta.Provider,
-        Model=meta.Model,
-        CWD=meta.CWD,
-        InstructionSources=tuple(meta.InstructionSources),
-        ParentID=SessionID(meta.ParentID),
-        ProjectID=meta.ProjectID,
-        ConfigRoot=meta.ConfigRoot,
-        WorkspaceSpec=toSessionWorkspaceSpec(meta.Workspace),
+        id=SessionID(meta.id),
+        title=meta.title,
+        provider=meta.provider,
+        model=meta.model,
+        cwd=meta.cwd,
+        instruction_sources=tuple(meta.instruction_sources),
+        parent_id=SessionID(meta.parent_id),
+        project_id=meta.project_id,
+        config_root=meta.config_root,
+        workspace_spec=toSessionWorkspaceSpec(meta.workspace),
     )
 
 
 def toStoreMetadata(meta: Metadata) -> StoreMetadata:
     """The stored view of a session metadata record."""
     return StoreMetadata(
-        ID=StoreSessionID(meta.ID),
-        Title=meta.Title,
-        Provider=meta.Provider,
-        Model=meta.Model,
-        CWD=meta.CWD,
-        InstructionSources=tuple(meta.InstructionSources),
-        ParentID=StoreSessionID(meta.ParentID),
-        ProjectID=meta.ProjectID,
-        ConfigRoot=meta.ConfigRoot,
-        Workspace=toStoreWorkspaceSpec(meta.WorkspaceSpec),
+        id=StoreSessionID(meta.id),
+        title=meta.title,
+        provider=meta.provider,
+        model=meta.model,
+        cwd=meta.cwd,
+        instruction_sources=tuple(meta.instruction_sources),
+        parent_id=StoreSessionID(meta.parent_id),
+        project_id=meta.project_id,
+        config_root=meta.config_root,
+        workspace=toStoreWorkspaceSpec(meta.workspace_spec),
     )
 
 
 def toStoreWorkspaceSpec(spec: WorkspaceSpec | None) -> StoreWorkspaceSpec | None:
     if spec is None:
         return None
-    roots = tuple(StoreWorkspaceRootSpec(Path=root.Path, Access=str(root.Access)) for root in spec.Roots)
-    return StoreWorkspaceSpec(PrimaryRoot=spec.PrimaryRoot, CWD=spec.CWD, Roots=roots)
+    roots = tuple(StoreWorkspaceRootSpec(path=root.path, access=str(root.access)) for root in spec.roots)
+    return StoreWorkspaceSpec(primary_root=spec.primary_root, cwd=spec.cwd, roots=roots)
 
 
 def toSessionWorkspaceSpec(spec: StoreWorkspaceSpec | None) -> WorkspaceSpec | None:
     if spec is None:
         return None
-    roots = tuple(WorkspaceRootSpec(Path=root.Path, Access=WorkspaceAccessMode(root.Access)) for root in spec.Roots)
-    return WorkspaceSpec(PrimaryRoot=spec.PrimaryRoot, CWD=spec.CWD, Roots=roots)
+    roots = tuple(WorkspaceRootSpec(path=root.path, access=WorkspaceAccessMode(root.access)) for root in spec.roots)
+    return WorkspaceSpec(primary_root=spec.primary_root, cwd=spec.cwd, roots=roots)
 
 
 def logPersistenceFailure(operation: str, session_id: SessionID, error: BaseException) -> None:

@@ -13,9 +13,9 @@ from collections.abc import Callable, Mapping, Sequence
 
 from super_agent.errors import Cancelled
 from super_agent.runtime.execution import (
+    ERR_APPROVAL_DISMISSED,
     ActionCompletion,
     ApprovalKey,
-    ErrApprovalDismissed,
     ModelReplied,
     PermissionRequest,
     QueuedAction,
@@ -55,15 +55,15 @@ class FakeToolRunner:
 
     def __init__(self, results: Mapping[str, str] | None = None, specs: Sequence[ToolSpec] = ()) -> None:
         self.results: dict[str, str] = dict(results or {})
-        self.specs: list[ToolSpec] = list(specs)
+        self._specs: list[ToolSpec] = list(specs)
         self.calls: list[ToolCall] = []
 
-    def Specs(self) -> list[ToolSpec]:
-        return self.specs
+    def specs(self) -> list[ToolSpec]:
+        return self._specs
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         self.calls.append(call)
-        return self.results.get(call.Name, "")
+        return self.results.get(call.name, "")
 
 
 class RecordingExecutor:
@@ -72,7 +72,7 @@ class RecordingExecutor:
     def __init__(self) -> None:
         self.actions: list[ScheduledAction] = []
 
-    async def Execute(
+    async def execute(
         self,
         ctx: RunContext,
         action: ScheduledAction,
@@ -80,7 +80,7 @@ class RecordingExecutor:
         chunk_func: Callable[[StreamChunk], None],
     ) -> ScheduledActionResult:
         self.actions.append(action)
-        return ModelReplied(Response=ModelResponse(Content="from executor"))
+        return ModelReplied(response=ModelResponse(content="from executor"))
 
 
 class FailingOnceExecutor:
@@ -90,7 +90,7 @@ class FailingOnceExecutor:
         self.calls: int = 0
         self.seen: list[Message] = []
 
-    async def Execute(
+    async def execute(
         self,
         ctx: RunContext,
         action: ScheduledAction,
@@ -98,10 +98,10 @@ class FailingOnceExecutor:
         chunk_func: Callable[[StreamChunk], None],
     ) -> ScheduledActionResult:
         self.calls += 1
-        self.seen = list(env.Messages)
+        self.seen = list(env.messages)
         if self.calls == 1:
             raise RuntimeError("provider timeout")
-        return ModelReplied(Response=ModelResponse(Content="recovered"))
+        return ModelReplied(response=ModelResponse(content="recovered"))
 
 
 class StaticReplyExecutor:
@@ -111,10 +111,10 @@ class StaticReplyExecutor:
         self.content: str = content
         self.calls: int = 0
 
-    def ToolSpecs(self) -> list[ToolSpec]:
+    def tool_specs(self) -> list[ToolSpec]:
         return []
 
-    async def Execute(
+    async def execute(
         self,
         ctx: RunContext,
         action: ScheduledAction,
@@ -122,7 +122,7 @@ class StaticReplyExecutor:
         chunk_func: Callable[[StreamChunk], None],
     ) -> ScheduledActionResult:
         self.calls += 1
-        return ModelReplied(Response=ModelResponse(Content=self.content))
+        return ModelReplied(response=ModelResponse(content=self.content))
 
 
 class RecordingPolicy:
@@ -133,13 +133,13 @@ class RecordingPolicy:
         self.calls: list[ToolCall] = []
         self.specs: list[tuple[ToolSpec, ...]] = []
 
-    def ClassifyToolCall(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision:
+    def classify_tool_call(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision:
         self.calls.append(call)
-        self.specs.append(tuple(input.ToolSpecs))
+        self.specs.append(tuple(input.tool_specs))
         return self.decision
 
-    def PermissionRequest(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest:
-        return PermissionRequest(ToolName=call.Name, Reason="test policy")
+    def permission_request(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest:
+        return PermissionRequest(tool_name=call.name, reason="test policy")
 
 
 class DenyNthPolicy:
@@ -149,14 +149,14 @@ class DenyNthPolicy:
         self.deny_at: int = deny_at
         self.seen: int = 0
 
-    def ClassifyToolCall(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision:
+    def classify_tool_call(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision:
         self.seen += 1
         if self.seen == self.deny_at:
-            return ToolDecision.DecisionDenied
-        return ToolDecision.DecisionRunDirectly
+            return ToolDecision.DECISION_DENIED
+        return ToolDecision.DECISION_RUN_DIRECTLY
 
-    def PermissionRequest(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest:
-        return PermissionRequest(ToolName=call.Name, Reason="denied by test policy")
+    def permission_request(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest:
+        return PermissionRequest(tool_name=call.name, reason="denied by test policy")
 
 
 class ScriptedApprovalWaiter:
@@ -175,14 +175,14 @@ class ScriptedApprovalWaiter:
         self.requests: list[tuple[ToolCall, PermissionRequest]] = []
         self._on_wait: Callable[[], None] | None = on_wait
 
-    async def WaitApproval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
+    async def wait_approval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
         self.requests.append((call, request))
         if self._on_wait is not None:
             self._on_wait()
         if not self.decisions:
             # An exhausted script reads as a dismissal, not as a decision nobody
             # sent.
-            raise ErrApprovalDismissed
+            raise ERR_APPROVAL_DISMISSED
         return self.decisions.pop(0)
 
 
@@ -196,9 +196,9 @@ class HangingApprovalWaiter:
     def __init__(self) -> None:
         self.requested: asyncio.Event = asyncio.Event()
 
-    async def WaitApproval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
+    async def wait_approval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
         self.requested.set()
-        await ctx.Done().wait()
+        await ctx.done().wait()
         raise Cancelled("approval cancelled")
 
 
@@ -215,12 +215,12 @@ class LockProbeApprovalStore:
         self.lock_states: list[bool] = []
         self.probe: Callable[[], bool] | None = None
 
-    def AllowAlways(self, key: ApprovalKey) -> None:
+    def allow_always(self, key: ApprovalKey) -> None:
         if self.probe is not None:
             self.lock_states.append(self.probe())
         self.allowed[key] = True
 
-    def IsAlwaysAllowed(self, key: ApprovalKey) -> bool:
+    def is_always_allowed(self, key: ApprovalKey) -> bool:
         return self.allowed.get(key, False)
 
 
@@ -238,12 +238,12 @@ class SpecProbeRunner:
         self.lock_states: list[bool] = []
         self.model_runs: int = 0
 
-    def ToolSpecs(self) -> list[ToolSpec]:
+    def tool_specs(self) -> list[ToolSpec]:
         if self.probe is not None:
             self.lock_states.append(self.probe())
         return self.specs
 
-    async def Run(
+    async def run(
         self,
         ctx: RunContext,
         action: QueuedAction,
@@ -251,21 +251,21 @@ class SpecProbeRunner:
         chunk_func: Callable[[StreamChunk], None],
     ) -> ActionCompletion:
         result = self._result_for(action)
-        return ActionCompletion(RunID=action.RunID, ActionID=action.ActionID, Result=result)
+        return ActionCompletion(run_id=action.run_id, action_id=action.action_id, result=result)
 
     def _result_for(self, action: QueuedAction) -> ScheduledActionResult:
-        current = action.Action
+        current = action.action
         if isinstance(current, CallModel):
             self.model_runs += 1
             if self.model_runs == 1:
                 return ModelReplied(
-                    Response=ModelResponse(
-                        ToolCalls=(ToolCall(ID="call-1", Name="bash", Input="pwd"),),
+                    response=ModelResponse(
+                        tool_calls=(ToolCall(id="call-1", name="bash", input="pwd"),),
                     )
                 )
-            return ModelReplied(Response=ModelResponse(Content="done"))
+            return ModelReplied(response=ModelResponse(content="done"))
         if isinstance(current, RunTool):
-            return ToolFinished(Call=current.Call, Result="ok")
+            return ToolFinished(call=current.call, result="ok")
         if isinstance(current, CheckToolQueue):
             return ToolQueueChecked()
-        return ModelReplied(Response=ModelResponse(Content="done"))
+        return ModelReplied(response=ModelResponse(content="done"))

@@ -28,11 +28,11 @@ from super_agent.errors import Cancelled
 from super_agent.llm.factory import ProviderConfig
 from super_agent.runtime.protocol.run_context import DEFAULT_CANCEL_REASON, RunContext
 from super_agent.runtime.protocol.types import (
+    ROLE_ASSISTANT,
+    ROLE_SYSTEM,
+    ROLE_TOOL,
     Message,
     ModelResponse,
-    RoleAssistant,
-    RoleSystem,
-    RoleTool,
     StreamChunk,
     ToolCall,
     ToolSpec,
@@ -63,9 +63,9 @@ def http_client() -> httpx2.AsyncClient:
 def with_defaults(cfg: ProviderConfig, defaults: ProviderConfig) -> ProviderConfig:
     """Fill every empty field of ``cfg`` from ``defaults``."""
     return ProviderConfig(
-        BaseURL=cfg.BaseURL or defaults.BaseURL,
-        APIKey=cfg.APIKey or defaults.APIKey,
-        Model=cfg.Model or defaults.Model,
+        base_url=cfg.base_url or defaults.base_url,
+        api_key=cfg.api_key or defaults.api_key,
+        model=cfg.model or defaults.model,
     )
 
 
@@ -86,7 +86,7 @@ class OpenAIModel:
         self.model = model
         self.usage = usage
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
@@ -106,9 +106,9 @@ class OpenAIModel:
             async for chunk in stream:
                 if chunk.usage is not None:
                     stream_usage = Usage(
-                        InputTokens=chunk.usage.prompt_tokens,
-                        OutputTokens=chunk.usage.completion_tokens,
-                        TotalTokens=chunk.usage.total_tokens,
+                        input_tokens=chunk.usage.prompt_tokens,
+                        output_tokens=chunk.usage.completion_tokens,
+                        total_tokens=chunk.usage.total_tokens,
                     )
                 for choice in chunk.choices:
                     saw_choice = True
@@ -134,8 +134,8 @@ class OpenAIModel:
                     if delta.content or reasoning_delta:
                         on_stream_chunk(
                             StreamChunk(
-                                ContentDelta=delta.content or "",
-                                ReasoningContentDelta=reasoning_delta,
+                                content_delta=delta.content or "",
+                                reasoning_content_delta=reasoning_delta,
                             )
                         )
         except asyncio.CancelledError as err:
@@ -149,13 +149,13 @@ class OpenAIModel:
             raise RuntimeError("llm refused the request: " + refusal)
 
         calls = tuple(
-            ToolCall(ID=builder.id, Name=builder.name, Input=builder.arguments)
+            ToolCall(id=builder.id, name=builder.name, input=builder.arguments)
             for _, builder in sorted(builders.items())
         )
         usage: Usage | None = None
-        if stream_usage is not None and (stream_usage.InputTokens > 0 or stream_usage.OutputTokens > 0):
+        if stream_usage is not None and (stream_usage.input_tokens > 0 or stream_usage.output_tokens > 0):
             usage = stream_usage
-        return ModelResponse(Content=content, ReasoningContent=reasoning, ToolCalls=calls, Usage=usage)
+        return ModelResponse(content=content, reasoning_content=reasoning, tool_calls=calls, usage=usage)
 
     async def _create_stream(self, messages: list[Message], tools: list[ToolSpec]) -> AsyncStream[ChatCompletionChunk]:
         tool_params = to_openai_tools(tools)
@@ -171,9 +171,9 @@ class OpenAIModel:
         )
 
 
-def NewOpenAI(cfg: ProviderConfig) -> OpenAIModel:
+def new_open_ai(cfg: ProviderConfig) -> OpenAIModel:
     """An OpenAI model with the ``gpt-4o`` default."""
-    cfg = with_defaults(cfg, ProviderConfig(Model="gpt-4o"))
+    cfg = with_defaults(cfg, ProviderConfig(model="gpt-4o"))
     return new_openai_model(cfg, True)
 
 
@@ -183,19 +183,19 @@ def new_openai_model(cfg: ProviderConfig, request_usage: bool) -> OpenAIModel:
     client = AsyncOpenAI(
         http_client=http_client(),
         default_headers={"X-Title": "SuperAgent"},
-        api_key=cfg.APIKey or None,
-        base_url=cfg.BaseURL or None,
+        api_key=cfg.api_key or None,
+        base_url=cfg.base_url or None,
     )
-    return OpenAIModel(client=client, model=cfg.Model, usage=request_usage)
+    return OpenAIModel(client=client, model=cfg.model, usage=request_usage)
 
 
 def to_openai_tools(tools: list[ToolSpec]) -> list[ChatCompletionToolParam]:
     """Advertise ``tools`` as function tools."""
     params: list[ChatCompletionToolParam] = []
     for tool in tools:
-        function: dict[str, Any] = {"name": tool.Name, "description": tool.Description}
-        if tool.Parameters is not None:
-            function["parameters"] = tool.Parameters
+        function: dict[str, Any] = {"name": tool.name, "description": tool.description}
+        if tool.parameters is not None:
+            function["parameters"] = tool.parameters
         params.append(cast(ChatCompletionToolParam, {"type": "function", "function": function}))
     return params
 
@@ -204,20 +204,20 @@ def to_openai_messages(messages: list[Message]) -> list[ChatCompletionMessagePar
     """Translate protocol messages into chat-completion messages."""
     params: list[ChatCompletionMessageParam] = []
     for message in messages:
-        if message.Role == RoleSystem:
-            params.append(cast(ChatCompletionMessageParam, {"role": "system", "content": message.Content}))
-        elif message.Role == RoleAssistant:
+        if message.role == ROLE_SYSTEM:
+            params.append(cast(ChatCompletionMessageParam, {"role": "system", "content": message.content}))
+        elif message.role == ROLE_ASSISTANT:
             params.append(
                 cast(
                     ChatCompletionMessageParam,
-                    assistant_message(message.Content, message.ReasoningContent, message.ToolCalls),
+                    assistant_message(message.content, message.reasoning_content, message.tool_calls),
                 )
             )
-        elif message.Role == RoleTool:
+        elif message.role == ROLE_TOOL:
             params.append(
                 cast(
                     ChatCompletionMessageParam,
-                    {"role": "tool", "content": message.Content, "tool_call_id": message.ToolCallID},
+                    {"role": "tool", "content": message.content, "tool_call_id": message.tool_call_id},
                 )
             )
         else:
@@ -238,9 +238,9 @@ def assistant_message(content: str, reasoning_content: str, tool_calls: tuple[To
     if tool_calls:
         result["tool_calls"] = [
             {
-                "id": call.ID,
+                "id": call.id,
                 "type": "function",
-                "function": {"name": call.Name, "arguments": call.Input},
+                "function": {"name": call.name, "arguments": call.input},
             }
             for call in tool_calls
         ]
@@ -249,16 +249,16 @@ def assistant_message(content: str, reasoning_content: str, tool_calls: tuple[To
 
 def openai_user_message(message: Message) -> dict[str, Any]:
     """Build a user message, inlining attachments as content parts."""
-    if len(message.Attachments) == 0:
-        return {"role": "user", "content": message.Content}
-    parts: list[dict[str, Any]] = [{"type": "text", "text": message.Content}]
-    for attachment in message.Attachments:
-        if attachment.MIME.startswith("image/"):
+    if len(message.attachments) == 0:
+        return {"role": "user", "content": message.content}
+    parts: list[dict[str, Any]] = [{"type": "text", "text": message.content}]
+    for attachment in message.attachments:
+        if attachment.mime.startswith("image/"):
             parts.append(
                 {
                     "type": "image_url",
                     "image_url": {
-                        "url": "data:" + attachment.MIME + ";base64," + attachment.Data,
+                        "url": "data:" + attachment.mime + ";base64," + attachment.data,
                         "detail": "auto",
                     },
                 }
@@ -267,7 +267,7 @@ def openai_user_message(message: Message) -> dict[str, Any]:
             parts.append(
                 {
                     "type": "file",
-                    "file": {"file_data": attachment.Data, "filename": attachment.Name},
+                    "file": {"file_data": attachment.data, "filename": attachment.name},
                 }
             )
     return {"role": "user", "content": parts}

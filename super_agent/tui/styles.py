@@ -21,7 +21,7 @@ from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
 
-__all__ = ["DefaultMarkdownRenderer", "DefaultStyles", "MarkdownRenderer", "Styles"]
+__all__ = ["DefaultMarkdownRenderer", "MarkdownRenderer", "Styles", "default_styles"]
 
 
 class MarkdownRenderer(Protocol):
@@ -89,26 +89,26 @@ def _strip_blank_lines(text: Text) -> Text:
 class Styles:
     """One style per role, plus the markdown renderer the transcript uses."""
 
-    Status: Style
-    UserLabel: Style
-    ToolLabel: Style
-    CommandLabel: Style
-    Thinking: Style
-    Error: Style
-    Footer: Style
-    MarkdownRenderer: MarkdownRenderer
+    status: Style
+    user_label: Style
+    tool_label: Style
+    command_label: Style
+    thinking: Style
+    error: Style
+    footer: Style
+    markdown_renderer: MarkdownRenderer
 
 
-def DefaultStyles() -> Styles:
+def default_styles() -> Styles:
     """The default styles: cyan accents, dim secondary text."""
     secondary, accent = "color(8)", "color(6)"
     return Styles(
-        Status=Style(color=accent, italic=True),
-        UserLabel=Style(color="color(2)", bold=True),
-        ToolLabel=Style(color=accent, bold=True),
-        CommandLabel=Style(color="color(3)", bold=True),
-        Thinking=Style(color=secondary, italic=True),
-        Error=Style(color="color(1)", bold=True),
-        Footer=Style(color=secondary, italic=True),
-        MarkdownRenderer=DefaultMarkdownRenderer(),
+        status=Style(color=accent, italic=True),
+        user_label=Style(color="color(2)", bold=True),
+        tool_label=Style(color=accent, bold=True),
+        command_label=Style(color="color(3)", bold=True),
+        thinking=Style(color=secondary, italic=True),
+        error=Style(color="color(1)", bold=True),
+        footer=Style(color=secondary, italic=True),
+        markdown_renderer=DefaultMarkdownRenderer(),
     )

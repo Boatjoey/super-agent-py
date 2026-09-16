@@ -27,16 +27,16 @@ class Access(str):
         return f"Access({str.__repr__(self)})"
 
 
-AccessRead: Final[Access] = Access("read")
-AccessReadWrite: Final[Access] = Access("read_write")
+ACCESS_READ: Final[Access] = Access("read")
+ACCESS_READ_WRITE: Final[Access] = Access("read_write")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Root:
     """One root the workspace may reach, and how."""
 
-    Path: str = ""
-    Access: Access = AccessRead
+    path: str = ""
+    access: Access = ACCESS_READ
 
 
 class Context:
@@ -52,19 +52,19 @@ class Context:
         self._cwd = cwd
         self._roots = tuple(roots)
 
-    def GetPrimaryRoot(self) -> str:
+    def get_primary_root(self) -> str:
         """The canonical primary root."""
         return self._primaryRoot
 
-    def GetCWD(self) -> str:
+    def get_cwd(self) -> str:
         """The canonical directory relative paths resolve against."""
         return self._cwd
 
-    def GetRoots(self) -> list[Root]:
+    def get_roots(self) -> list[Root]:
         """A copy of the roots, so a caller cannot mutate the policy."""
         return list(self._roots)
 
-    def ResolvePath(self, path: str) -> str:
+    def resolve_path(self, path: str) -> str:
         """Resolve ``path`` against the cwd and canonicalize it."""
         if path == "":
             raise ValueError("path is required")
@@ -72,18 +72,18 @@ class Context:
             path = os.path.join(self._cwd, path)
         return canonicalNearest(os.path.abspath(path))
 
-    def CanRead(self, path: str) -> bool:
+    def can_read(self, path: str) -> bool:
         """Whether ``path`` lies inside a readable root."""
         try:
-            resolved = self.ResolvePath(path)
+            resolved = self.resolve_path(path)
         except (OSError, ValueError):
             return False
         return self.canAccess(resolved, write=False)
 
-    def CanWrite(self, path: str) -> bool:
+    def can_write(self, path: str) -> bool:
         """Whether ``path`` lies inside a writable root."""
         try:
-            resolved = self.ResolvePath(path)
+            resolved = self.resolve_path(path)
         except (OSError, ValueError):
             return False
         return self.canAccess(resolved, write=True)
@@ -91,10 +91,10 @@ class Context:
     def canAccess(self, path: str, write: bool) -> bool:
         """The containment check: a lexically relative path that never escapes."""
         for root in self._roots:
-            if write and root.Access != AccessReadWrite:
+            if write and root.access != ACCESS_READ_WRITE:
                 continue
             try:
-                relative = os.path.relpath(path, root.Path)
+                relative = os.path.relpath(path, root.path)
             except ValueError:
                 continue
             if relative != ".." and not relative.startswith(".." + os.sep) and not os.path.isabs(relative):
@@ -102,7 +102,7 @@ class Context:
         return False
 
 
-def NewContext(primaryRoot: str, cwd: str, roots: Sequence[Root]) -> Context:
+def new_context(primaryRoot: str, cwd: str, roots: Sequence[Root]) -> Context:
     """Build a validated context, or raise.
 
     Every path is canonicalized and the primary root and cwd must be readable by
@@ -114,9 +114,9 @@ def NewContext(primaryRoot: str, cwd: str, roots: Sequence[Root]) -> Context:
     working = canonicalDirectory(cwd)
     normalized: list[Root] = []
     for root in roots:
-        if root.Access != AccessRead and root.Access != AccessReadWrite:
+        if root.access != ACCESS_READ and root.access != ACCESS_READ_WRITE:
             raise ValueError("invalid workspace root access")
-        normalized.append(Root(Path=canonicalDirectory(root.Path), Access=root.Access))
+        normalized.append(Root(path=canonicalDirectory(root.path), access=root.access))
     if not normalized:
         raise ValueError("workspace requires at least one root")
     context = Context(primary, working, normalized)
@@ -127,9 +127,9 @@ def NewContext(primaryRoot: str, cwd: str, roots: Sequence[Root]) -> Context:
     return context
 
 
-def NewDefaultContext(root: str) -> Context:
+def new_default_context(root: str) -> Context:
     """One read-write root at ``root``, with the cwd there too."""
-    return NewContext(root, root, [Root(Path=root, Access=AccessReadWrite)])
+    return new_context(root, root, [Root(path=root, access=ACCESS_READ_WRITE)])
 
 
 def canonicalDirectory(path: str) -> str:

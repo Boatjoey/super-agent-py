@@ -17,18 +17,18 @@ from collections.abc import Callable
 import pytest
 
 from super_agent.runtime import machine
-from super_agent.runtime.engine import NewEngine
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.engine import new_engine
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ModelResponse, StreamChunk, ToolCall, ToolSpec
 from super_agent.runtime.session import (
     NOTIFICATIONS_CLOSED,
     ApprovalDecision,
     ApprovalsClosed,
     MessageAppended,
-    NewSession,
     SessionNotification,
     StateChanged,
     StreamChunkReceived,
+    new_session,
 )
 
 
@@ -40,7 +40,7 @@ class ScriptedModel:
         self.stream = stream
         self.calls = 0
 
-    async def Next(
+    async def next(
         self,
         ctx: object,
         messages: list[machine.Message],
@@ -49,7 +49,7 @@ class ScriptedModel:
     ) -> ModelResponse:
         self.calls += 1
         for piece in self.stream:
-            on_stream_chunk(StreamChunk(ContentDelta=piece))
+            on_stream_chunk(StreamChunk(content_delta=piece))
         return self.responses.pop(0)
 
 
@@ -60,21 +60,21 @@ class FakeToolRunner:
         self.results = results or {}
         self.ran: list[str] = []
 
-    def Specs(self) -> list[ToolSpec]:
-        return [ToolSpec(Name="bash", Description="run a command", Risky=True)]
+    def specs(self) -> list[ToolSpec]:
+        return [ToolSpec(name="bash", description="run a command", risky=True)]
 
-    async def Run(self, ctx: object, call: ToolCall) -> str:
-        self.ran.append(call.Name)
-        return self.results.get(call.Name, "ok")
+    async def run(self, ctx: object, call: ToolCall) -> str:
+        self.ran.append(call.name)
+        return self.results.get(call.name, "ok")
 
 
 class NoToolRunner:
     """Advertises no tools at all, so a tool call cannot be resolved."""
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return []
 
-    async def Run(self, ctx: object, call: ToolCall) -> str:
+    async def run(self, ctx: object, call: ToolCall) -> str:
         raise AssertionError("no tool may run when none is advertised")
 
 
@@ -83,7 +83,7 @@ class RecordingCloser:
         self.order = order
         self.name = name
 
-    def Close(self) -> None:
+    def close(self) -> None:
         self.order.append(self.name)
 
 
@@ -109,52 +109,52 @@ def approvals(*decisions: ApprovalDecision) -> asyncio.Queue[ApprovalDecision | 
 
 
 async def ready_engine(model: ScriptedModel, tools: FakeToolRunner | None = None) -> object:
-    engine = NewEngine(model, tools or FakeToolRunner(), None)
-    await engine.Ready()
+    engine = new_engine(model, tools or FakeToolRunner(), None)
+    await engine.ready()
     return engine
 
 
 @pytest.mark.asyncio
 async def test_session_run_emits_state_and_final_message() -> None:
-    model = ScriptedModel([ModelResponse(Content="hello", ReasoningContent="thinking")])
+    model = ScriptedModel([ModelResponse(content="hello", reasoning_content="thinking")])
     engine = await ready_engine(model)
-    session = NewSession(engine)  # type: ignore[arg-type]
+    session = new_session(engine)  # type: ignore[arg-type]
     queue = notifications()
 
-    await session.RunTurn(LiveContext(), "hi", queue, approvals())
+    await session.run_turn(live_context(), "hi", queue, approvals())
 
     states: list[str] = []
     final: machine.Message | None = None
     for item in await drain(queue):
         if isinstance(item, StateChanged):
-            states.append(str(item.State))
-        elif isinstance(item, MessageAppended) and item.Message.Role == machine.RoleAssistant:
-            final = item.Message
+            states.append(str(item.state))
+        elif isinstance(item, MessageAppended) and item.message.role == machine.ROLE_ASSISTANT:
+            final = item.message
 
     assert len(states) >= 2
-    assert states[0] == machine.StateWaitingLLM
-    assert states[-1] == machine.StateIdle
+    assert states[0] == machine.STATE_WAITING_LLM
+    assert states[-1] == machine.STATE_IDLE
     assert final is not None
-    assert final.Content == "hello"
-    assert final.ReasoningContent == "thinking"
+    assert final.content == "hello"
+    assert final.reasoning_content == "thinking"
 
 
 @pytest.mark.asyncio
 async def test_session_run_emits_each_appended_message_once() -> None:
     """The emitter's whole purpose: a repeated snapshot must not repeat a message."""
-    model = ScriptedModel([ModelResponse(Content="hello")])
+    model = ScriptedModel([ModelResponse(content="hello")])
     engine = await ready_engine(model)
-    session = NewSession(engine)  # type: ignore[arg-type]
+    session = new_session(engine)  # type: ignore[arg-type]
     queue = notifications()
 
-    await session.RunTurn(LiveContext(), "hi", queue, approvals())
+    await session.run_turn(live_context(), "hi", queue, approvals())
 
-    appended = [item.Message for item in await drain(queue) if isinstance(item, MessageAppended)]
+    appended = [item.message for item in await drain(queue) if isinstance(item, MessageAppended)]
     assert len(appended) == 2, "user and assistant, each exactly once"
-    assert appended[0].Role == machine.RoleUser
-    assert appended[0].Content == "hi"
-    assert appended[1].Role == machine.RoleAssistant
-    assert appended[1].Content == "hello"
+    assert appended[0].role == machine.ROLE_USER
+    assert appended[0].content == "hi"
+    assert appended[1].role == machine.ROLE_ASSISTANT
+    assert appended[1].content == "hello"
 
 
 @pytest.mark.asyncio
@@ -162,16 +162,16 @@ async def test_session_emits_tool_approval_cleared_after_approval() -> None:
     """A cleared approval must be announced, or the prompt stays on screen."""
     model = ScriptedModel(
         [
-            ModelResponse(ToolCalls=(ToolCall(ID="call-1", Name="bash", Input='{"command":"pwd"}'),)),
-            ModelResponse(Content="done"),
+            ModelResponse(tool_calls=(ToolCall(id="call-1", name="bash", input='{"command":"pwd"}'),)),
+            ModelResponse(content="done"),
         ]
     )
     tools = FakeToolRunner({"bash": "ok"})
     engine = await ready_engine(model, tools)
-    session = NewSession(engine)  # type: ignore[arg-type]
+    session = new_session(engine)  # type: ignore[arg-type]
     queue = notifications()
 
-    await session.RunTurn(LiveContext(), "run it", queue, approvals(machine.ApproveOnce))
+    await session.run_turn(live_context(), "run it", queue, approvals(machine.APPROVE_ONCE))
 
     kinds = [type(item).__name__ for item in await drain(queue)]
     assert "ToolApprovalRequested" in kinds
@@ -183,16 +183,16 @@ async def test_session_emits_tool_approval_cleared_after_approval() -> None:
 @pytest.mark.asyncio
 async def test_session_stream_event_carries_accumulated_streaming_message() -> None:
     """Each chunk carries the whole accumulated text, not just its own delta."""
-    model = ScriptedModel([ModelResponse(Content="abc")], stream="abc")
+    model = ScriptedModel([ModelResponse(content="abc")], stream="abc")
     engine = await ready_engine(model)
-    session = NewSession(engine)  # type: ignore[arg-type]
+    session = new_session(engine)  # type: ignore[arg-type]
     queue = notifications()
 
-    await session.RunTurn(LiveContext(), "hi", queue, approvals())
+    await session.run_turn(live_context(), "hi", queue, approvals())
 
     chunks = [item for item in await drain(queue) if isinstance(item, StreamChunkReceived)]
-    assert [chunk.Chunk.ContentDelta for chunk in chunks] == ["a", "b", "c"]
-    accumulated = [chunk.Message.Content for chunk in chunks if chunk.Message is not None]
+    assert [chunk.chunk.content_delta for chunk in chunks] == ["a", "b", "c"]
+    accumulated = [chunk.message.content for chunk in chunks if chunk.message is not None]
     assert accumulated == ["a", "ab", "abc"]
 
 
@@ -201,13 +201,13 @@ async def test_session_close_closes_owned_adapters_once() -> None:
     """Close releases every registered closer, newest first, and is idempotent."""
     model = ScriptedModel([])
     engine = await ready_engine(model)
-    session = NewSession(engine)  # type: ignore[arg-type]
+    session = new_session(engine)  # type: ignore[arg-type]
     order: list[str] = []
-    session.AddCloser(RecordingCloser(order, "first"))
-    session.AddCloser(RecordingCloser(order, "second"))
+    session.add_closer(RecordingCloser(order, "first"))
+    session.add_closer(RecordingCloser(order, "second"))
 
-    await session.Close()
-    await session.Close()
+    await session.close()
+    await session.close()
 
     assert order == ["second", "first"]
 
@@ -220,17 +220,17 @@ async def test_session_close_reports_every_failing_closer() -> None:
         def __init__(self, message: str) -> None:
             self.message = message
 
-        def Close(self) -> None:
+        def close(self) -> None:
             raise RuntimeError(self.message)
 
     model = ScriptedModel([])
     engine = await ready_engine(model)
-    session = NewSession(engine)  # type: ignore[arg-type]
-    session.AddCloser(Failing("sink a"))
-    session.AddCloser(Failing("sink b"))
+    session = new_session(engine)  # type: ignore[arg-type]
+    session.add_closer(Failing("sink a"))
+    session.add_closer(Failing("sink b"))
 
     with pytest.raises(Exception) as raised:
-        await session.Close()
+        await session.close()
 
     assert "sink a" in str(raised.value)
     assert "sink b" in str(raised.value)
@@ -246,18 +246,18 @@ async def test_resolver_error_leaves_no_tool_message_when_nothing_was_asked() ->
     rejects on the next request — and because it is persisted, that failure would
     survive a resume.
     """
-    model = ScriptedModel([ModelResponse(ToolCalls=(ToolCall(ID="call-1", Name="bash", Input="pwd"),))])
-    engine = NewEngine(model, NoToolRunner(), None)
-    await engine.Ready()
-    session = NewSession(engine)  # type: ignore[arg-type]
+    model = ScriptedModel([ModelResponse(tool_calls=(ToolCall(id="call-1", name="bash", input="pwd"),))])
+    engine = new_engine(model, NoToolRunner(), None)
+    await engine.ready()
+    session = new_session(engine)  # type: ignore[arg-type]
     queue = notifications()
 
     with pytest.raises(ValueError, match="model returned tool call while tools are disabled"):
-        await session.RunTurn(LiveContext(), "use tool", queue, approvals())
+        await session.run_turn(live_context(), "use tool", queue, approvals())
 
-    messages = session.Snapshot().Messages
+    messages = session.snapshot().messages
     assert len(messages) == 1
-    assert messages[0].Role == machine.RoleUser
+    assert messages[0].role == machine.ROLE_USER
 
 
 @pytest.mark.asyncio
@@ -267,17 +267,17 @@ async def test_transcript_survives_a_reset_without_re_emitting_old_messages() ->
     A consumer that appended whatever it was told would otherwise duplicate the
     pre-reset transcript after a reset plus a new turn.
     """
-    model = ScriptedModel([ModelResponse(Content="hello"), ModelResponse(Content="hello")])
+    model = ScriptedModel([ModelResponse(content="hello"), ModelResponse(content="hello")])
     engine = await ready_engine(model)
-    session = NewSession(engine)  # type: ignore[arg-type]
+    session = new_session(engine)  # type: ignore[arg-type]
     first = notifications()
-    await session.RunTurn(LiveContext(), "hi", first, approvals())
+    await session.run_turn(live_context(), "hi", first, approvals())
     await drain(first)
 
-    await session.Reset()
+    await session.reset()
 
     second = notifications()
-    await session.RunTurn(LiveContext(), "again", second, approvals())
-    appended = [item.Message.Content for item in await drain(second) if isinstance(item, MessageAppended)]
+    await session.run_turn(live_context(), "again", second, approvals())
+    appended = [item.message.content for item in await drain(second) if isinstance(item, MessageAppended)]
 
     assert appended == ["again", "hello"]

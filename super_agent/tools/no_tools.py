@@ -16,8 +16,8 @@ from super_agent.runtime.protocol.types import ToolCall, ToolSpec
 class NoTools:
     """A tool runner with no tools."""
 
-    def Specs(self) -> list[ToolSpec]:
+    def specs(self) -> list[ToolSpec]:
         return []
 
-    async def Run(self, ctx: RunContext, call: ToolCall) -> str:
+    async def run(self, ctx: RunContext, call: ToolCall) -> str:
         raise RuntimeError("tools are disabled")

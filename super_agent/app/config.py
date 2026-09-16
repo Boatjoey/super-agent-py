@@ -29,44 +29,44 @@ from typing import Any, Final, cast
 
 from super_agent import jsonutil, project
 from super_agent.app.extensions import Extensions, ExtensionSettings, loadExtensions
-from super_agent.app.instructions import Bundle, Load as loadInstructions
+from super_agent.app.instructions import Bundle, load as loadInstructions
 from super_agent.jsonutil import json_field
 from super_agent.llm import ProviderConfig
 from super_agent.runtime import (
+    PERMISSION_MODE_BYPASS,
     PermissionMode,
-    PermissionModeBypass,
     PermissionRules,
-    ValidPermissionMode,
+    valid_permission_mode,
 )
-from super_agent.runtime.execution import ZeroPermissionMode
+from super_agent.runtime.execution import ZERO_PERMISSION_MODE
 from super_agent.tools.lsp import ServerConfig as LSPServerConfig
 from super_agent.tools.mcp import ServerConfig as MCPServerConfig
-from super_agent.tools.sandbox import SandboxConfig, SandboxMode, ValidSandboxMode
-from super_agent.workspace import Context, NewDefaultContext
+from super_agent.tools.sandbox import SandboxConfig, SandboxMode, valid_sandbox_mode
+from super_agent.workspace import Context, new_default_context
 
 __all__ = [
     "AgentSettings",
     "Config",
-    "DefaultSettings",
     "Flags",
     "LSPServerSettings",
-    "LoadConfig",
-    "LoadSettings",
-    "LoadSettingsFile",
     "Lookup",
     "MCPServerSettings",
     "PermissionSettings",
     "SandboxSettings",
-    "SaveSettingsFile",
     "Settings",
-    "SettingsPath",
     "TelemetrySettings",
     "apikeyPlaceholder",
     "decodeExtensions",
+    "default_settings",
     "envTrue",
     "firstNonEmpty",
+    "load_config",
+    "load_settings",
+    "load_settings_file",
     "normalizeSettings",
     "resolveProviderConfig",
+    "save_settings_file",
+    "settings_path",
 ]
 
 #: Where an unset variable is looked up. ``None`` means "not set".
@@ -85,81 +85,81 @@ DEFAULT_PLACEHOLDER: Final[str] = "sk-..."
 class Flags:
     """The command-line switches, as parsed by :mod:`super_agent.cli`."""
 
-    AutoApproveTools: bool = False
-    NoTools: bool = False
-    PermissionMode: str = ""
-    CWD: str = ""
+    auto_approve_tools: bool = False
+    no_tools: bool = False
+    permission_mode: str = ""
+    cwd: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class TelemetrySettings:
     """The ``telemetry`` block of ``settings.json``."""
 
-    LogPath: str = dataclasses.field(default="", metadata=json_field(name="log_path"))
+    log_path: str = dataclasses.field(default="", metadata=json_field(name="log_path"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AgentSettings:
     """One custom agent profile from ``agents``."""
 
-    Provider: str = dataclasses.field(default="", metadata=json_field(name="provider", omitempty=True))
-    Model: str = dataclasses.field(default="", metadata=json_field(name="model", omitempty=True))
-    Prompt: str = dataclasses.field(default="", metadata=json_field(name="prompt", omitempty=True))
-    PermissionMode: str = dataclasses.field(default="", metadata=json_field(name="permission_mode", omitempty=True))
-    Tools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="tools", omitempty=True))
+    provider: str = dataclasses.field(default="", metadata=json_field(name="provider", omitempty=True))
+    model: str = dataclasses.field(default="", metadata=json_field(name="model", omitempty=True))
+    prompt: str = dataclasses.field(default="", metadata=json_field(name="prompt", omitempty=True))
+    permission_mode: str = dataclasses.field(default="", metadata=json_field(name="permission_mode", omitempty=True))
+    tools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="tools", omitempty=True))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class LSPServerSettings:
     """One entry of ``lsp_servers``."""
 
-    Command: str = dataclasses.field(default="", metadata=json_field(name="command"))
-    Args: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="args"))
-    Extensions: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="extensions"))
-    LanguageID: str = dataclasses.field(default="", metadata=json_field(name="language_id"))
+    command: str = dataclasses.field(default="", metadata=json_field(name="command"))
+    args: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="args"))
+    extensions: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="extensions"))
+    language_id: str = dataclasses.field(default="", metadata=json_field(name="language_id"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MCPServerSettings:
     """One entry of ``mcp_servers``."""
 
-    Command: str = dataclasses.field(default="", metadata=json_field(name="command"))
-    Args: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="args"))
-    Env: dict[str, str] = dataclasses.field(default_factory=dict[str, str], metadata=json_field(name="env"))
-    CWD: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
-    ConnectTimeoutSeconds: int = dataclasses.field(default=0, metadata=json_field(name="connect_timeout_seconds"))
-    CallTimeoutSeconds: int = dataclasses.field(default=0, metadata=json_field(name="call_timeout_seconds"))
+    command: str = dataclasses.field(default="", metadata=json_field(name="command"))
+    args: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="args"))
+    env: dict[str, str] = dataclasses.field(default_factory=dict[str, str], metadata=json_field(name="env"))
+    cwd: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
+    connect_timeout_seconds: int = dataclasses.field(default=0, metadata=json_field(name="connect_timeout_seconds"))
+    call_timeout_seconds: int = dataclasses.field(default=0, metadata=json_field(name="call_timeout_seconds"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class SandboxSettings:
     """The ``sandbox`` block of ``settings.json``."""
 
-    Mode: str = dataclasses.field(default="", metadata=json_field(name="mode"))
-    CPUSeconds: int = dataclasses.field(default=0, metadata=json_field(name="cpu_seconds"))
-    MemoryMB: int = dataclasses.field(default=0, metadata=json_field(name="memory_mb"))
-    MaxProcesses: int = dataclasses.field(default=0, metadata=json_field(name="max_processes"))
-    MaxOpenFiles: int = dataclasses.field(default=0, metadata=json_field(name="max_open_files"))
+    mode: str = dataclasses.field(default="", metadata=json_field(name="mode"))
+    cpu_seconds: int = dataclasses.field(default=0, metadata=json_field(name="cpu_seconds"))
+    memory_mb: int = dataclasses.field(default=0, metadata=json_field(name="memory_mb"))
+    max_processes: int = dataclasses.field(default=0, metadata=json_field(name="max_processes"))
+    max_open_files: int = dataclasses.field(default=0, metadata=json_field(name="max_open_files"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class PermissionSettings:
     """The ``permissions`` block of ``settings.json``."""
 
-    Mode: str = dataclasses.field(default="", metadata=json_field(name="mode"))
-    AllowTools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_tools"))
-    DenyTools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_tools"))
-    AllowCommandPrefixes: tuple[str, ...] = dataclasses.field(
+    mode: str = dataclasses.field(default="", metadata=json_field(name="mode"))
+    allow_tools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_tools"))
+    deny_tools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_tools"))
+    allow_command_prefixes: tuple[str, ...] = dataclasses.field(
         default=(), metadata=json_field(name="allow_command_prefixes")
     )
-    DenyCommandPrefixes: tuple[str, ...] = dataclasses.field(
+    deny_command_prefixes: tuple[str, ...] = dataclasses.field(
         default=(), metadata=json_field(name="deny_command_prefixes")
     )
-    AllowPaths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_paths"))
-    DenyPaths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_paths"))
-    AllowEnv: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_env"))
-    DenyEnv: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_env"))
-    Network: str = dataclasses.field(default="", metadata=json_field(name="network"))
+    allow_paths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_paths"))
+    deny_paths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_paths"))
+    allow_env: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_env"))
+    deny_env: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_env"))
+    network: str = dataclasses.field(default="", metadata=json_field(name="network"))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -170,28 +170,28 @@ class Settings:
     a user opens has to show every knob it can turn.
     """
 
-    Provider: str = dataclasses.field(default="", metadata=json_field(name="provider"))
-    Providers: dict[str, ProviderConfig] = dataclasses.field(
+    provider: str = dataclasses.field(default="", metadata=json_field(name="provider"))
+    providers: dict[str, ProviderConfig] = dataclasses.field(
         default_factory=dict[str, ProviderConfig], metadata=json_field(name="providers")
     )
-    Permissions: PermissionSettings = dataclasses.field(
+    permissions: PermissionSettings = dataclasses.field(
         default_factory=PermissionSettings, metadata=json_field(name="permissions")
     )
-    Sandbox: SandboxSettings = dataclasses.field(default_factory=SandboxSettings, metadata=json_field(name="sandbox"))
-    MCPServers: dict[str, MCPServerSettings] = dataclasses.field(
+    sandbox: SandboxSettings = dataclasses.field(default_factory=SandboxSettings, metadata=json_field(name="sandbox"))
+    mcp_servers: dict[str, MCPServerSettings] = dataclasses.field(
         default_factory=dict[str, MCPServerSettings], metadata=json_field(name="mcp_servers")
     )
-    LSPServers: dict[str, LSPServerSettings] = dataclasses.field(
+    lsp_servers: dict[str, LSPServerSettings] = dataclasses.field(
         default_factory=dict[str, LSPServerSettings], metadata=json_field(name="lsp_servers")
     )
-    Agent: str = dataclasses.field(default="", metadata=json_field(name="agent"))
-    Agents: dict[str, AgentSettings] = dataclasses.field(
+    agent: str = dataclasses.field(default="", metadata=json_field(name="agent"))
+    agents: dict[str, AgentSettings] = dataclasses.field(
         default_factory=dict[str, AgentSettings], metadata=json_field(name="agents")
     )
-    Extensions: ExtensionSettings = dataclasses.field(
+    extensions: ExtensionSettings = dataclasses.field(
         default_factory=ExtensionSettings, metadata=json_field(name="extensions")
     )
-    Telemetry: TelemetrySettings = dataclasses.field(
+    telemetry: TelemetrySettings = dataclasses.field(
         default_factory=TelemetrySettings, metadata=json_field(name="telemetry")
     )
 
@@ -204,52 +204,52 @@ class Config:
     points ``Sandbox.Workspace`` at the workspace's primary root once it knows it.
     """
 
-    Provider: str = ""
-    NoTools: bool = False
-    PermissionMode: PermissionMode = ZeroPermissionMode
-    PermissionRules: PermissionRules = dataclasses.field(default_factory=PermissionRules)
-    Sandbox: SandboxConfig = dataclasses.field(default_factory=SandboxConfig)
-    MCPServers: list[MCPServerConfig] = dataclasses.field(default_factory=list[MCPServerConfig])
-    LSPServers: list[LSPServerConfig] = dataclasses.field(default_factory=list[LSPServerConfig])
+    provider: str = ""
+    no_tools: bool = False
+    permission_mode: PermissionMode = ZERO_PERMISSION_MODE
+    permission_rules: PermissionRules = dataclasses.field(default_factory=PermissionRules)
+    sandbox: SandboxConfig = dataclasses.field(default_factory=SandboxConfig)
+    mcp_servers: list[MCPServerConfig] = dataclasses.field(default_factory=list[MCPServerConfig])
+    lsp_servers: list[LSPServerConfig] = dataclasses.field(default_factory=list[LSPServerConfig])
     #: The selected provider's configuration, credential included. This is the
     #: value the session builds the model from.
-    ModelConfig: ProviderConfig = dataclasses.field(default_factory=ProviderConfig)
-    ProviderConfigs: dict[str, ProviderConfig] = dataclasses.field(default_factory=dict[str, ProviderConfig])
-    Instructions: Bundle = dataclasses.field(default_factory=Bundle)
-    InstructionSources: tuple[str, ...] = ()
-    Agents: dict[str, AgentSettings] = dataclasses.field(default_factory=dict[str, AgentSettings])
-    Agent: str = ""
-    Extensions: Extensions = dataclasses.field(default_factory=Extensions)
-    TelemetryPath: str = ""
-    Project: project.Project = dataclasses.field(default_factory=project.Project)
-    Workspace: Context | None = None
-    ConfigRoot: str = ""
+    model_config: ProviderConfig = dataclasses.field(default_factory=ProviderConfig)
+    provider_configs: dict[str, ProviderConfig] = dataclasses.field(default_factory=dict[str, ProviderConfig])
+    instructions: Bundle = dataclasses.field(default_factory=Bundle)
+    instruction_sources: tuple[str, ...] = ()
+    agents: dict[str, AgentSettings] = dataclasses.field(default_factory=dict[str, AgentSettings])
+    agent: str = ""
+    extensions: Extensions = dataclasses.field(default_factory=Extensions)
+    telemetry_path: str = ""
+    project: project.Project = dataclasses.field(default_factory=project.Project)
+    workspace: Context | None = None
+    config_root: str = ""
 
 
-def DefaultSettings() -> Settings:
+def default_settings() -> Settings:
     """The template written on first run, and the source of every default."""
     return Settings(
-        Provider="deepseek",
-        Providers={
+        provider="deepseek",
+        providers={
             "deepseek": ProviderConfig(
-                BaseURL="https://api.deepseek.com",
-                APIKey=DEFAULT_PLACEHOLDER,
-                Model="deepseek-reasoner",
+                base_url="https://api.deepseek.com",
+                api_key=DEFAULT_PLACEHOLDER,
+                model="deepseek-reasoner",
             ),
-            "openai": ProviderConfig(APIKey=DEFAULT_PLACEHOLDER, Model="gpt-4o"),
-            "claude": ProviderConfig(APIKey=CLAUDE_PLACEHOLDER, Model="claude-3-7-sonnet-20250219"),
+            "openai": ProviderConfig(api_key=DEFAULT_PLACEHOLDER, model="gpt-4o"),
+            "claude": ProviderConfig(api_key=CLAUDE_PLACEHOLDER, model="claude-3-7-sonnet-20250219"),
         },
-        Permissions=PermissionSettings(Mode="ask", Network="deny"),
-        Sandbox=SandboxSettings(Mode="strict", CPUSeconds=120, MemoryMB=1024, MaxProcesses=128, MaxOpenFiles=256),
-        MCPServers={},
-        LSPServers={},
-        Agent="build",
-        Agents={},
-        Extensions=ExtensionSettings(Commands={}, Hooks={}),
+        permissions=PermissionSettings(mode="ask", network="deny"),
+        sandbox=SandboxSettings(mode="strict", cpu_seconds=120, memory_mb=1024, max_processes=128, max_open_files=256),
+        mcp_servers={},
+        lsp_servers={},
+        agent="build",
+        agents={},
+        extensions=ExtensionSettings(commands={}, hooks={}),
     )
 
 
-def LoadConfig(flags: Flags, lookup: Lookup | None = None) -> Config:
+def load_config(flags: Flags, lookup: Lookup | None = None) -> Config:
     """Combine flags, environment, and settings into one :class:`Config`.
 
     Every failure here is fatal on purpose: an unknown permission mode, a sandbox
@@ -259,105 +259,105 @@ def LoadConfig(flags: Flags, lookup: Lookup | None = None) -> Config:
     """
     if lookup is None:
         lookup = os.environ.get
-    settings = LoadSettings()
-    provider = settings.Provider
+    settings = load_settings()
+    provider = settings.provider
     processCWD = os.getcwd()
-    selectedProject = project.Resolve(flags.CWD, processCWD)
-    workspaceContext = NewDefaultContext(selectedProject.Root)
-    cwd = workspaceContext.GetCWD()
-    telemetryPath = settings.Telemetry.LogPath
+    selectedProject = project.resolve(flags.cwd, processCWD)
+    workspaceContext = new_default_context(selectedProject.root)
+    cwd = workspaceContext.get_cwd()
+    telemetryPath = settings.telemetry.log_path
     if telemetryPath == "":
         telemetryPath = os.path.join(os.path.expanduser("~"), USER_CONFIG_DIRECTORY, "telemetry.jsonl")
     elif not os.path.isabs(telemetryPath):
         telemetryPath = os.path.join(cwd, telemetryPath)
     bundle = loadInstructions(cwd)
-    extensions = loadExtensions(settings.Extensions, cwd)
-    mode = PermissionMode(firstNonEmpty(flags.PermissionMode, settings.Permissions.Mode, "ask"))
+    extensions = loadExtensions(settings.extensions, cwd)
+    mode = PermissionMode(firstNonEmpty(flags.permission_mode, settings.permissions.mode, "ask"))
     # The YOLO environment variable is a fallback for when no explicit mode was
     # requested; an explicit --approval-mode flag always wins so a checked-in
     # .env cannot silently disable permission prompts.
-    if flags.AutoApproveTools and flags.PermissionMode != "":
+    if flags.auto_approve_tools and flags.permission_mode != "":
         raise ValueError(
             "--yolo and --approval-mode are mutually exclusive; use --approval-mode bypass instead of --yolo"
         )
-    if flags.AutoApproveTools or (flags.PermissionMode == "" and envTrue(lookup, "YOLO")):
-        mode = PermissionModeBypass
-    if not ValidPermissionMode(mode):
+    if flags.auto_approve_tools or (flags.permission_mode == "" and envTrue(lookup, "YOLO")):
+        mode = PERMISSION_MODE_BYPASS
+    if not valid_permission_mode(mode):
         raise ValueError("invalid permission mode: " + str(mode))
-    sandboxMode = SandboxMode(settings.Sandbox.Mode)
-    if not ValidSandboxMode(sandboxMode):
-        raise ValueError("invalid sandbox mode: " + settings.Sandbox.Mode)
+    sandboxMode = SandboxMode(settings.sandbox.mode)
+    if not valid_sandbox_mode(sandboxMode):
+        raise ValueError("invalid sandbox mode: " + settings.sandbox.mode)
     rules = PermissionRules(
-        AllowTools=settings.Permissions.AllowTools,
-        DenyTools=settings.Permissions.DenyTools,
-        AllowPrefixes=settings.Permissions.AllowCommandPrefixes,
-        DenyPrefixes=settings.Permissions.DenyCommandPrefixes,
-        AllowPaths=settings.Permissions.AllowPaths,
-        DenyPaths=settings.Permissions.DenyPaths,
-        AllowEnv=settings.Permissions.AllowEnv,
-        DenyEnv=settings.Permissions.DenyEnv,
-        Network=firstNonEmpty(settings.Permissions.Network, "deny"),
+        allow_tools=settings.permissions.allow_tools,
+        deny_tools=settings.permissions.deny_tools,
+        allow_prefixes=settings.permissions.allow_command_prefixes,
+        deny_prefixes=settings.permissions.deny_command_prefixes,
+        allow_paths=settings.permissions.allow_paths,
+        deny_paths=settings.permissions.deny_paths,
+        allow_env=settings.permissions.allow_env,
+        deny_env=settings.permissions.deny_env,
+        network=firstNonEmpty(settings.permissions.network, "deny"),
     )
     # Settings come from JSON, where object key order is not meaningful, so the
     # server names are sorted to make the resolved order deterministic.
     mcpServers: list[MCPServerConfig] = []
-    for name in sorted(settings.MCPServers):
-        server = settings.MCPServers[name]
-        serverCWD = server.CWD
+    for name in sorted(settings.mcp_servers):
+        server = settings.mcp_servers[name]
+        serverCWD = server.cwd
         if serverCWD == "":
             serverCWD = cwd
         elif not os.path.isabs(serverCWD):
             serverCWD = os.path.join(cwd, serverCWD)
         mcpServers.append(
             MCPServerConfig(
-                Name=name,
-                Command=server.Command,
-                Args=list(server.Args),
-                Env=dict(server.Env),
-                CWD=serverCWD,
-                ConnectTimeout=float(server.ConnectTimeoutSeconds),
-                CallTimeout=float(server.CallTimeoutSeconds),
+                name=name,
+                command=server.command,
+                args=list(server.args),
+                env=dict(server.env),
+                cwd=serverCWD,
+                connect_timeout=float(server.connect_timeout_seconds),
+                call_timeout=float(server.call_timeout_seconds),
             )
         )
     lspServers: list[LSPServerConfig] = [
         LSPServerConfig(
-            Name=name,
-            Command=server.Command,
-            Args=tuple(server.Args),
-            Extensions=tuple(server.Extensions),
-            LanguageID=server.LanguageID,
-            Root=cwd,
+            name=name,
+            command=server.command,
+            args=tuple(server.args),
+            extensions=tuple(server.extensions),
+            language_id=server.language_id,
+            root=cwd,
         )
-        for name, server in sorted(settings.LSPServers.items())
+        for name, server in sorted(settings.lsp_servers.items())
     ]
     providerConfig = resolveProviderConfig(settings, provider, lookup)
     return Config(
-        Provider=provider,
-        NoTools=flags.NoTools or envTrue(lookup, "NO_TOOLS"),
-        PermissionMode=mode,
-        PermissionRules=rules,
-        Sandbox=SandboxConfig(
-            Mode=sandboxMode,
-            Workspace=cwd,
-            AllowNetwork=rules.Network == "allow",
-            CPUSeconds=settings.Sandbox.CPUSeconds,
-            MemoryBytes=settings.Sandbox.MemoryMB << 20,
-            MaxProcesses=settings.Sandbox.MaxProcesses,
-            MaxOpenFiles=settings.Sandbox.MaxOpenFiles,
+        provider=provider,
+        no_tools=flags.no_tools or envTrue(lookup, "NO_TOOLS"),
+        permission_mode=mode,
+        permission_rules=rules,
+        sandbox=SandboxConfig(
+            mode=sandboxMode,
+            workspace=cwd,
+            allow_network=rules.network == "allow",
+            cpu_seconds=settings.sandbox.cpu_seconds,
+            memory_bytes=settings.sandbox.memory_mb << 20,
+            max_processes=settings.sandbox.max_processes,
+            max_open_files=settings.sandbox.max_open_files,
         ),
-        MCPServers=mcpServers,
-        LSPServers=lspServers,
-        ModelConfig=providerConfig,
-        ProviderConfigs=settings.Providers,
-        Instructions=bundle,
-        InstructionSources=instructionSourcePaths(bundle),
-        Agents=settings.Agents,
-        Agent=firstNonEmpty(settings.Agent, "build"),
-        Extensions=extensions,
-        TelemetryPath=telemetryPath,
-        Project=selectedProject,
-        Workspace=workspaceContext,
-        ConfigRoot=selectedProject.Root,
+        mcp_servers=mcpServers,
+        lsp_servers=lspServers,
+        model_config=providerConfig,
+        provider_configs=settings.providers,
+        instructions=bundle,
+        instruction_sources=instructionSourcePaths(bundle),
+        agents=settings.agents,
+        agent=firstNonEmpty(settings.agent, "build"),
+        extensions=extensions,
+        telemetry_path=telemetryPath,
+        project=selectedProject,
+        workspace=workspaceContext,
+        config_root=selectedProject.root,
     )
 
 
@@ -390,16 +390,16 @@ def decodeExtensions(content: str) -> ExtensionSettings:
 
 def resolveProviderConfig(settings: Settings, provider: str, lookup: Lookup) -> ProviderConfig:
     """Resolve the credential for ``provider``, or raise naming what is missing."""
-    config = settings.Providers.get(provider)
+    config = settings.providers.get(provider)
     if config is None:
         raise ValueError("provider " + provider + " is not configured: add it to the providers map in settings.json")
-    if config.APIKey == apikeyPlaceholder(provider):
-        config = dataclasses.replace(config, APIKey="")
-    if config.APIKey == "":
+    if config.api_key == apikeyPlaceholder(provider):
+        config = dataclasses.replace(config, api_key="")
+    if config.api_key == "":
         envKey = provider.upper() + "_API_KEY"
         value = lookup(envKey)
         if value:
-            return dataclasses.replace(config, APIKey=value)
+            return dataclasses.replace(config, api_key=value)
         raise ValueError("provider " + provider + " has no api_key: set it in settings.json or export " + envKey)
     return config
 
@@ -423,20 +423,20 @@ def firstNonEmpty(*values: str) -> str:
 
 def instructionSourcePaths(bundle: Bundle) -> tuple[str, ...]:
     """The paths a bundle was assembled from, in the order it read them."""
-    return tuple(source.Path for source in bundle.Sources)
+    return tuple(source.path for source in bundle.sources)
 
 
-def LoadSettings() -> Settings:
+def load_settings() -> Settings:
     """Read ``~/.superagent/settings.json``, creating the template if it is absent."""
-    return LoadSettingsFile(SettingsPath())
+    return load_settings_file(settings_path())
 
 
-def SettingsPath() -> str:
+def settings_path() -> str:
     """``~/.superagent/settings.json`` — home, and spelled without a hyphen."""
     return os.path.join(os.path.expanduser("~"), USER_CONFIG_DIRECTORY, "settings.json")
 
 
-def LoadSettingsFile(path: str) -> Settings:
+def load_settings_file(path: str) -> Settings:
     """Read one settings file, or write the template when there is none.
 
     An existing file is never overwritten: a parse failure is reported rather than
@@ -447,16 +447,16 @@ def LoadSettingsFile(path: str) -> Settings:
         with open(path, encoding="utf-8") as handle:
             content = handle.read()
     except FileNotFoundError:
-        settings = DefaultSettings()
+        settings = default_settings()
         # The same atomic write a save performs: a half-written settings.json
         # would make every later startup fail to parse it.
-        SaveSettingsFile(path, settings)
+        save_settings_file(path, settings)
         return settings
     settings = jsonutil.loads(content, Settings)
-    return normalizeSettings(dataclasses.replace(settings, Extensions=decodeExtensions(content)))
+    return normalizeSettings(dataclasses.replace(settings, extensions=decodeExtensions(content)))
 
 
-def SaveSettingsFile(path: str, settings: Settings) -> None:
+def save_settings_file(path: str, settings: Settings) -> None:
     """Write ``settings.json`` atomically, mode ``0600``, two-space indented.
 
     Same-directory temp file, chmod, write, fsync, close, then ``os.replace``: the
@@ -484,30 +484,30 @@ def SaveSettingsFile(path: str, settings: Settings) -> None:
 
 def normalizeSettings(settings: Settings) -> Settings:
     """Fill in what a stored file may leave out, and never what it states."""
-    defaults = DefaultSettings().Sandbox
-    permissions = settings.Permissions or PermissionSettings()
-    sandbox = settings.Sandbox or SandboxSettings()
+    defaults = default_settings().sandbox
+    permissions = settings.permissions or PermissionSettings()
+    sandbox = settings.sandbox or SandboxSettings()
     return dataclasses.replace(
         settings,
-        Providers=settings.Providers or {},
-        Agents=settings.Agents or {},
-        LSPServers=settings.LSPServers or {},
-        MCPServers=settings.MCPServers or {},
-        Extensions=settings.Extensions or ExtensionSettings(),
-        Telemetry=settings.Telemetry or TelemetrySettings(),
-        Agent=settings.Agent or "build",
-        Permissions=dataclasses.replace(
+        providers=settings.providers or {},
+        agents=settings.agents or {},
+        lsp_servers=settings.lsp_servers or {},
+        mcp_servers=settings.mcp_servers or {},
+        extensions=settings.extensions or ExtensionSettings(),
+        telemetry=settings.telemetry or TelemetrySettings(),
+        agent=settings.agent or "build",
+        permissions=dataclasses.replace(
             permissions,
-            Mode=permissions.Mode or "ask",
-            Network=permissions.Network or "deny",
+            mode=permissions.mode or "ask",
+            network=permissions.network or "deny",
         ),
-        Sandbox=dataclasses.replace(
+        sandbox=dataclasses.replace(
             sandbox,
-            Mode=sandbox.Mode or defaults.Mode,
-            CPUSeconds=sandbox.CPUSeconds if sandbox.CPUSeconds > 0 else defaults.CPUSeconds,
-            MemoryMB=sandbox.MemoryMB if sandbox.MemoryMB > 0 else defaults.MemoryMB,
-            MaxProcesses=sandbox.MaxProcesses if sandbox.MaxProcesses > 0 else defaults.MaxProcesses,
-            MaxOpenFiles=sandbox.MaxOpenFiles if sandbox.MaxOpenFiles > 0 else defaults.MaxOpenFiles,
+            mode=sandbox.mode or defaults.mode,
+            cpu_seconds=sandbox.cpu_seconds if sandbox.cpu_seconds > 0 else defaults.cpu_seconds,
+            memory_mb=sandbox.memory_mb if sandbox.memory_mb > 0 else defaults.memory_mb,
+            max_processes=sandbox.max_processes if sandbox.max_processes > 0 else defaults.max_processes,
+            max_open_files=sandbox.max_open_files if sandbox.max_open_files > 0 else defaults.max_open_files,
         ),
     )
 
@@ -516,12 +516,12 @@ def settingsMap(configs: list[MCPServerConfig]) -> dict[str, MCPServerSettings]:
     """The settings-shaped view of the configured MCP servers."""
     result: dict[str, MCPServerSettings] = {}
     for config in configs:
-        result[config.Name] = MCPServerSettings(
-            Command=config.Command,
-            Args=tuple(config.Args),
-            Env=dict(config.Env),
-            CWD=config.CWD,
-            ConnectTimeoutSeconds=int(config.ConnectTimeout),
-            CallTimeoutSeconds=int(config.CallTimeout),
+        result[config.name] = MCPServerSettings(
+            command=config.command,
+            args=tuple(config.args),
+            env=dict(config.env),
+            cwd=config.cwd,
+            connect_timeout_seconds=int(config.connect_timeout),
+            call_timeout_seconds=int(config.call_timeout),
         )
     return result

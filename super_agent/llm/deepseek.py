@@ -12,10 +12,10 @@ from super_agent.llm.factory import ProviderConfig
 from super_agent.llm.openai import OpenAIModel, new_openai_model, with_defaults
 
 
-def NewDeepSeek(cfg: ProviderConfig) -> OpenAIModel:
+def new_deep_seek(cfg: ProviderConfig) -> OpenAIModel:
     """A DeepSeek model with the ``deepseek-reasoner`` default."""
     cfg = with_defaults(
         cfg,
-        ProviderConfig(BaseURL="https://api.deepseek.com", Model="deepseek-reasoner"),
+        ProviderConfig(base_url="https://api.deepseek.com", model="deepseek-reasoner"),
     )
     return new_openai_model(cfg, False)

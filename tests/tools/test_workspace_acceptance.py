@@ -16,10 +16,10 @@ from typing import Any
 
 import pytest
 
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ToolCall
-from super_agent.tools import DefaultRegistry, Registry
-from tests.tools.test_workspace import ACCESS_READ, ACCESS_READ_WRITE, NewContext, Root, workspace_for
+from super_agent.tools import Registry, default_registry
+from tests.tools.test_workspace import ACCESS_READ, ACCESS_READ_WRITE, Root, new_context, workspace_for
 
 needs_git_and_gofmt = pytest.mark.skipif(
     shutil.which("git") is None or shutil.which("gofmt") is None,
@@ -34,12 +34,12 @@ def must_write(root: Path, relative: str, content: str) -> None:
 
 
 async def must_tool_succeed(registry: Registry, name: str, payload: dict[str, Any]) -> str:
-    return await registry.Run(LiveContext(), ToolCall(Name=name, Input=json.dumps(payload)))
+    return await registry.run(live_context(), ToolCall(name=name, input=json.dumps(payload)))
 
 
 async def must_tool_fail(registry: Registry, name: str, payload: dict[str, Any]) -> None:
     with pytest.raises(RuntimeError):
-        await registry.Run(LiveContext(), ToolCall(Name=name, Input=json.dumps(payload)))
+        await registry.run(live_context(), ToolCall(name=name, input=json.dumps(payload)))
 
 
 @pytest.mark.asyncio
@@ -54,7 +54,7 @@ async def test_workspace_file_tools_black_box_acceptance(tmp_path: Path) -> None
     must_write(parent, "secret.txt", "secret")
     must_write(project_secret, "foo", "secret")
 
-    registry = DefaultRegistry(workspace_for(project))
+    registry = default_registry(workspace_for(project))
 
     await must_tool_succeed(registry, "read_file", {"path": "src/a.txt"})
     await must_tool_succeed(registry, "write_file", {"path": "src/a.txt", "content": "after"})
@@ -84,11 +84,11 @@ async def test_additional_read_only_root_black_box_acceptance(tmp_path: Path) ->
     common.mkdir()
     shared = common / "shared.txt"
     shared.write_text("shared needle", encoding="utf-8")
-    registry = DefaultRegistry(
-        NewContext(
+    registry = default_registry(
+        new_context(
             project,
             project,
-            [Root(Path=str(project), Access=ACCESS_READ_WRITE), Root(Path=str(common), Access=ACCESS_READ)],
+            [Root(path=str(project), access=ACCESS_READ_WRITE), Root(path=str(common), access=ACCESS_READ)],
         )
     )
 
@@ -106,11 +106,11 @@ async def test_command_tools_use_the_workspace_cwd_not_the_process_cwd(tmp_path:
     must_write(project, "main.go", 'package main\nfunc main(){println("x")}\n')
     subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True)
     workspace = workspace_for(project)
-    registry = DefaultRegistry(workspace)
+    registry = default_registry(workspace)
 
     for name in ("run_command", "bash"):
         result = await must_tool_succeed(registry, name, {"command": "pwd"})
-        assert result.strip() == workspace.GetCWD()
+        assert result.strip() == workspace.get_cwd()
 
     status = await must_tool_succeed(registry, "git_status", {})
     assert "No commits yet" in status or "Initial commit" in status

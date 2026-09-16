@@ -77,16 +77,16 @@ class bubblewrap_sandbox:
             "--chdir",
             abs_cwd,
         ]
-        if self.config.AllowNetwork:
+        if self.config.allow_network:
             sandbox_args.append("--share-net")
         sandbox_args.extend(
             [
                 "--",
                 self.prlimit,
-                "--cpu=" + str(self.config.CPUSeconds),
-                "--as=" + str(self.config.MemoryBytes),
-                "--nproc=" + str(self.config.MaxProcesses),
-                "--nofile=" + str(self.config.MaxOpenFiles),
+                "--cpu=" + str(self.config.cpu_seconds),
+                "--as=" + str(self.config.memory_bytes),
+                "--nproc=" + str(self.config.max_processes),
+                "--nofile=" + str(self.config.max_open_files),
                 "--",
                 name,
                 *args,

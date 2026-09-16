@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 
 from super_agent.runtime.engine.snapshot import EngineView
 from super_agent.runtime.machine import (
+    ROLE_ASSISTANT,
+    STATE_ADVANCING_QUEUE,
+    STATE_RUNNING_TOOL,
+    STATE_WAITING_APPROVAL,
+    STATE_WAITING_LLM,
     Message,
-    RoleAssistant,
     State,
-    StateAdvancingQueue,
-    StateRunningTool,
-    StateWaitingApproval,
-    StateWaitingLLM,
     ToolCall,
 )
 
@@ -33,55 +33,55 @@ class QueryMixin:
         # Provided by Engine.__init__.
         _runtime_data: RuntimeData
 
-    def State(self) -> State:
-        return self._runtime_data.State
+    def state(self) -> State:
+        return self._runtime_data.state
 
-    def Messages(self) -> list[Message]:
+    def messages(self) -> list[Message]:
         """A copy of the committed conversation.
 
         A copy, not the list itself: every caller either sends it to a provider or
         stores it, and neither should be able to reach back into machine state.
         """
-        return list(self._runtime_data.Messages)
+        return list(self._runtime_data.messages)
 
-    def PendingTool(self) -> tuple[ToolCall | None, bool]:
+    def pending_tool(self) -> tuple[ToolCall | None, bool]:
         """The call awaiting approval, and whether there is one."""
-        pending = self._runtime_data.PendingTool
+        pending = self._runtime_data.pending_tool
         return (pending, True) if pending is not None else (None, False)
 
-    def Snapshot(self) -> EngineView:
+    def snapshot(self) -> EngineView:
         """A consistent view of everything a presentation layer needs."""
         data = self._runtime_data
-        busy = data.State in (StateWaitingLLM, StateRunningTool, StateAdvancingQueue)
+        busy = data.state in (STATE_WAITING_LLM, STATE_RUNNING_TOOL, STATE_ADVANCING_QUEUE)
         streaming: Message | None = None
-        if data.StreamingContent != "" or data.StreamingReasoning != "":
+        if data.streaming_content != "" or data.streaming_reasoning != "":
             streaming = Message(
-                Role=RoleAssistant,
-                Content=data.StreamingContent,
-                ReasoningContent=data.StreamingReasoning,
+                role=ROLE_ASSISTANT,
+                content=data.streaming_content,
+                reasoning_content=data.streaming_reasoning,
             )
 
-        pending = data.PendingTool
+        pending = data.pending_tool
         batch_id = ""
         batch_index = 0
         batch_total = 0
         permission = None
         if pending is not None:
-            permission = data.PendingPermission
-            if data.ToolBatch is not None:
-                batch_id = data.ToolBatch.ID
-                batch_index = data.ToolBatch.Index
-                batch_total = len(data.ToolBatch.Calls)
+            permission = data.pending_permission
+            if data.tool_batch is not None:
+                batch_id = data.tool_batch.id
+                batch_index = data.tool_batch.index
+                batch_total = len(data.tool_batch.calls)
 
         return EngineView(
-            State=data.State,
-            Messages=tuple(data.Messages),
-            PendingTool=pending,
-            PendingPermission=permission,
-            PendingToolBatchID=batch_id,
-            PendingToolBatchIndex=batch_index,
-            PendingToolBatchTotal=batch_total,
-            StreamingMessage=streaming,
-            IsBusy=busy,
-            NeedsInput=data.State == StateWaitingApproval,
+            state=data.state,
+            messages=tuple(data.messages),
+            pending_tool=pending,
+            pending_permission=permission,
+            pending_tool_batch_id=batch_id,
+            pending_tool_batch_index=batch_index,
+            pending_tool_batch_total=batch_total,
+            streaming_message=streaming,
+            is_busy=busy,
+            needs_input=data.state == STATE_WAITING_APPROVAL,
         )

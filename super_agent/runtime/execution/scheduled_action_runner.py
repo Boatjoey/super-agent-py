@@ -21,24 +21,24 @@ from super_agent.runtime.protocol.types import StreamChunk, ToolSpec
 class QueuedAction:
     """A scheduled action plus the run and action it belongs to."""
 
-    RunID: RunID = dataclasses.field(default_factory=lambda: RunID(""))
-    ActionID: ActionID = dataclasses.field(default_factory=lambda: ActionID(""))
-    Action: ScheduledAction | None = None
+    run_id: RunID = dataclasses.field(default_factory=lambda: RunID(""))
+    action_id: ActionID = dataclasses.field(default_factory=lambda: ActionID(""))
+    action: ScheduledAction | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ActionCompletion:
     """A queued action's result, carrying the identity it was stamped with."""
 
-    RunID: RunID = dataclasses.field(default_factory=lambda: RunID(""))
-    ActionID: ActionID = dataclasses.field(default_factory=lambda: ActionID(""))
-    Result: ScheduledActionResult | None = None
+    run_id: RunID = dataclasses.field(default_factory=lambda: RunID(""))
+    action_id: ActionID = dataclasses.field(default_factory=lambda: ActionID(""))
+    result: ScheduledActionResult | None = None
 
 
 class ScheduledActionRunner(Protocol):
     """Runs one queued action and reports which action finished."""
 
-    async def Run(
+    async def run(
         self,
         ctx: RunContext,
         action: QueuedAction,
@@ -46,7 +46,7 @@ class ScheduledActionRunner(Protocol):
         chunk_func: Callable[[StreamChunk], None],
     ) -> ActionCompletion: ...
 
-    def ToolSpecs(self) -> list[ToolSpec]: ...
+    def tool_specs(self) -> list[ToolSpec]: ...
 
 
 class DefaultScheduledActionRunner:
@@ -57,22 +57,22 @@ class DefaultScheduledActionRunner:
     def __init__(self, executor: ScheduledActionExecutor) -> None:
         self._executor = executor
 
-    def ToolSpecs(self) -> list[ToolSpec]:
+    def tool_specs(self) -> list[ToolSpec]:
         """The specs the executor advertises, if it advertises any."""
-        provider = getattr(self._executor, "ToolSpecs", None)
+        provider = getattr(self._executor, "tool_specs", None)
         if provider is None:
             return []
         specs: list[ToolSpec] = provider()
         return specs
 
-    async def Run(
+    async def run(
         self,
         ctx: RunContext,
         action: QueuedAction,
         input: ScheduledActionInput,
         chunk_func: Callable[[StreamChunk], None],
     ) -> ActionCompletion:
-        if action.Action is None:
+        if action.action is None:
             raise ValueError("queued action carries no action")
-        result = await self._executor.Execute(ctx, action.Action, input, chunk_func)
-        return ActionCompletion(RunID=action.RunID, ActionID=action.ActionID, Result=result)
+        result = await self._executor.execute(ctx, action.action, input, chunk_func)
+        return ActionCompletion(run_id=action.run_id, action_id=action.action_id, result=result)

@@ -36,7 +36,7 @@ class CallModel(ScheduledAction):
 class RunTool(ScheduledAction):
     kind: ClassVar[str] = "RunTool"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -48,12 +48,12 @@ class CheckToolQueue(ScheduledAction):
 class AwaitApproval(ScheduledAction):
     kind: ClassVar[str] = "AwaitApproval"
 
-    Call: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
+    call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
 
 
 #: Every scheduled action as a zero value, in declaration order.
-AllScheduledActions: Final[tuple[ScheduledAction, ...]] = (
+ALL_SCHEDULED_ACTIONS: Final[tuple[ScheduledAction, ...]] = (
     CallModel(),
     RunTool(),
     CheckToolQueue(),

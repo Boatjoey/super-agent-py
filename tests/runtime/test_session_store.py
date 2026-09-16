@@ -29,29 +29,29 @@ import pytest
 
 from super_agent import store, workspace
 from super_agent.runtime import machine
-from super_agent.runtime.engine import Engine, NewEngine, NewEngineWithExecutor
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.engine import Engine, new_engine, new_engine_with_executor
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import (
+    ROLE_ASSISTANT,
+    ROLE_SYSTEM,
+    ROLE_TOOL,
+    ROLE_USER,
     Message,
-    RoleAssistant,
-    RoleSystem,
-    RoleTool,
-    RoleUser,
     ToolCall,
 )
 from super_agent.runtime.session import (
+    WORKSPACE_ACCESS_READ_WRITE,
     ApprovalsClosed,
     FileSnapshot,
     Metadata,
-    NewPersistentSession,
-    NewSession,
     NotificationsClosed,
     Session,
     SessionID,
     SessionNotification,
-    WorkspaceAccessReadWrite,
     WorkspaceRootSpec,
     WorkspaceSpec,
+    new_persistent_session,
+    new_session,
 )
 from tests.fakes.execution import FakeToolRunner, StaticReplyExecutor
 from tests.fakes.model import BlockingModel
@@ -70,23 +70,23 @@ NEW_ID = store.SessionID("new")
 
 def configured_workspace(root: str) -> workspace.Workspace:
     """The workspace helper the session tests share."""
-    return workspace.New(workspace.NewDefaultContext(root))
+    return workspace.new(workspace.new_default_context(root))
 
 
 def persistent_session(engine: Engine, st: store.Store, meta: store.Metadata) -> Session:
     """The persistent-session helper the store tests share."""
-    root = meta.CWD or os.getcwd()
-    return NewPersistentSession(
+    root = meta.cwd or os.getcwd()
+    return new_persistent_session(
         engine,
-        store.NewRepository(st),
+        store.new_repository(st),
         configured_workspace(root),
         Metadata(
-            ID=SessionID(meta.ID),
-            Title=meta.Title,
-            Provider=meta.Provider,
-            Model=meta.Model,
-            CWD=meta.CWD,
-            InstructionSources=tuple(meta.InstructionSources),
+            id=SessionID(meta.id),
+            title=meta.title,
+            provider=meta.provider,
+            model=meta.model,
+            cwd=meta.cwd,
+            instruction_sources=tuple(meta.instruction_sources),
         ),
     )
 
@@ -102,7 +102,7 @@ def new_queues() -> tuple[
 async def run_turn(session: Session, query: str) -> None:
     """Run one turn with no approvals needed and nobody watching the queue."""
     notifications, approvals = new_queues()
-    await session.RunTurn(LiveContext(), query, notifications, approvals)
+    await session.run_turn(live_context(), query, notifications, approvals)
 
 
 class CheckpointWorkspace:
@@ -112,34 +112,34 @@ class CheckpointWorkspace:
         self.paths: list[str] = []
         self.files: list[FileSnapshot] = files
 
-    def Spec(self) -> WorkspaceSpec:
+    def spec(self) -> WorkspaceSpec:
         return WorkspaceSpec(
-            PrimaryRoot="/work",
-            CWD="/work",
-            Roots=(WorkspaceRootSpec(Path="/work", Access=WorkspaceAccessReadWrite),),
+            primary_root="/work",
+            cwd="/work",
+            roots=(WorkspaceRootSpec(path="/work", access=WORKSPACE_ACCESS_READ_WRITE),),
         )
 
-    def Validate(self, spec: WorkspaceSpec) -> None:
+    def validate(self, spec: WorkspaceSpec) -> None:
         return None
 
-    def Canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
+    def canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
         return spec
 
-    def Activate(self, spec: WorkspaceSpec) -> None:
+    def activate(self, spec: WorkspaceSpec) -> None:
         return None
 
-    def Capture(self, paths: list[str]) -> list[FileSnapshot]:
+    def capture(self, paths: list[str]) -> list[FileSnapshot]:
         self.paths = list(paths)
         return self.files
 
-    def Restore(self, files: list[FileSnapshot]) -> None:
+    def restore(self, files: list[FileSnapshot]) -> None:
         return None
 
 
 class FailingWorkspaceRepository(store.Repository):
     """A repository whose migration write always fails."""
 
-    def SaveWorkspaceDescription(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
+    def save_workspace_description(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
         raise RuntimeError("workspace metadata write failed")
 
 
@@ -150,9 +150,9 @@ class CanonicalizeSpy(workspace.Workspace):
         super().__init__(context)
         self.calls = 0
 
-    def Canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
+    def canonicalize(self, spec: WorkspaceSpec) -> WorkspaceSpec:
         self.calls += 1
-        return super().Canonicalize(spec)
+        return super().canonicalize(spec)
 
 
 # --- session over the store --------------------------------------------------
@@ -160,80 +160,80 @@ class CanonicalizeSpy(workspace.Workspace):
 
 @pytest.mark.asyncio
 async def test_persistent_session_resumes_conversation_with_tool_results(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     cwd = tmp_path / "cwd"
     cwd.mkdir()
-    initial = [Message(Role=RoleSystem, Content="rules")]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(cwd)), initial)
-    st.Append(meta.ID, store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content="hi")))
-    call = ToolCall(ID="call-1", Name="read_file")
-    st.Append(meta.ID, store.Record(Type=store.EventToolResult, ToolCall=call, Result="file contents"))
+    initial = [Message(role=ROLE_SYSTEM, content="rules")]
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(cwd)), initial)
+    st.append(meta.id, store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content="hi")))
+    call = ToolCall(id="call-1", name="read_file")
+    st.append(meta.id, store.Record(type=store.EVENT_TOOL_RESULT, tool_call=call, result="file contents"))
 
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = persistent_session(engine, st, store.Metadata(ID=NEW_ID))
-    await session.Resume(SessionID(meta.ID))
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = persistent_session(engine, st, store.Metadata(id=NEW_ID))
+    await session.resume(SessionID(meta.id))
 
-    messages = session.Snapshot().Messages
+    messages = session.snapshot().messages
     assert len(messages) == 3
-    assert messages[2].Role == RoleTool
-    assert messages[2].Content == "file contents"
-    assert messages[2].ToolCallID == "call-1"
+    assert messages[2].role == ROLE_TOOL
+    assert messages[2].content == "file contents"
+    assert messages[2].tool_call_id == "call-1"
 
 
 @pytest.mark.asyncio
 async def test_resume_migrates_legacy_workspace_to_canonical_spec(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     legacy_cwd = str(tmp_path / "legacy")
     os.mkdir(legacy_cwd)
-    meta = st.Create(
+    meta = st.create(
         store.Metadata(
-            Title="legacy",
-            Provider="test",
-            Model="test-model",
-            CWD=legacy_cwd,
-            InstructionSources=("AGENTS.md",),
+            title="legacy",
+            provider="test",
+            model="test-model",
+            cwd=legacy_cwd,
+            instruction_sources=("AGENTS.md",),
         ),
-        [Message(Role=RoleSystem, Content="rules")],
+        [Message(role=ROLE_SYSTEM, content="rules")],
     )
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = persistent_session(engine, st, store.Metadata(ID=NEW_ID))
-    await session.Resume(SessionID(meta.ID))
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = persistent_session(engine, st, store.Metadata(id=NEW_ID))
+    await session.resume(SessionID(meta.id))
 
     canonical = os.path.realpath(legacy_cwd)
-    persisted = st.Metadata(meta.ID)
-    assert persisted.Workspace is not None
-    assert persisted.Workspace.PrimaryRoot == canonical
-    assert canonical == persisted.Workspace.CWD
-    assert canonical == persisted.CWD
-    assert len(persisted.Workspace.Roots) == 1
-    assert persisted.Workspace.Roots[0].Path == canonical
-    assert persisted.Workspace.Roots[0].Access == "read_write"
+    persisted = st.metadata(meta.id)
+    assert persisted.workspace is not None
+    assert persisted.workspace.primary_root == canonical
+    assert canonical == persisted.workspace.cwd
+    assert canonical == persisted.cwd
+    assert len(persisted.workspace.roots) == 1
+    assert persisted.workspace.roots[0].path == canonical
+    assert persisted.workspace.roots[0].access == "read_write"
     # Migration touches only the workspace description: unrelated metadata,
     # including ProjectID and ConfigRoot, keeps its saved value.
-    assert persisted.Title == "legacy"
-    assert persisted.Provider == "test"
-    assert persisted.Model == "test-model"
-    assert persisted.CreatedAt == meta.CreatedAt
-    assert persisted.InstructionSources == ("AGENTS.md",)
-    assert persisted.ProjectID == ""
-    assert persisted.ConfigRoot == ""
+    assert persisted.title == "legacy"
+    assert persisted.provider == "test"
+    assert persisted.model == "test-model"
+    assert persisted.created_at == meta.created_at
+    assert persisted.instruction_sources == ("AGENTS.md",)
+    assert persisted.project_id == ""
+    assert persisted.config_root == ""
 
 
 @pytest.mark.asyncio
 async def test_resume_legacy_workspace_migration_is_idempotent(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     legacy_cwd = str(tmp_path / "legacy")
     os.mkdir(legacy_cwd)
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=legacy_cwd), [])
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = persistent_session(engine, st, store.Metadata(ID=NEW_ID))
-    await session.Resume(SessionID(meta.ID))
-    first = st.Metadata(meta.ID)
-    assert first.Workspace is not None
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=legacy_cwd), [])
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = persistent_session(engine, st, store.Metadata(id=NEW_ID))
+    await session.resume(SessionID(meta.id))
+    first = st.metadata(meta.id)
+    assert first.workspace is not None
 
-    await session.Resume(SessionID(meta.ID))
-    second = st.Metadata(meta.ID)
-    assert first.Workspace == second.Workspace
+    await session.resume(SessionID(meta.id))
+    second = st.metadata(meta.id)
+    assert first.workspace == second.workspace
 
 
 @pytest.mark.asyncio
@@ -241,11 +241,11 @@ async def test_resume_legacy_workspace_migration_is_idempotent(tmp_path: Path) -
 async def test_resume_uses_strict_validation_after_legacy_migration(tmp_path: Path) -> None:
     saved_root = tmp_path / "project"
     saved_root.mkdir()
-    st = store.New(str(tmp_path / "store"))
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(saved_root)), [])
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = persistent_session(engine, st, store.Metadata(ID=NEW_ID))
-    await session.Resume(SessionID(meta.ID))
+    st = store.new(str(tmp_path / "store"))
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(saved_root)), [])
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = persistent_session(engine, st, store.Metadata(id=NEW_ID))
+    await session.resume(SessionID(meta.id))
 
     # The one-time upgrade persisted the canonical root, so replacing it with an
     # escaping symlink must now fail the strict check instead of silently
@@ -255,7 +255,7 @@ async def test_resume_uses_strict_validation_after_legacy_migration(tmp_path: Pa
     os.rmdir(saved_root)
     os.symlink(elsewhere, saved_root)
     with pytest.raises(ValueError, match="saved workspace is no longer valid"):
-        await session.Resume(SessionID(meta.ID))
+        await session.resume(SessionID(meta.id))
 
 
 @pytest.mark.asyncio
@@ -263,239 +263,239 @@ async def test_resume_does_not_fall_back_to_legacy_when_saved_spec_is_invalid(tm
     valid_cwd = str(tmp_path / "valid")
     os.mkdir(valid_cwd)
     missing = str(tmp_path / "missing")
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     spec = WorkspaceSpec(
-        PrimaryRoot=missing,
-        CWD=missing,
-        Roots=(WorkspaceRootSpec(Path=missing, Access=WorkspaceAccessReadWrite),),
+        primary_root=missing,
+        cwd=missing,
+        roots=(WorkspaceRootSpec(path=missing, access=WORKSPACE_ACCESS_READ_WRITE),),
     )
-    meta = store.NewRepository(st).Create(
-        Metadata(Provider="test", Model="test-model", CWD=valid_cwd, WorkspaceSpec=spec),
+    meta = store.new_repository(st).create(
+        Metadata(provider="test", model="test-model", cwd=valid_cwd, workspace_spec=spec),
         [],
     )
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = persistent_session(engine, st, store.Metadata(ID=NEW_ID))
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = persistent_session(engine, st, store.Metadata(id=NEW_ID))
     with pytest.raises(ValueError, match="saved workspace is no longer valid"):
-        await session.Resume(SessionID(meta.ID))
+        await session.resume(SessionID(meta.id))
 
-    persisted = st.Metadata(store.SessionID(meta.ID))
-    assert persisted.Workspace is not None
-    assert persisted.Workspace.PrimaryRoot == missing
+    persisted = st.metadata(store.SessionID(meta.id))
+    assert persisted.workspace is not None
+    assert persisted.workspace.primary_root == missing
 
 
 @pytest.mark.asyncio
 async def test_resume_fails_when_workspace_migration_cannot_be_persisted(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     legacy_cwd = str(tmp_path / "legacy")
     os.mkdir(legacy_cwd)
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=legacy_cwd), [])
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=legacy_cwd), [])
     repository = FailingWorkspaceRepository(st)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = NewPersistentSession(
-        engine, repository, configured_workspace(str(tmp_path)), Metadata(ID=SessionID("new"))
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = new_persistent_session(
+        engine, repository, configured_workspace(str(tmp_path)), Metadata(id=SessionID("new"))
     )
     with pytest.raises(ValueError, match="persist migrated workspace"):
-        await session.Resume(SessionID(meta.ID))
+        await session.resume(SessionID(meta.id))
 
-    persisted = st.Metadata(meta.ID)
-    assert persisted.Workspace is None
+    persisted = st.metadata(meta.id)
+    assert persisted.workspace is None
 
 
 @pytest.mark.asyncio
 async def test_resume_upgrades_legacy_workspace_only_once(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     legacy_cwd = str(tmp_path / "legacy")
     os.mkdir(legacy_cwd)
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=legacy_cwd), [])
-    spy = CanonicalizeSpy(workspace.NewDefaultContext(str(tmp_path)))
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    session = NewPersistentSession(engine, store.NewRepository(st), spy, Metadata(ID=SessionID("new")))
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=legacy_cwd), [])
+    spy = CanonicalizeSpy(workspace.new_default_context(str(tmp_path)))
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    session = new_persistent_session(engine, store.new_repository(st), spy, Metadata(id=SessionID("new")))
 
-    await session.Resume(SessionID(meta.ID))
+    await session.resume(SessionID(meta.id))
     assert spy.calls == 1
-    await session.Resume(SessionID(meta.ID))
+    await session.resume(SessionID(meta.id))
     assert spy.calls == 1
 
 
 def test_session_list_preserves_parent_relationship(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    repository = store.NewRepository(st)
-    created = repository.Create(Metadata(ParentID=SessionID("parent"), Provider="test", Model="model"), [])
+    st = store.new(str(tmp_path / "store"))
+    repository = store.new_repository(st)
+    created = repository.create(Metadata(parent_id=SessionID("parent"), provider="test", model="model"), [])
 
-    items = repository.List()
+    items = repository.list()
 
     assert len(items) == 1
-    assert items[0].ID == created.ID
-    assert items[0].ParentID == "parent"
+    assert items[0].id == created.id
+    assert items[0].parent_id == "parent"
 
 
 @pytest.mark.asyncio
 async def test_session_fork_copies_transcript_and_selects_child(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    initial = [Message(Role=RoleSystem, Content="rules")]
-    meta = st.Create(store.Metadata(Title="parent", Provider="test", Model="model", CWD=str(tmp_path)), initial)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), initial)
-    await engine.Ready()
+    st = store.new(str(tmp_path / "store"))
+    initial = [Message(role=ROLE_SYSTEM, content="rules")]
+    meta = st.create(store.Metadata(title="parent", provider="test", model="model", cwd=str(tmp_path)), initial)
+    engine = new_engine_with_executor(StaticReplyExecutor(), initial)
+    await engine.ready()
     session = persistent_session(engine, st, meta)
 
-    child = await session.Fork("experiment")
+    child = await session.fork("experiment")
 
-    assert child.ParentID == SessionID(meta.ID)
-    assert session.Metadata().ID == child.ID
-    messages, _meta = store.NewRepository(st).Load(child.ID)
+    assert child.parent_id == SessionID(meta.id)
+    assert session.metadata().id == child.id
+    messages, _meta = store.new_repository(st).load(child.id)
     assert len(messages) == 1
-    assert messages[0].Content == "rules"
+    assert messages[0].content == "rules"
 
 
 @pytest.mark.asyncio
 async def test_cross_session_memory_updates_transcript(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    initial = [Message(Role=RoleSystem, Content="rules"), Message(Role=RoleUser, Content="hello")]
-    meta = st.Create(store.Metadata(Title="memory", CWD=str(tmp_path)), initial)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), initial)
-    await engine.Ready()
+    st = store.new(str(tmp_path / "store"))
+    initial = [Message(role=ROLE_SYSTEM, content="rules"), Message(role=ROLE_USER, content="hello")]
+    meta = st.create(store.Metadata(title="memory", cwd=str(tmp_path)), initial)
+    engine = new_engine_with_executor(StaticReplyExecutor(), initial)
+    await engine.ready()
     session = persistent_session(engine, st, meta)
 
-    await session.Remember("Prefer concise answers")
-    assert session.Memories() == ["Prefer concise answers"]
+    await session.remember("Prefer concise answers")
+    assert session.memories() == ["Prefer concise answers"]
 
-    messages = session.Snapshot().Messages
+    messages = session.snapshot().messages
     assert len(messages) == 3
-    assert "Prefer concise answers" in messages[0].Content
-    assert messages[2].Content == "hello"
+    assert "Prefer concise answers" in messages[0].content
+    assert messages[2].content == "hello"
 
-    await session.ForgetMemories()
-    assert len(session.Snapshot().Messages) == 2
+    await session.forget_memories()
+    assert len(session.snapshot().messages) == 2
 
 
 @pytest.mark.asyncio
 async def test_persistent_reset_preserves_system_messages(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    initial = [Message(Role=RoleSystem, Content="rules")]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(tmp_path)), initial)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), initial)
-    await engine.Ready()
+    st = store.new(str(tmp_path / "store"))
+    initial = [Message(role=ROLE_SYSTEM, content="rules")]
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(tmp_path)), initial)
+    engine = new_engine_with_executor(StaticReplyExecutor(), initial)
+    await engine.ready()
     session = persistent_session(engine, st, meta)
 
     await run_turn(session, "hi")
-    await session.Reset()
+    await session.reset()
 
-    messages = st.Messages(meta.ID)
+    messages = st.messages(meta.id)
     assert len(messages) == 1
-    assert messages[0].Role == RoleSystem
+    assert messages[0].role == ROLE_SYSTEM
 
 
 @pytest.mark.asyncio
 async def test_conversation_replacement_persists_exact_agent_context(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    initial = [Message(Role=RoleSystem, Content="build")]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(tmp_path)), initial)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), initial)
-    await engine.Ready()
+    st = store.new(str(tmp_path / "store"))
+    initial = [Message(role=ROLE_SYSTEM, content="build")]
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(tmp_path)), initial)
+    engine = new_engine_with_executor(StaticReplyExecutor(), initial)
+    await engine.ready()
     session = persistent_session(engine, st, meta)
 
-    await session.ReplaceConversation([Message(Role=RoleSystem, Content="plan")])
+    await session.replace_conversation([Message(role=ROLE_SYSTEM, content="plan")])
 
-    messages = st.Messages(meta.ID)
+    messages = st.messages(meta.id)
     assert len(messages) == 1
-    assert messages[0].Content == "plan"
+    assert messages[0].content == "plan"
 
 
 @pytest.mark.asyncio
 async def test_compact_keeps_system_instructions_and_newest_context(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    initial = [Message(Role=RoleSystem, Content="rules")]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(tmp_path)), initial)
+    st = store.new(str(tmp_path / "store"))
+    initial = [Message(role=ROLE_SYSTEM, content="rules")]
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(tmp_path)), initial)
     messages = [
         *initial,
-        Message(Role=RoleUser, Content="one"),
-        Message(Role=RoleAssistant, Content="two"),
-        Message(Role=RoleUser, Content="three"),
-        Message(Role=RoleAssistant, Content="four"),
+        Message(role=ROLE_USER, content="one"),
+        Message(role=ROLE_ASSISTANT, content="two"),
+        Message(role=ROLE_USER, content="three"),
+        Message(role=ROLE_ASSISTANT, content="four"),
     ]
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), messages)
-    await engine.ReplaceMessages(messages)
+    engine = new_engine_with_executor(StaticReplyExecutor(), messages)
+    await engine.replace_messages(messages)
     session = persistent_session(engine, st, meta)
 
-    await session.Compact(LiveContext(), "", 2)
+    await session.compact(live_context(), "", 2)
 
-    got = session.Snapshot().Messages
+    got = session.snapshot().messages
     assert len(got) == 4
-    assert got[0].Role == RoleSystem
-    assert got[0].Content == "rules"
-    assert got[1].Role == RoleSystem
-    assert got[1].Content == "Conversation summary:\nmodel summary"
-    assert got[2].Content == "three"
-    assert got[3].Content == "four"
+    assert got[0].role == ROLE_SYSTEM
+    assert got[0].content == "rules"
+    assert got[1].role == ROLE_SYSTEM
+    assert got[1].content == "Conversation summary:\nmodel summary"
+    assert got[2].content == "three"
+    assert got[3].content == "four"
 
 
 @pytest.mark.asyncio
 async def test_compact_keeps_assistant_for_retained_tool_results(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    call1 = ToolCall(ID="call-1", Name="first")
-    call2 = ToolCall(ID="call-2", Name="second")
+    st = store.new(str(tmp_path / "store"))
+    call1 = ToolCall(id="call-1", name="first")
+    call2 = ToolCall(id="call-2", name="second")
     messages = [
-        Message(Role=RoleSystem, Content="rules"),
-        Message(Role=RoleAssistant, ToolCalls=(call1, call2)),
-        Message(Role=RoleTool, ToolCallID=call1.ID, ToolName=call1.Name, Content="one"),
-        Message(Role=RoleTool, ToolCallID=call2.ID, ToolName=call2.Name, Content="two"),
-        Message(Role=RoleUser, Content="next"),
-        Message(Role=RoleAssistant, Content="done"),
+        Message(role=ROLE_SYSTEM, content="rules"),
+        Message(role=ROLE_ASSISTANT, tool_calls=(call1, call2)),
+        Message(role=ROLE_TOOL, tool_call_id=call1.id, tool_name=call1.name, content="one"),
+        Message(role=ROLE_TOOL, tool_call_id=call2.id, tool_name=call2.name, content="two"),
+        Message(role=ROLE_USER, content="next"),
+        Message(role=ROLE_ASSISTANT, content="done"),
     ]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(tmp_path)), messages)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), messages)
-    await engine.ReplaceMessages(messages)
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(tmp_path)), messages)
+    engine = new_engine_with_executor(StaticReplyExecutor(), messages)
+    await engine.replace_messages(messages)
     session = persistent_session(engine, st, meta)
 
-    await session.Compact(LiveContext(), "summary", 3)
+    await session.compact(live_context(), "summary", 3)
 
-    got = session.Snapshot().Messages
+    got = session.snapshot().messages
     assert len(got) == 7
-    assert got[2].Role == RoleAssistant
-    assert got[2].ToolCalls is not None
-    assert len(got[2].ToolCalls) == 2
-    assert got[3].ToolCallID == call1.ID
-    assert got[4].ToolCallID == call2.ID
+    assert got[2].role == ROLE_ASSISTANT
+    assert got[2].tool_calls is not None
+    assert len(got[2].tool_calls) == 2
+    assert got[3].tool_call_id == call1.id
+    assert got[4].tool_call_id == call2.id
 
 
 @pytest.mark.asyncio
 async def test_compact_skips_summary_when_history_already_fits(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     messages = [
-        Message(Role=RoleSystem, Content="rules"),
-        Message(Role=RoleUser, Content="one"),
-        Message(Role=RoleAssistant, Content="two"),
+        Message(role=ROLE_SYSTEM, content="rules"),
+        Message(role=ROLE_USER, content="one"),
+        Message(role=ROLE_ASSISTANT, content="two"),
     ]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(tmp_path)), messages)
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(tmp_path)), messages)
     executor = StaticReplyExecutor()
-    engine = NewEngineWithExecutor(executor, messages)
-    await engine.ReplaceMessages(messages)
+    engine = new_engine_with_executor(executor, messages)
+    await engine.replace_messages(messages)
     session = persistent_session(engine, st, meta)
 
-    await session.Compact(LiveContext(), "", 4)
+    await session.compact(live_context(), "", 4)
 
     assert executor.calls == 0
-    assert len(session.Snapshot().Messages) == len(messages)
+    assert len(session.snapshot().messages) == len(messages)
 
 
 @pytest.mark.asyncio
 async def test_compact_does_not_duplicate_transcript_on_resume(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    initial = [Message(Role=RoleSystem, Content="rules")]
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(tmp_path)), initial)
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), initial)
-    await engine.Ready()
+    st = store.new(str(tmp_path / "store"))
+    initial = [Message(role=ROLE_SYSTEM, content="rules")]
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(tmp_path)), initial)
+    engine = new_engine_with_executor(StaticReplyExecutor(), initial)
+    await engine.ready()
     session = persistent_session(engine, st, meta)
 
     for query in ("one", "two", "three"):
         await run_turn(session, query)
-    await session.Compact(LiveContext(), "summary", 2)
+    await session.compact(live_context(), "summary", 2)
     await run_turn(session, "four")
 
-    messages = st.Messages(meta.ID)
-    rules = sum(1 for m in messages if m.Role == RoleSystem and m.Content == "rules")
-    summaries = sum(1 for m in messages if m.Content == "Conversation summary:\nsummary")
-    user_fours = sum(1 for m in messages if m.Role == RoleUser and m.Content == "four")
+    messages = st.messages(meta.id)
+    rules = sum(1 for m in messages if m.role == ROLE_SYSTEM and m.content == "rules")
+    summaries = sum(1 for m in messages if m.content == "Conversation summary:\nsummary")
+    user_fours = sum(1 for m in messages if m.role == ROLE_USER and m.content == "four")
     # Kept messages are persisted through the compaction record; re-emitting them
     # as appended messages would duplicate the transcript on replay.
     assert rules == 1
@@ -509,18 +509,18 @@ async def test_undo_restores_write_file_checkpoint(tmp_path: Path) -> None:
     directory.mkdir()
     path = directory / "fixture.txt"
     path.write_text("before")
-    st = store.New(str(tmp_path / "store"))
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(directory)), [])
+    st = store.new(str(tmp_path / "store"))
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(directory)), [])
     checkpoint = store.Checkpoint(
-        ID="cp1",
-        Files=(store.FileSnapshot(Path=str(path), Exists=True, Content="before", Mode=0o644),),
+        id="cp1",
+        files=(store.FileSnapshot(path=str(path), exists=True, content="before", mode=0o644),),
     )
-    st.Append(meta.ID, store.Record(Type=store.EventCheckpoint, Checkpoint=checkpoint))
+    st.append(meta.id, store.Record(type=store.EVENT_CHECKPOINT, checkpoint=checkpoint))
     path.write_text("after")
 
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
     session = persistent_session(engine, st, meta)
-    await session.Undo()
+    await session.undo()
 
     assert path.read_text() == "before"
 
@@ -531,70 +531,70 @@ async def test_undo_truncates_transcript_after_checkpoint(tmp_path: Path) -> Non
     directory.mkdir()
     path = directory / "fixture.txt"
     path.write_text("before")
-    st = store.New(str(tmp_path / "store"))
-    meta = st.Create(store.Metadata(Provider="test", Model="test-model", CWD=str(directory)), [])
-    st.Append(
-        meta.ID,
-        store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content="write file")),
+    st = store.new(str(tmp_path / "store"))
+    meta = st.create(store.Metadata(provider="test", model="test-model", cwd=str(directory)), [])
+    st.append(
+        meta.id,
+        store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content="write file")),
     )
     checkpoint = store.Checkpoint(
-        ID="cp1",
-        Files=(store.FileSnapshot(Path=str(path), Exists=True, Content="before", Mode=0o644),),
+        id="cp1",
+        files=(store.FileSnapshot(path=str(path), exists=True, content="before", mode=0o644),),
     )
-    st.Append(meta.ID, store.Record(Type=store.EventCheckpoint, Checkpoint=checkpoint))
-    call = ToolCall(ID="call-1", Name="write_file")
-    st.Append(meta.ID, store.Record(Type=store.EventToolResult, ToolCall=call, Result="wrote"))
-    st.Append(
-        meta.ID,
-        store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleAssistant, Content="done")),
+    st.append(meta.id, store.Record(type=store.EVENT_CHECKPOINT, checkpoint=checkpoint))
+    call = ToolCall(id="call-1", name="write_file")
+    st.append(meta.id, store.Record(type=store.EVENT_TOOL_RESULT, tool_call=call, result="wrote"))
+    st.append(
+        meta.id,
+        store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_ASSISTANT, content="done")),
     )
     path.write_text("after")
 
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
     session = persistent_session(engine, st, meta)
-    await session.Undo()
+    await session.undo()
 
     assert path.read_text() == "before"
-    messages = session.Snapshot().Messages
+    messages = session.snapshot().messages
     assert len(messages) == 1
-    assert messages[0].Role == RoleUser
-    assert messages[0].Content == "write file"
-    replayed = st.Messages(meta.ID)
+    assert messages[0].role == ROLE_USER
+    assert messages[0].content == "write file"
+    replayed = st.messages(meta.id)
     assert len(replayed) == 1
-    assert replayed[0].Content == "write file"
+    assert replayed[0].content == "write file"
 
 
 def test_session_checkpoint_uses_workspace_and_repository_ports(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    meta = st.Create(store.Metadata(Provider="test"), [])
-    engine = NewEngineWithExecutor(StaticReplyExecutor(), None)
-    port = CheckpointWorkspace([FileSnapshot(Path="/work/file", Exists=True, Content="before", Mode=0o644)])
-    session = NewPersistentSession(engine, store.NewRepository(st), port, Metadata(ID=SessionID(meta.ID)))
+    st = store.new(str(tmp_path / "store"))
+    meta = st.create(store.Metadata(provider="test"), [])
+    engine = new_engine_with_executor(StaticReplyExecutor(), None)
+    port = CheckpointWorkspace([FileSnapshot(path="/work/file", exists=True, content="before", mode=0o644)])
+    session = new_persistent_session(engine, store.new_repository(st), port, Metadata(id=SessionID(meta.id)))
 
-    session.Checkpoint(ToolCall(Name="write_file", Input='{"path":"file"}'))
+    session.checkpoint(ToolCall(name="write_file", input='{"path":"file"}'))
 
     assert port.paths == ["file"]
-    records = st.Records(meta.ID)
+    records = st.records(meta.id)
     last = records[-1]
-    assert last.Type == store.EventCheckpoint
-    assert last.Checkpoint is not None
-    assert last.Checkpoint.Files[0].Content == "before"
+    assert last.type == store.EVENT_CHECKPOINT
+    assert last.checkpoint is not None
+    assert last.checkpoint.files[0].content == "before"
 
 
 @pytest.mark.asyncio
 async def test_session_run_turn_refuses_a_second_turn(tmp_path: Path) -> None:
     release = asyncio.Event()
     model = BlockingModel(release)
-    engine = NewEngine(model, FakeToolRunner(), None)
-    await engine.Ready()
-    session = NewSession(engine)
+    engine = new_engine(model, FakeToolRunner(), None)
+    await engine.ready()
+    session = new_session(engine)
     notifications, approvals = new_queues()
-    first = asyncio.create_task(session.RunTurn(LiveContext(), "one", notifications, approvals))
+    first = asyncio.create_task(session.run_turn(live_context(), "one", notifications, approvals))
     await model.started.wait()
 
     second_notifications, second_approvals = new_queues()
     with pytest.raises(RuntimeError, match="session is already running a turn"):
-        await session.RunTurn(LiveContext(), "two", second_notifications, second_approvals)
+        await session.run_turn(live_context(), "two", second_notifications, second_approvals)
     # The busy path still closes the notification queue, so a consumer that is
     # draining it terminates instead of waiting forever.
     assert isinstance(second_notifications.get_nowait(), NotificationsClosed)
@@ -604,14 +604,14 @@ async def test_session_run_turn_refuses_a_second_turn(tmp_path: Path) -> None:
 
 
 def test_store_serializes_concurrent_appends(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
-    meta = st.Create(store.Metadata(Provider="test"), [])
-    st.SetCurrentTurn(meta.ID, store.TurnID("turn-1"))
+    st = store.new(str(tmp_path / "store"))
+    meta = st.create(store.Metadata(provider="test"), [])
+    st.set_current_turn(meta.id, store.TurnID("turn-1"))
 
     def append() -> None:
-        st.Append(
-            meta.ID,
-            store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content="x")),
+        st.append(
+            meta.id,
+            store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content="x")),
         )
 
     threads = [threading.Thread(target=append) for _ in range(20)]
@@ -620,63 +620,63 @@ def test_store_serializes_concurrent_appends(tmp_path: Path) -> None:
     for thread in threads:
         thread.join()
 
-    records = st.Records(meta.ID)
-    appended = [record for record in records if record.Type == store.EventMessageAppended]
+    records = st.records(meta.id)
+    appended = [record for record in records if record.type == store.EVENT_MESSAGE_APPENDED]
     assert len(appended) == 20
     for record in appended:
-        assert record.TurnID == "turn-1", "a torn meta.json interleave lost the turn id"
+        assert record.turn_id == "turn-1", "a torn meta.json interleave lost the turn id"
 
 
 # --- store-only cases --------------------------------------------------------
 
 
 def test_store_rejects_session_ids_that_escape_root(tmp_path: Path) -> None:
-    st = store.New(str(tmp_path / "store"))
+    st = store.new(str(tmp_path / "store"))
     for bad in ("../..", "..", ".", "a/b", "_memory", "", "x y"):
         session_id = store.SessionID(bad)
         with pytest.raises(ValueError):
-            st.Delete(session_id)
+            st.delete(session_id)
         with pytest.raises(ValueError):
-            st.Append(session_id, store.Record(Type=store.EventSessionStarted))
+            st.append(session_id, store.Record(type=store.EVENT_SESSION_STARTED))
 
 
 def test_store_heals_torn_tail_line(tmp_path: Path) -> None:
     root = tmp_path / "store"
-    st = store.New(str(root))
-    meta = st.Create(store.Metadata(), [])
-    st.Append(
-        meta.ID,
-        store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content="before crash")),
+    st = store.new(str(root))
+    meta = st.create(store.Metadata(), [])
+    st.append(
+        meta.id,
+        store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content="before crash")),
     )
     # Simulate a crash mid-append by appending a truncated JSON line.
-    events_path = root / str(meta.ID) / "events.jsonl"
+    events_path = root / str(meta.id) / "events.jsonl"
     with events_path.open("ab") as handle:
         handle.write(b'{"type":"message_app')
 
-    messages = st.Messages(meta.ID)
+    messages = st.messages(meta.id)
     assert len(messages) == 1
-    assert messages[0].Content == "before crash"
+    assert messages[0].content == "before crash"
 
     # The healed file must accept new appends.
-    st.Append(
-        meta.ID,
-        store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content="after crash")),
+    st.append(
+        meta.id,
+        store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content="after crash")),
     )
-    messages = st.Messages(meta.ID)
+    messages = st.messages(meta.id)
     assert len(messages) == 2
-    assert messages[1].Content == "after crash"
+    assert messages[1].content == "after crash"
 
 
 def test_store_fails_loudly_on_mid_file_corruption_with_byte_offset(tmp_path: Path) -> None:
     root = tmp_path / "store"
-    st = store.New(str(root))
-    meta = st.Create(store.Metadata(), [])
+    st = store.new(str(root))
+    meta = st.create(store.Metadata(), [])
     for content in ("one", "two", "three"):
-        st.Append(
-            meta.ID,
-            store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content=content)),
+        st.append(
+            meta.id,
+            store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content=content)),
         )
-    events_path = root / str(meta.ID) / "events.jsonl"
+    events_path = root / str(meta.id) / "events.jsonl"
     lines = events_path.read_bytes().split(b"\n")
     prefix = b"\n".join(lines[:2]) + b"\n"
     offset = len(prefix)
@@ -685,38 +685,38 @@ def test_store_fails_loudly_on_mid_file_corruption_with_byte_offset(tmp_path: Pa
     # The failure names the byte offset of the record that could not be read,
     # rather than silently dropping it and rewriting history.
     with pytest.raises(ValueError, match=f"corrupt session event at byte {offset}"):
-        st.Messages(meta.ID)
+        st.messages(meta.id)
 
 
 def test_store_rejects_an_event_line_over_the_read_cap(tmp_path: Path) -> None:
     assert store.MAX_EVENT_BYTES == 20 * 1024 * 1024
     root = tmp_path / "store"
-    st = store.New(str(root))
-    meta = st.Create(store.Metadata(), [])
-    events_path = root / str(meta.ID) / "events.jsonl"
+    st = store.new(str(root))
+    meta = st.create(store.Metadata(), [])
+    events_path = root / str(meta.id) / "events.jsonl"
     oversized = b"x" * (20 * 1024 * 1024)
     with events_path.open("ab") as handle:
         handle.write(
             b'{"type":"message_appended","session_id":"'
-            + str(meta.ID).encode()
+            + str(meta.id).encode()
             + b'","time":"2026-09-16T12:00:00Z","message":{"role":"user","content":"'
             + oversized
             + b'"}}\n'
         )
 
     with pytest.raises(ValueError, match="read cap"):
-        st.Messages(meta.ID)
+        st.messages(meta.id)
 
 
 def test_new_id_and_new_turn_id_carry_nine_fractional_digits() -> None:
     fixed = dt.datetime(2026, 9, 16, 12, 0, 0, 123456, tzinfo=dt.UTC)
-    assert store.NewID(fixed) == "20260916T120000123456000"
-    assert store.NewTurnID(fixed) == "20260916T120000.123456000"
+    assert store.new_id(fixed) == "20260916T120000123456000"
+    assert store.new_turn_id(fixed) == "20260916T120000.123456000"
 
     # The whole point of the hand-rolled fraction: strftime("%f") stops at six
     # digits, so the live identifiers are checked against a nine-digit pattern.
-    assert re.fullmatch(r"\d{8}T\d{6}\d{9}", store.NewID(dt.datetime.now(dt.UTC)))
-    assert re.fullmatch(r"\d{8}T\d{6}\.\d{9}", store.NewTurnID(dt.datetime.now(dt.UTC)))
+    assert re.fullmatch(r"\d{8}T\d{6}\d{9}", store.new_id(dt.datetime.now(dt.UTC)))
+    assert re.fullmatch(r"\d{8}T\d{6}\.\d{9}", store.new_turn_id(dt.datetime.now(dt.UTC)))
 
 
 def test_validate_id_accepts_its_own_basename_and_rejects_everything_else() -> None:
@@ -730,10 +730,10 @@ def test_validate_id_accepts_its_own_basename_and_rejects_everything_else() -> N
 
 def test_metadata_writes_are_atomic_with_expected_modes_and_layout(tmp_path: Path) -> None:
     root = tmp_path / "store"
-    st = store.New(str(root))
-    meta = st.Create(store.Metadata(Title="atomic"), [])
+    st = store.new(str(root))
+    meta = st.create(store.Metadata(title="atomic"), [])
 
-    session_dir = root / str(meta.ID)
+    session_dir = root / str(meta.id)
     meta_path = session_dir / "meta.json"
     raw = meta_path.read_bytes()
     assert raw.endswith(b"\n")
@@ -744,7 +744,7 @@ def test_metadata_writes_are_atomic_with_expected_modes_and_layout(tmp_path: Pat
     # No temp file survives the atomic replace.
     assert sorted(path.name for path in session_dir.iterdir()) == ["events.jsonl", "meta.json"]
 
-    st.SaveMemory(["remember this"])
+    st.save_memory(["remember this"])
     memory_path = root / "_memory.json"
     assert memory_path.read_bytes() == b'[\n  "remember this"\n]\n'
     assert stat.S_IMODE(memory_path.stat().st_mode) == 0o600
@@ -757,103 +757,103 @@ def test_store_replays_a_checked_in_session_store(tmp_path: Path) -> None:
     """Read the checked-in golden store and replay every message path."""
     sessions = tmp_path / "sessions"
     shutil.copytree(SESSION_STORE_FIXTURE, sessions)
-    st = store.New(str(sessions))
+    st = store.new(str(sessions))
     session_id = store.SessionID("20260916T120000123456789")
     session_key = SessionID(str(session_id))
 
-    records = st.Records(session_id)
-    assert [record.Type for record in records] == [
-        store.EventSessionStarted,
-        store.EventMessageAppended,
-        store.EventSessionStarted,
-        store.EventMessageAppended,
-        store.EventMessageAppended,
-        store.EventMessageAppended,
-        store.EventToolResult,
-        store.EventApprovalDecision,
-        store.EventCheckpoint,
-        store.EventError,
-        store.EventCancel,
-        store.EventCompact,
-        store.EventReset,
-        store.EventContextReplaced,
+    records = st.records(session_id)
+    assert [record.type for record in records] == [
+        store.EVENT_SESSION_STARTED,
+        store.EVENT_MESSAGE_APPENDED,
+        store.EVENT_SESSION_STARTED,
+        store.EVENT_MESSAGE_APPENDED,
+        store.EVENT_MESSAGE_APPENDED,
+        store.EVENT_MESSAGE_APPENDED,
+        store.EVENT_TOOL_RESULT,
+        store.EVENT_APPROVAL_DECISION,
+        store.EVENT_CHECKPOINT,
+        store.EVENT_ERROR,
+        store.EVENT_CANCEL,
+        store.EVENT_COMPACT,
+        store.EVENT_RESET,
+        store.EVENT_CONTEXT_REPLACED,
     ]
 
     # 1. appended messages, including a tool-call message and reasoning content.
-    appended = [record for record in records if record.Type == store.EventMessageAppended]
+    appended = [record for record in records if record.type == store.EVENT_MESSAGE_APPENDED]
     assert store.messagesFromRecords(appended) == [
-        Message(Role=RoleSystem, Content="system prompt"),
-        Message(Role=RoleUser, Content="hello"),
-        Message(Role=RoleAssistant, Content="hi there", ReasoningContent="thinking"),
+        Message(role=ROLE_SYSTEM, content="system prompt"),
+        Message(role=ROLE_USER, content="hello"),
+        Message(role=ROLE_ASSISTANT, content="hi there", reasoning_content="thinking"),
         Message(
-            Role=RoleAssistant,
-            Content="calling",
-            ToolCalls=(ToolCall(ID="call-1", Name="bash", Input='{"command":"pwd"}'),),
+            role=ROLE_ASSISTANT,
+            content="calling",
+            tool_calls=(ToolCall(id="call-1", name="bash", input='{"command":"pwd"}'),),
         ),
     ]
     # 2. tool results become ordinary tool messages.
-    tool_results = [record for record in records if record.Type == store.EventToolResult]
+    tool_results = [record for record in records if record.type == store.EVENT_TOOL_RESULT]
     assert store.messagesFromRecords(tool_results) == [
-        Message(Role=RoleTool, ToolCallID="call-1", ToolName="bash", Content="/tmp/workspace")
+        Message(role=ROLE_TOOL, tool_call_id="call-1", tool_name="bash", content="/tmp/workspace")
     ]
     # 3. compaction replaces the transcript with its own kept_messages.
-    compact = next(record for record in records if record.Type == store.EventCompact)
-    assert compact.Compact is not None
-    assert store.messagesFromRecords([compact]) == list(compact.Compact.KeptMessages)
+    compact = next(record for record in records if record.type == store.EVENT_COMPACT)
+    assert compact.compact is not None
+    assert store.messagesFromRecords([compact]) == list(compact.compact.kept_messages)
     # 4. reset keeps only the system messages that survived compaction.
-    assert store.messagesFromRecords(records[:13]) == list(compact.Compact.KeptMessages)
+    assert store.messagesFromRecords(records[:13]) == list(compact.compact.kept_messages)
     # 5. context replacement is authoritative; the final replay is exactly it.
-    assert st.Messages(session_id) == [Message(Role=RoleSystem, Content="replaced")]
+    assert st.messages(session_id) == [Message(role=ROLE_SYSTEM, content="replaced")]
 
-    summaries = st.List()
-    assert [summary.ID for summary in summaries] == [
+    summaries = st.list()
+    assert [summary.id for summary in summaries] == [
         store.SessionID("20260916T130000000000000"),
         session_id,
     ]
-    assert summaries[1].Title == "fixture session"
-    assert summaries[1].Provider == "deepseek"
-    assert summaries[1].Model == "deepseek-reasoner"
+    assert summaries[1].title == "fixture session"
+    assert summaries[1].provider == "deepseek"
+    assert summaries[1].model == "deepseek-reasoner"
 
-    repository = store.NewRepository(st)
-    messages, meta = repository.Load(session_key)
-    assert messages == [Message(Role=RoleSystem, Content="replaced")]
-    assert session_key == meta.ID
-    assert meta.CWD == "/tmp/workspace"
-    assert meta.ProjectID == "/tmp/workspace"
-    assert meta.ConfigRoot == "/home/user"
-    assert meta.InstructionSources == ("AGENTS.md", "/home/user/.superagent/AGENTS.md")
-    assert meta.WorkspaceSpec is not None
-    assert meta.WorkspaceSpec.PrimaryRoot == "/tmp/workspace"
-    assert meta.WorkspaceSpec.Roots[0].Access == "read_write"
+    repository = store.new_repository(st)
+    messages, meta = repository.load(session_key)
+    assert messages == [Message(role=ROLE_SYSTEM, content="replaced")]
+    assert session_key == meta.id
+    assert meta.cwd == "/tmp/workspace"
+    assert meta.project_id == "/tmp/workspace"
+    assert meta.config_root == "/home/user"
+    assert meta.instruction_sources == ("AGENTS.md", "/home/user/.superagent/AGENTS.md")
+    assert meta.workspace_spec is not None
+    assert meta.workspace_spec.primary_root == "/tmp/workspace"
+    assert meta.workspace_spec.roots[0].access == "read_write"
 
-    audit = repository.LoadAuditEvents(session_key)
-    assert [event.Type for event in audit] == [
-        store.EventToolResult,
-        store.EventApprovalDecision,
-        store.EventError,
-        store.EventCancel,
+    audit = repository.load_audit_events(session_key)
+    assert [event.type for event in audit] == [
+        store.EVENT_TOOL_RESULT,
+        store.EVENT_APPROVAL_DECISION,
+        store.EVENT_ERROR,
+        store.EVENT_CANCEL,
     ]
-    assert audit[0].ToolCall is not None
-    assert audit[0].ToolCall.Name == "bash"
-    assert audit[0].Result == "/tmp/workspace"
-    assert audit[1].Decision == "once"
-    assert audit[2].Error == "something failed"
+    assert audit[0].tool_call is not None
+    assert audit[0].tool_call.name == "bash"
+    assert audit[0].result == "/tmp/workspace"
+    assert audit[1].decision == "once"
+    assert audit[2].error == "something failed"
 
-    assert st.LoadMemory() == ["remember this", "and this"]
+    assert st.load_memory() == ["remember this", "and this"]
 
-    files, undo_messages, index = repository.LoadUndoPoint(session_key)
+    files, undo_messages, index = repository.load_undo_point(session_key)
     assert index == 8
     assert undo_messages == store.messagesFromRecords(records[:8])
     assert len(undo_messages) == 5
     assert len(files) == 1
-    assert files[0].Path == "a.txt"
-    assert files[0].Exists is True
-    assert files[0].Content == "old"
-    assert files[0].Mode == 420
+    assert files[0].path == "a.txt"
+    assert files[0].exists is True
+    assert files[0].content == "old"
+    assert files[0].mode == 420
 
     # The fixture is a copy, so mutating it proves the store writes what it read.
-    st.Append(
+    st.append(
         session_id,
-        store.Record(Type=store.EventMessageAppended, Message=Message(Role=RoleUser, Content="after replay")),
+        store.Record(type=store.EVENT_MESSAGE_APPENDED, message=Message(role=ROLE_USER, content="after replay")),
     )
-    assert st.Messages(session_id)[-1].Content == "after replay"
+    assert st.messages(session_id)[-1].content == "after replay"

@@ -22,11 +22,11 @@ from super_agent.runtime.execution.command_analyzer import (
     toolPaths,
 )
 from super_agent.runtime.permission.types import (
-    CommandClassDestructive,
-    CommandClassNetwork,
-    CommandClassReadOnly,
-    CommandClassUnknown,
-    CommandClassWrite,
+    COMMAND_CLASS_DESTRUCTIVE,
+    COMMAND_CLASS_NETWORK,
+    COMMAND_CLASS_READ_ONLY,
+    COMMAND_CLASS_UNKNOWN,
+    COMMAND_CLASS_WRITE,
     Request as PermissionRequest,
 )
 from super_agent.runtime.protocol.types import ToolCall, ToolSpec
@@ -35,9 +35,9 @@ from super_agent.runtime.protocol.types import ToolCall, ToolSpec
 class ToolDecision(IntEnum):
     """What to do with one tool call."""
 
-    DecisionNeedsApproval = 0
-    DecisionRunDirectly = 1
-    DecisionDenied = 2
+    DECISION_NEEDS_APPROVAL = 0
+    DECISION_RUN_DIRECTLY = 1
+    DECISION_DENIED = 2
 
 
 class PermissionMode(str):
@@ -49,69 +49,73 @@ class PermissionMode(str):
         return f"PermissionMode({str.__repr__(self)})"
 
 
-PermissionModeAsk: Final[PermissionMode] = PermissionMode("ask")
-PermissionModeAcceptEdits: Final[PermissionMode] = PermissionMode("accept-edits")
-PermissionModePlan: Final[PermissionMode] = PermissionMode("plan")
-PermissionModeBypass: Final[PermissionMode] = PermissionMode("bypass")
+PERMISSION_MODE_ASK: Final[PermissionMode] = PermissionMode("ask")
+PERMISSION_MODE_ACCEPT_EDITS: Final[PermissionMode] = PermissionMode("accept-edits")
+PERMISSION_MODE_PLAN: Final[PermissionMode] = PermissionMode("plan")
+PERMISSION_MODE_BYPASS: Final[PermissionMode] = PermissionMode("bypass")
 
 #: The zero value for the type. :func:`NewPolicy` reads it as "use the default".
-ZeroPermissionMode: Final[PermissionMode] = PermissionMode("")
+ZERO_PERMISSION_MODE: Final[PermissionMode] = PermissionMode("")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class PermissionRules:
     """The operator-configured allow and deny lists."""
 
-    AllowTools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_tools", omitempty=True))
-    DenyTools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_tools", omitempty=True))
-    AllowPrefixes: tuple[str, ...] = dataclasses.field(
+    allow_tools: tuple[str, ...] = dataclasses.field(
+        default=(), metadata=json_field(name="allow_tools", omitempty=True)
+    )
+    deny_tools: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_tools", omitempty=True))
+    allow_prefixes: tuple[str, ...] = dataclasses.field(
         default=(), metadata=json_field(name="allow_command_prefixes", omitempty=True)
     )
-    DenyPrefixes: tuple[str, ...] = dataclasses.field(
+    deny_prefixes: tuple[str, ...] = dataclasses.field(
         default=(), metadata=json_field(name="deny_command_prefixes", omitempty=True)
     )
-    AllowPaths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_paths", omitempty=True))
-    DenyPaths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_paths", omitempty=True))
-    AllowEnv: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_env", omitempty=True))
-    DenyEnv: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_env", omitempty=True))
-    Network: str = dataclasses.field(default="", metadata=json_field(name="network", omitempty=True))
+    allow_paths: tuple[str, ...] = dataclasses.field(
+        default=(), metadata=json_field(name="allow_paths", omitempty=True)
+    )
+    deny_paths: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_paths", omitempty=True))
+    allow_env: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="allow_env", omitempty=True))
+    deny_env: tuple[str, ...] = dataclasses.field(default=(), metadata=json_field(name="deny_env", omitempty=True))
+    network: str = dataclasses.field(default="", metadata=json_field(name="network", omitempty=True))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ToolPolicyInput:
     """What the policy needs to classify a call beyond the call itself."""
 
-    ToolSpecs: tuple[ToolSpec, ...] = ()
-    CWD: str = ""
+    tool_specs: tuple[ToolSpec, ...] = ()
+    cwd: str = ""
 
 
 class Policy(Protocol):
     """Decides what happens to a tool call."""
 
-    def ClassifyToolCall(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision: ...
+    def classify_tool_call(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision: ...
 
-    def PermissionRequest(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest: ...
+    def permission_request(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest: ...
 
 
-def ValidPermissionMode(mode: PermissionMode) -> bool:
+def valid_permission_mode(mode: PermissionMode) -> bool:
     """Whether ``mode`` is one of the four accepted modes."""
     return mode in (
-        PermissionModeAsk,
-        PermissionModeAcceptEdits,
-        PermissionModePlan,
-        PermissionModeBypass,
+        PERMISSION_MODE_ASK,
+        PERMISSION_MODE_ACCEPT_EDITS,
+        PERMISSION_MODE_PLAN,
+        PERMISSION_MODE_BYPASS,
     )
 
 
-def NewDefaultPolicy() -> DefaultPolicy:
-    return NewPolicy(PermissionModeAsk, PermissionRules())
+def new_default_policy() -> DefaultPolicy:
+    return new_policy(PERMISSION_MODE_ASK, PermissionRules())
 
 
-def NewPolicy(mode: PermissionMode, rules: PermissionRules) -> DefaultPolicy:
+def new_policy(mode: PermissionMode, rules: PermissionRules) -> DefaultPolicy:
     """Build a policy, normalising the two fields that have a canonical form."""
     if mode == "":
-        mode = PermissionModeAsk
-    normalised = dataclasses.replace(rules, Network=rules.Network.strip().lower())
+        mode = PERMISSION_MODE_ASK
+    normalised = dataclasses.replace(rules, network=rules.network.strip().lower())
     return DefaultPolicy(_mode=mode, _rules=normalised)
 
 
@@ -119,16 +123,16 @@ def NewPolicy(mode: PermissionMode, rules: PermissionRules) -> DefaultPolicy:
 class DefaultPolicy:
     """The only policy; the port exists so tests can substitute one."""
 
-    _mode: PermissionMode = PermissionModeAsk
+    _mode: PermissionMode = PERMISSION_MODE_ASK
     _rules: PermissionRules = dataclasses.field(default_factory=PermissionRules)
 
-    def Mode(self) -> PermissionMode:
+    def mode(self) -> PermissionMode:
         return self._mode
 
-    def Rules(self) -> PermissionRules:
+    def rules(self) -> PermissionRules:
         return self._rules
 
-    def ClassifyToolCall(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision:
+    def classify_tool_call(self, call: ToolCall, input: ToolPolicyInput) -> ToolDecision:
         """Resolve a tool call in the documented precedence order.
 
         1. deny rules (absolute — no mode or allow rule overrides them)
@@ -140,90 +144,90 @@ class DefaultPolicy:
         5. allow rules (skip the ordinary risky-tool approval)
         6. mode defaults and risky-tool approval
         """
-        request = self.PermissionRequest(call, input)
+        request = self.permission_request(call, input)
         if (
-            self.matches(call.Name, self._rules.DenyTools)
-            or self.matchesPrefix(request.Command, self._rules.DenyPrefixes)
+            self.matches(call.name, self._rules.deny_tools)
+            or self.matchesPrefix(request.command, self._rules.deny_prefixes)
             or self.touchesProtectedPath(request)
             or self.touchesDeniedPath(request)
             or self.usesDeniedEnv(request)
         ):
-            return ToolDecision.DecisionDenied
-        if self._mode == PermissionModeBypass:
-            return ToolDecision.DecisionRunDirectly
-        if self._mode == PermissionModePlan:
-            if request.CommandClass == CommandClassReadOnly and not self.needsApproval(call, input.ToolSpecs):
-                return ToolDecision.DecisionRunDirectly
-            return ToolDecision.DecisionDenied
-        if request.CommandClass == CommandClassDestructive or self.networkDenied(request):
-            return ToolDecision.DecisionNeedsApproval
+            return ToolDecision.DECISION_DENIED
+        if self._mode == PERMISSION_MODE_BYPASS:
+            return ToolDecision.DECISION_RUN_DIRECTLY
+        if self._mode == PERMISSION_MODE_PLAN:
+            if request.command_class == COMMAND_CLASS_READ_ONLY and not self.needsApproval(call, input.tool_specs):
+                return ToolDecision.DECISION_RUN_DIRECTLY
+            return ToolDecision.DECISION_DENIED
+        if request.command_class == COMMAND_CLASS_DESTRUCTIVE or self.networkDenied(request):
+            return ToolDecision.DECISION_NEEDS_APPROVAL
         if (
-            self.matches(call.Name, self._rules.AllowTools)
-            or self.matchesPrefix(request.Command, self._rules.AllowPrefixes)
+            self.matches(call.name, self._rules.allow_tools)
+            or self.matchesPrefix(request.command, self._rules.allow_prefixes)
             or self.pathsAllowed(request)
             or self.envAllowed(request)
         ):
-            return ToolDecision.DecisionRunDirectly
-        if self._mode == PermissionModeAcceptEdits:
-            if request.CommandClass == CommandClassReadOnly:
-                return ToolDecision.DecisionRunDirectly
-            if self.isWriteTool(call.Name):
-                return ToolDecision.DecisionRunDirectly
-        if self.needsApproval(call, input.ToolSpecs):
-            return ToolDecision.DecisionNeedsApproval
-        return ToolDecision.DecisionRunDirectly
+            return ToolDecision.DECISION_RUN_DIRECTLY
+        if self._mode == PERMISSION_MODE_ACCEPT_EDITS:
+            if request.command_class == COMMAND_CLASS_READ_ONLY:
+                return ToolDecision.DECISION_RUN_DIRECTLY
+            if self.isWriteTool(call.name):
+                return ToolDecision.DECISION_RUN_DIRECTLY
+        if self.needsApproval(call, input.tool_specs):
+            return ToolDecision.DECISION_NEEDS_APPROVAL
+        return ToolDecision.DECISION_RUN_DIRECTLY
 
-    def PermissionRequest(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest:
+    def permission_request(self, call: ToolCall, input: ToolPolicyInput) -> PermissionRequest:
         """Describe the call the way an approval prompt should show it."""
         request = PermissionRequest(
-            ToolName=call.Name,
-            CommandClass=CommandClassUnknown,
-            CWD=input.CWD or ".",
-            Reason="unknown tool calls require approval",
+            tool_name=call.name,
+            command_class=COMMAND_CLASS_UNKNOWN,
+            cwd=input.cwd or ".",
+            reason="unknown tool calls require approval",
         )
 
-        if call.Name in ("web_search", "browser_fetch"):
-            return replace(request, CommandClass=CommandClassNetwork, Reason="network access requires approval")
-        if call.Name in ("bash", "run_command"):
-            command = jsonStringField(call.Input, "command")
-            if call.Name == "run_command":
-                cwd = firstNonEmpty(jsonStringField(call.Input, "cwd"), request.CWD)
-                return analyzeCommandRequest(replace(request, Command=command, CWD=cwd))
-            return analyzeCommandRequest(replace(request, Command=command))
-        if call.Name == "go_test":
+        if call.name in ("web_search", "browser_fetch"):
+            return replace(request, command_class=COMMAND_CLASS_NETWORK, reason="network access requires approval")
+        if call.name in ("bash", "run_command"):
+            command = jsonStringField(call.input, "command")
+            if call.name == "run_command":
+                cwd = firstNonEmpty(jsonStringField(call.input, "cwd"), request.cwd)
+                return analyzeCommandRequest(replace(request, command=command, cwd=cwd))
+            return analyzeCommandRequest(replace(request, command=command))
+        if call.name == "go_test":
             return replace(
                 request,
-                Command="go test",
-                CWD=firstNonEmpty(jsonStringField(call.Input, "cwd"), request.CWD),
-                CommandClass=CommandClassReadOnly,
-                Reason="go test is read-only",
+                command="go test",
+                cwd=firstNonEmpty(jsonStringField(call.input, "cwd"), request.cwd),
+                command_class=COMMAND_CLASS_READ_ONLY,
+                reason="go test is read-only",
             )
-        if call.Name in ("git_status", "git_diff", "read_file", "list_files", "search"):
+        if call.name in ("git_status", "git_diff", "read_file", "list_files", "search"):
             return replace(
                 request,
-                CommandClass=CommandClassReadOnly,
-                TouchedPaths=toolPaths(call),
-                Reason="read-only tool",
+                command_class=COMMAND_CLASS_READ_ONLY,
+                touched_paths=toolPaths(call),
+                reason="read-only tool",
             )
-        if call.Name in ("write_file", "apply_patch", "format"):
+        if call.name in ("write_file", "apply_patch", "format"):
             return replace(
                 request,
-                CommandClass=CommandClassWrite,
-                TouchedPaths=toolPaths(call),
-                Reason="tool writes workspace files",
+                command_class=COMMAND_CLASS_WRITE,
+                touched_paths=toolPaths(call),
+                reason="tool writes workspace files",
             )
-        if not self.needsApproval(call, input.ToolSpecs):
-            return replace(request, CommandClass=CommandClassReadOnly, Reason="tool spec is marked safe")
+        if not self.needsApproval(call, input.tool_specs):
+            return replace(request, command_class=COMMAND_CLASS_READ_ONLY, reason="tool spec is marked safe")
         return request
 
     def needsApproval(self, call: ToolCall, specs: tuple[ToolSpec, ...]) -> bool:
-        return isRiskyTool(call.Name, specs)
+        return isRiskyTool(call.name, specs)
 
     def isWriteTool(self, name: str) -> bool:
         return name in ("write_file", "apply_patch", "format")
 
     def networkDenied(self, request: PermissionRequest) -> bool:
-        return self._rules.Network != "allow" and request.CommandClass == CommandClassNetwork
+        return self._rules.network != "allow" and request.command_class == COMMAND_CLASS_NETWORK
 
     def touchesProtectedPath(self, request: PermissionRequest) -> bool:
         """Whether the call reaches outside the sandbox's ordinary reach.
@@ -232,7 +236,7 @@ class DefaultPolicy:
         are refused outright, and so is any absolute path: the workspace is the
         only place a tool may write.
         """
-        for path in request.TouchedPaths:
+        for path in request.touched_paths:
             clean = _cleanSlash(path)
             if (
                 clean == ".git"
@@ -244,27 +248,27 @@ class DefaultPolicy:
                 or ".config/gcloud/" in clean
             ):
                 return True
-            if os.path.isabs(path) and request.CWD != "":
-                rel = _rel(request.CWD, path)
+            if os.path.isabs(path) and request.cwd != "":
+                rel = _rel(request.cwd, path)
                 if rel is None or rel == ".." or rel.startswith(".." + os.sep):
                     return True
         return False
 
     def touchesDeniedPath(self, request: PermissionRequest) -> bool:
-        return any(self.matchesPath(path, self._rules.DenyPaths) for path in request.TouchedPaths)
+        return any(self.matchesPath(path, self._rules.deny_paths) for path in request.touched_paths)
 
     def usesDeniedEnv(self, request: PermissionRequest) -> bool:
-        return any(self.matches(key, self._rules.DenyEnv) for key in request.EnvVars)
+        return any(self.matches(key, self._rules.deny_env) for key in request.env_vars)
 
     def pathsAllowed(self, request: PermissionRequest) -> bool:
-        if not request.TouchedPaths or not self._rules.AllowPaths:
+        if not request.touched_paths or not self._rules.allow_paths:
             return False
-        return all(self.matchesPath(path, self._rules.AllowPaths) for path in request.TouchedPaths)
+        return all(self.matchesPath(path, self._rules.allow_paths) for path in request.touched_paths)
 
     def envAllowed(self, request: PermissionRequest) -> bool:
-        if not request.EnvVars or not self._rules.AllowEnv:
+        if not request.env_vars or not self._rules.allow_env:
             return False
-        return all(self.matches(key, self._rules.AllowEnv) for key in request.EnvVars)
+        return all(self.matches(key, self._rules.allow_env) for key in request.env_vars)
 
     def matches(self, value: str, patterns: tuple[str, ...]) -> bool:
         return any(pattern == value for pattern in patterns)
@@ -296,8 +300,8 @@ class DefaultPolicy:
 def isRiskyTool(name: str, specs: tuple[ToolSpec, ...]) -> bool:
     """Whether a tool needs approval, defaulting to yes for an unknown tool."""
     for spec in specs:
-        if spec.Name == name:
-            return spec.Risky
+        if spec.name == name:
+            return spec.risky
     return True
 
 

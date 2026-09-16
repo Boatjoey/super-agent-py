@@ -18,7 +18,7 @@ from rich.text import Text
 
 from super_agent.tui.app import App
 
-__all__ = ["View", "clampLines", "fitDynamicArea", "helpView"]
+__all__ = ["clampLines", "fitDynamicArea", "helpView", "view"]
 
 #: The help box's widest and narrowest forms.
 _HELP_MAX_WIDTH, _HELP_MIN_WIDTH = 64, 20
@@ -51,14 +51,14 @@ def fitDynamicArea(width: int, height: int, content: Text) -> Text:
     return _join(lines[len(lines) - height :], "\n")
 
 
-def View(app: App) -> Text:
+def view(app: App) -> Text:
     """The whole screen: the managed transcript and the footer under it."""
     if not app.ready:
         return Text("\n  Initializing...")
     if app.showHelp:
         return fitDynamicArea(app.width, app.height, helpView(app))
     parts: list[Text] = []
-    content = app.transcript.View()
+    content = app.transcript.view()
     if content.plain:
         parts.append(content)
     parts.append(_footerView(app))
@@ -69,7 +69,7 @@ def helpView(app: App) -> Text:
     """The commands and shortcuts overlay, in a bordered box."""
     width = max(1, min(app.width, max(_HELP_MIN_WIDTH, min(_HELP_MAX_WIDTH, app.width - 4))))
     inner = max(1, width - 4)
-    lines: list[Text] = [Text("Commands & Shortcuts", style=app.styles.CommandLabel)]
+    lines: list[Text] = [Text("Commands & Shortcuts", style=app.styles.command_label)]
     lines.append(Text(""))
     lines.extend(_nameLines(app, _COMMAND_HELP))
     lines.append(Text(""))
@@ -91,7 +91,7 @@ def _nameLines(app: App, items: Sequence[tuple[str, str]]) -> list[Text]:
     """Help rows whose first column is a styled command name."""
     lines: list[Text] = []
     for name, description in items:
-        line = Text(name, style=app.styles.CommandLabel)
+        line = Text(name, style=app.styles.command_label)
         line.append(" " * max(1, 13 - len(name)) + description)
         lines.append(line)
     return lines

@@ -7,23 +7,23 @@ namespace; see :mod:`super_agent.runtime.telemetry.telemetry` for the sink.
 from __future__ import annotations
 
 from super_agent.runtime.telemetry.telemetry import (
-    Close as Close,
-    Configure as Configure,
     Fields as Fields,
     IDs as IDs,
-    IDsFrom as IDsFrom,
-    IsConfigured as IsConfigured,
-    Record as Record,
-    WithIDs as WithIDs,
+    close as close,
+    configure as configure,
+    i_ds_from as i_ds_from,
+    is_configured as is_configured,
+    record as record,
+    with_i_ds as with_i_ds,
 )
 
 __all__ = [
-    "Close",
-    "Configure",
     "Fields",
     "IDs",
-    "IDsFrom",
-    "IsConfigured",
-    "Record",
-    "WithIDs",
+    "close",
+    "configure",
+    "i_ds_from",
+    "is_configured",
+    "record",
+    "with_i_ds",
 ]

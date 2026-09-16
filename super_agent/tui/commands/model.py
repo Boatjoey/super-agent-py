@@ -17,7 +17,7 @@ from super_agent.tui.commands import catalog, format
 from super_agent.tui.commands.outcome import CompactDone, MCPDone, Outcome, StatusBar
 from super_agent.tui.commands.ports import Attachment, Ports
 
-__all__ = ["Command", "Config", "Input", "Model", "New"]
+__all__ = ["Command", "Config", "Input", "Model", "new"]
 
 type Command = Callable[[], Coroutine[object, object, "CompactDone | MCPDone"]]
 """A background operation this feature hands the runtime."""
@@ -27,17 +27,17 @@ type Command = Callable[[], Coroutine[object, object, "CompactDone | MCPDone"]]
 class Config:
     """The session settings commands display but do not own."""
 
-    CWD: str = ""
-    InstructionPaths: tuple[str, ...] = ()
-    NoTools: bool = False
+    cwd: str = ""
+    instruction_paths: tuple[str, ...] = ()
+    no_tools: bool = False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Input:
     """What the root knows about a submission and the command cannot own."""
 
-    Text: str = ""
-    Attachments: tuple[Attachment, ...] = ()
+    text: str = ""
+    attachments: tuple[Attachment, ...] = ()
 
 
 @dataclasses.dataclass(slots=True)
@@ -50,41 +50,41 @@ class Model:
     compacting: bool = False
     managingMCP: bool = False
 
-    def Compacting(self) -> bool:
+    def is_compacting(self) -> bool:
         """Whether ``/compact`` is still running."""
         return self.compacting
 
-    def ManagingMCP(self) -> bool:
+    def managing_mcp(self) -> bool:
         """Whether an MCP lifecycle change is still running."""
         return self.managingMCP
 
-    def Palette(self) -> tuple[catalog.Command, ...]:
+    def palette(self) -> tuple[catalog.Command, ...]:
         """The palette the composer offers."""
-        return catalog.Palette(self)
+        return catalog.palette(self)
 
-    def Update(self, message: CompactDone | MCPDone) -> tuple[Model, Outcome | None]:
+    def update(self, message: CompactDone | MCPDone) -> tuple[Model, Outcome | None]:
         """Apply the result of a background command.
 
         A ``None`` outcome means the message did not belong to this feature.
         """
         if isinstance(message, CompactDone):
             self.compacting = False
-            if message.Err is not None:
-                return self, Outcome(Err=f"Compact failed: {message.Err}")
+            if message.err is not None:
+                return self, Outcome(err=f"Compact failed: {message.err}")
             return self, Outcome(
-                Status="Compacted conversation",
-                Output=format.divider("Compacted conversation"),
-                RefreshSnapshot=True,
+                status="Compacted conversation",
+                output=format.divider("Compacted conversation"),
+                refresh_snapshot=True,
             )
         # The union is closed, so anything that is not a compaction is an MCP run.
         self.managingMCP = False
-        if message.Err is not None:
-            return self, Outcome(Err=f"MCP failed: {message.Err}")
-        return self, Outcome(Status=message.Status)
+        if message.err is not None:
+            return self, Outcome(err=f"MCP failed: {message.err}")
+        return self, Outcome(status=message.status)
 
-    async def Handle(self, input: Input) -> tuple[Model, Outcome | None, Command | None]:
+    async def handle(self, input: Input) -> tuple[Model, Outcome | None, Command | None]:
         """Run the slash command in ``input.Text``. Callers check ``IsCommand`` first."""
-        parts = input.Text.split()
+        parts = input.text.split()
         command = parts[0]
         match command:
             case "/agent":
@@ -95,14 +95,14 @@ class Model:
                 return self, await self._handleAgent(["/agent", "build"]), None
             case "/mode":
                 if len(parts) != 2 or parts[1] not in ("plan", "build"):
-                    return self, Outcome(Err="Usage: /mode <plan|build>"), None
+                    return self, Outcome(err="Usage: /mode <plan|build>"), None
                 return self, await self._handleAgent(["/agent", parts[1]]), None
             case "/fork":
-                return self, await self._handleFork(input.Text.removeprefix(command).strip()), None
+                return self, await self._handleFork(input.text.removeprefix(command).strip()), None
             case "/memory":
                 return self, await self._handleMemory(), None
             case "/remember":
-                return self, await self._handleRemember(input.Text.removeprefix(command).strip()), None
+                return self, await self._handleRemember(input.text.removeprefix(command).strip()), None
             case "/forget":
                 return self, await self._handleForget(), None
             case "/diff":
@@ -110,26 +110,26 @@ class Model:
             case "/branch":
                 return self, await self._handleGitStatus(), None
             case "/review":
-                return self, Outcome(Prompt=_REVIEW_PROMPT), None
+                return self, Outcome(prompt=_REVIEW_PROMPT), None
             case "/fix-ci":
-                return self, Outcome(Prompt=_FIX_CI_PROMPT), None
+                return self, Outcome(prompt=_FIX_CI_PROMPT), None
             case "/commit-message":
-                return self, Outcome(Prompt=_COMMIT_MESSAGE_PROMPT), None
+                return self, Outcome(prompt=_COMMIT_MESSAGE_PROMPT), None
             case "/export":
                 if len(parts) != 2:
-                    return self, Outcome(Err="Usage: /export <markdown|json>"), None
+                    return self, Outcome(err="Usage: /export <markdown|json>"), None
                 return self, await self._handleExport(parts[1]), None
             case "/share":
                 return self, await self._handleExport("html"), None
             case "/attach":
                 if len(parts) != 2:
-                    return self, Outcome(Err="Usage: /attach <path>"), None
-                return self, Outcome(Status="Attaching…", AttachPath=parts[1]), None
+                    return self, Outcome(err="Usage: /attach <path>"), None
+                return self, Outcome(status="Attaching…", attach_path=parts[1]), None
             case "/attachments":
-                if not input.Attachments:
-                    return self, Outcome(Status="No pending attachments"), None
-                names = [f"{item.Name} ({item.MIME})" for item in input.Attachments]
-                return self, Outcome(Status="Attachments", Output="Attachments:\n- " + "\n- ".join(names)), None
+                if not input.attachments:
+                    return self, Outcome(status="No pending attachments"), None
+                names = [f"{item.name} ({item.mime})" for item in input.attachments]
+                return self, Outcome(status="Attachments", output="Attachments:\n- " + "\n- ".join(names)), None
             case "/commands":
                 return self, self._handleNamedItems("Custom commands"), None
             case "/skills":
@@ -138,12 +138,12 @@ class Model:
                 return self, self._handleNamedItems("Plugins"), None
             case "/diagnostics":
                 if len(parts) != 2:
-                    return self, Outcome(Err="Usage: /diagnostics <path>"), None
+                    return self, Outcome(err="Usage: /diagnostics <path>"), None
                 try:
-                    result = await self.ports.Workspace.Diagnostics(parts[1])
+                    result = await self.ports.workspace.diagnostics(parts[1])
                 except Exception as err:
-                    return self, Outcome(Err=f"Diagnostics failed: {err}"), None
-                return self, Outcome(Status="Diagnostics", Output=result), None
+                    return self, Outcome(err=f"Diagnostics failed: {err}"), None
+                return self, Outcome(status="Diagnostics", output=result), None
             case "/instructions":
                 return self, self._handleInstructions(), None
             case "/permissions":
@@ -157,24 +157,24 @@ class Model:
             case "/resume":
                 return self, await self._handleResume(parts), None
             case "/rename":
-                return self, await self._handleRename(input.Text, parts), None
+                return self, await self._handleRename(input.text, parts), None
             case "/delete-session":
                 return self, await self._handleDelete(parts), None
             case "/compact":
-                return self._handleCompact(input.Text, command)
+                return self._handleCompact(input.text, command)
             case "/undo":
                 return self, await self._handleUndo(), None
             case "/quit" | "/exit":
-                return self, Outcome(Quit=True), None
+                return self, Outcome(quit=True), None
             case "/help":
-                return self, Outcome(ShowHelp=True), None
+                return self, Outcome(show_help=True), None
             case _:
-                arguments = input.Text.removeprefix(command).strip()
+                arguments = input.text.removeprefix(command).strip()
                 try:
-                    expanded = await self.ports.Extensions.ExpandCustomCommand(command.removeprefix("/"), arguments)
+                    expanded = await self.ports.extensions.expand_custom_command(command.removeprefix("/"), arguments)
                 except Exception:
-                    return self, Outcome(Err=f"Unknown command: {command}"), None
-                return self, Outcome(Prompt=expanded), None
+                    return self, Outcome(err=f"Unknown command: {command}"), None
+                return self, Outcome(prompt=expanded), None
 
     def _handleCompact(self, text: str, command: str) -> tuple[Model, Outcome | None, Command | None]:
         """Pass the optional summary; the keep-newest policy stays in the runtime."""
@@ -183,44 +183,44 @@ class Model:
 
         async def run() -> CompactDone:
             try:
-                await self.ports.Sessions.Compact(summary)
+                await self.ports.sessions.compact(summary)
             except Exception as err:
-                return CompactDone(Err=err)
+                return CompactDone(err=err)
             return CompactDone()
 
-        return self, Outcome(Status="Compacting conversation…"), run
+        return self, Outcome(status="Compacting conversation…"), run
 
     def _handleMCP(self, parts: list[str]) -> tuple[Model, Outcome | None, Command | None]:
         if len(parts) == 1 or (len(parts) == 2 and parts[1] == "list"):
             return (
                 self,
-                Outcome(Status="MCP servers", Output=format.formatMCPServers(self.ports.MCP.ListMCPServers())),
+                Outcome(status="MCP servers", output=format.formatMCPServers(self.ports.mcp.list_mcp_servers())),
                 None,
             )
         operation = parts[1]
         match operation:
             case "add":
                 if len(parts) < 4:
-                    return self, Outcome(Err="Usage: /mcp add <name> <command> [args...]"), None
+                    return self, Outcome(err="Usage: /mcp add <name> <command> [args...]"), None
                 name, command, args = parts[2], parts[3], list(parts[4:])
                 status = "Added MCP server " + name
-                run = self._mcpCommand(status, lambda: self.ports.MCP.AddMCPServer(name, command, args))
+                run = self._mcpCommand(status, lambda: self.ports.mcp.add_mcp_server(name, command, args))
             case "remove":
                 if len(parts) != 3:
-                    return self, Outcome(Err="Usage: /mcp remove <name>"), None
+                    return self, Outcome(err="Usage: /mcp remove <name>"), None
                 name = parts[2]
                 status = "Removed MCP server " + name
-                run = self._mcpCommand(status, lambda: self.ports.MCP.RemoveMCPServer(name))
+                run = self._mcpCommand(status, lambda: self.ports.mcp.remove_mcp_server(name))
             case "restart":
                 if len(parts) != 3:
-                    return self, Outcome(Err="Usage: /mcp restart <name>"), None
+                    return self, Outcome(err="Usage: /mcp restart <name>"), None
                 name = parts[2]
                 status = "Restarted MCP server " + name
-                run = self._mcpCommand(status, lambda: self.ports.MCP.RestartMCPServer(name))
+                run = self._mcpCommand(status, lambda: self.ports.mcp.restart_mcp_server(name))
             case _:
-                return self, Outcome(Err="Usage: /mcp <list|add|remove|restart>"), None
+                return self, Outcome(err="Usage: /mcp <list|add|remove|restart>"), None
         self.managingMCP = True
-        return self, Outcome(Status="Updating MCP servers…"), run
+        return self, Outcome(status="Updating MCP servers…"), run
 
     def _mcpCommand(self, status: str, operation: Callable[[], Coroutine[object, object, None]]) -> Command:
         """Wrap one MCP lifecycle call as the command that reports its outcome."""
@@ -229,171 +229,171 @@ class Model:
             try:
                 await operation()
             except Exception as err:
-                return MCPDone(Status=status, Err=err)
-            return MCPDone(Status=status)
+                return MCPDone(status=status, err=err)
+            return MCPDone(status=status)
 
         return change
 
     async def _handleAgent(self, parts: list[str]) -> Outcome:
         if len(parts) == 1 or (len(parts) == 2 and parts[1] == "list"):
-            current = self.ports.Agents.CurrentAgent().Name
+            current = self.ports.agents.current_agent().name
             rows = [
-                ("* " if profile.Name == current else "  ")
-                + f"{profile.Name} ({profile.Provider}/{profile.Model}, {profile.PermissionMode})"
-                for profile in self.ports.Agents.ListAgents()
+                ("* " if profile.name == current else "  ")
+                + f"{profile.name} ({profile.provider}/{profile.model}, {profile.permission_mode})"
+                for profile in self.ports.agents.list_agents()
             ]
-            return Outcome(Status="Agents", Output="\n".join(rows))
+            return Outcome(status="Agents", output="\n".join(rows))
         if len(parts) != 2:
-            return Outcome(Err="Usage: /agent <list|name>")
+            return Outcome(err="Usage: /agent <list|name>")
         try:
-            await self.ports.Agents.UseAgent(parts[1])
+            await self.ports.agents.use_agent(parts[1])
         except Exception as err:
-            return Outcome(Err=f"Agent failed: {err}")
-        profile = self.ports.Agents.CurrentAgent()
+            return Outcome(err=f"Agent failed: {err}")
+        profile = self.ports.agents.current_agent()
         return Outcome(
-            Status="Using agent " + profile.Name,
-            RefreshSnapshot=True,
-            StatusBar=StatusBar(ModelName=profile.Model, PermissionMode=profile.PermissionMode),
+            status="Using agent " + profile.name,
+            refresh_snapshot=True,
+            status_bar=StatusBar(model_name=profile.model, permission_mode=profile.permission_mode),
         )
 
     def _handleNamedItems(self, label: str) -> Outcome:
         match label:
             case "Custom commands":
-                items = self.ports.Extensions.CustomCommands()
+                items = self.ports.extensions.custom_commands()
             case "Skills":
-                items = self.ports.Extensions.Skills()
+                items = self.ports.extensions.skills()
             case _:
-                items = self.ports.Extensions.Plugins()
-        return Outcome(Status=label, Output=format.formatNamedItems(label, items))
+                items = self.ports.extensions.plugins()
+        return Outcome(status=label, output=format.formatNamedItems(label, items))
 
     def _handleInstructions(self) -> Outcome:
-        return Outcome(Status="Instructions", Output=format.formatInstructions(self.config.InstructionPaths))
+        return Outcome(status="Instructions", output=format.formatInstructions(self.config.instruction_paths))
 
     async def _handlePermissions(self, parts: list[str]) -> Outcome:
         if len(parts) >= 3 and parts[1] == "mode":
             try:
-                await self.ports.Permissions.SetPermissionMode(parts[2])
+                await self.ports.permissions.set_permission_mode(parts[2])
             except Exception as err:
-                return Outcome(Err=f"Permissions failed: {err}")
+                return Outcome(err=f"Permissions failed: {err}")
         # Report the runtime's view of the policy instead of deriving it locally,
         # so the display cannot drift from actual behavior. The model is untouched,
         # so the status bar keeps showing it.
-        mode = self.ports.Permissions.PermissionMode()
+        mode = self.ports.permissions.permission_mode()
         return Outcome(
-            Status="Permissions",
-            Output=format.formatPermissions(self.config, mode, self.ports.Permissions.AutoApproveTools()),
-            StatusBar=StatusBar(PermissionMode=mode),
+            status="Permissions",
+            output=format.formatPermissions(self.config, mode, self.ports.permissions.auto_approve_tools()),
+            status_bar=StatusBar(permission_mode=mode),
         )
 
     async def _handleReset(self) -> Outcome:
         try:
-            await self.ports.Sessions.Reset()
+            await self.ports.sessions.reset()
         except Exception as err:
-            return Outcome(Err=f"Reset failed: {err}", RefreshSnapshot=True)
-        return Outcome(Output=format.divider("New conversation"), RefreshSnapshot=True)
+            return Outcome(err=f"Reset failed: {err}", refresh_snapshot=True)
+        return Outcome(output=format.divider("New conversation"), refresh_snapshot=True)
 
     async def _handleSessions(self) -> Outcome:
         try:
-            summaries = await self.ports.Sessions.ListSessions()
+            summaries = await self.ports.sessions.list_sessions()
         except Exception as err:
-            return Outcome(Err=f"Sessions failed: {err}")
-        return Outcome(Status="Sessions", Output=format.formatSessions(summaries))
+            return Outcome(err=f"Sessions failed: {err}")
+        return Outcome(status="Sessions", output=format.formatSessions(summaries))
 
     async def _handleResume(self, parts: list[str]) -> Outcome:
         if len(parts) < 2:
-            return Outcome(Err="Usage: /resume <id>")
+            return Outcome(err="Usage: /resume <id>")
         try:
-            await self.ports.Sessions.Resume(parts[1])
+            await self.ports.sessions.resume(parts[1])
         except Exception as err:
-            return Outcome(Err=f"Resume failed: {err}")
+            return Outcome(err=f"Resume failed: {err}")
         return Outcome(
-            Status="Resumed " + parts[1],
-            Output=format.divider("Resumed session " + parts[1]),
-            RefreshSnapshot=True,
+            status="Resumed " + parts[1],
+            output=format.divider("Resumed session " + parts[1]),
+            refresh_snapshot=True,
         )
 
     async def _handleRename(self, text: str, parts: list[str]) -> Outcome:
         if len(parts) < 3:
-            return Outcome(Err="Usage: /rename <id> <title>")
+            return Outcome(err="Usage: /rename <id> <title>")
         title = text.removeprefix(parts[0] + " " + parts[1]).strip()
         try:
-            await self.ports.Sessions.RenameSession(parts[1], title)
+            await self.ports.sessions.rename_session(parts[1], title)
         except Exception as err:
-            return Outcome(Err=f"Rename failed: {err}")
-        return Outcome(Status="Renamed " + parts[1])
+            return Outcome(err=f"Rename failed: {err}")
+        return Outcome(status="Renamed " + parts[1])
 
     async def _handleDelete(self, parts: list[str]) -> Outcome:
         if len(parts) < 2:
-            return Outcome(Err="Usage: /delete-session <id>")
+            return Outcome(err="Usage: /delete-session <id>")
         try:
-            await self.ports.Sessions.DeleteSession(parts[1])
+            await self.ports.sessions.delete_session(parts[1])
         except Exception as err:
-            return Outcome(Err=f"Delete failed: {err}")
-        return Outcome(Status="Deleted " + parts[1])
+            return Outcome(err=f"Delete failed: {err}")
+        return Outcome(status="Deleted " + parts[1])
 
     async def _handleUndo(self) -> Outcome:
         try:
-            await self.ports.Sessions.Undo()
+            await self.ports.sessions.undo()
         except Exception as err:
-            return Outcome(Err=f"Undo failed: {err}")
+            return Outcome(err=f"Undo failed: {err}")
         return Outcome(
-            Status="Restored last checkpoint",
-            Output=format.divider("Restored checkpoint"),
-            RefreshSnapshot=True,
+            status="Restored last checkpoint",
+            output=format.divider("Restored checkpoint"),
+            refresh_snapshot=True,
         )
 
     async def _handleExport(self, exportFormat: str) -> Outcome:
         try:
-            path = await self.ports.Sessions.Export(exportFormat)
+            path = await self.ports.sessions.export(exportFormat)
         except Exception as err:
-            return Outcome(Err=f"Export failed: {err}")
-        return Outcome(Status="Exported " + path)
+            return Outcome(err=f"Export failed: {err}")
+        return Outcome(status="Exported " + path)
 
     async def _handleFork(self, title: str) -> Outcome:
         try:
-            session_id = await self.ports.Sessions.Fork(title)
+            session_id = await self.ports.sessions.fork(title)
         except Exception as err:
-            return Outcome(Err=f"Fork failed: {err}")
-        return Outcome(Status="Forked session " + session_id, RefreshSnapshot=True)
+            return Outcome(err=f"Fork failed: {err}")
+        return Outcome(status="Forked session " + session_id, refresh_snapshot=True)
 
     async def _handleMemory(self) -> Outcome:
         try:
-            items = await self.ports.Memory.Memories()
+            items = await self.ports.memory.memories()
         except Exception as err:
-            return Outcome(Err=f"Memory failed: {err}")
+            return Outcome(err=f"Memory failed: {err}")
         if not items:
-            return Outcome(Status="No cross-session memory")
-        return Outcome(Status="Memory", Output="Memory:\n- " + "\n- ".join(items))
+            return Outcome(status="No cross-session memory")
+        return Outcome(status="Memory", output="Memory:\n- " + "\n- ".join(items))
 
     async def _handleRemember(self, value: str) -> Outcome:
         try:
-            await self.ports.Memory.Remember(value)
+            await self.ports.memory.remember(value)
         except Exception as err:
-            return Outcome(Err=f"Remember failed: {err}")
-        return Outcome(Status="Memory saved")
+            return Outcome(err=f"Remember failed: {err}")
+        return Outcome(status="Memory saved")
 
     async def _handleForget(self) -> Outcome:
         try:
-            await self.ports.Memory.ForgetMemories()
+            await self.ports.memory.forget_memories()
         except Exception as err:
-            return Outcome(Err=f"Forget failed: {err}")
-        return Outcome(Status="Memory cleared")
+            return Outcome(err=f"Forget failed: {err}")
+        return Outcome(status="Memory cleared")
 
     async def _handleGitDiff(self) -> Outcome:
         try:
-            result = await self.ports.Workspace.GitDiff()
+            result = await self.ports.workspace.git_diff()
         except Exception as err:
-            return Outcome(Err=f"Diff failed: {err}")
+            return Outcome(err=f"Diff failed: {err}")
         if not result.strip():
-            return Outcome(Status="No changes")
-        return Outcome(Status="Patch preview", Output=result)
+            return Outcome(status="No changes")
+        return Outcome(status="Patch preview", output=result)
 
     async def _handleGitStatus(self) -> Outcome:
         try:
-            result = await self.ports.Workspace.GitStatus()
+            result = await self.ports.workspace.git_status()
         except Exception as err:
-            return Outcome(Err=f"Branch status failed: {err}")
-        return Outcome(Status="Branch status", Output=result)
+            return Outcome(err=f"Branch status failed: {err}")
+        return Outcome(status="Branch status", output=result)
 
 
 #: The workflow prompts, verbatim from ``Handle``.
@@ -410,6 +410,6 @@ _COMMIT_MESSAGE_PROMPT = (
 )
 
 
-def New(config: Config, ports: Ports) -> Model:
+def new(config: Config, ports: Ports) -> Model:
     """The constructor: the catalogue follows the discovered extensions."""
-    return Model(ports=ports, config=config, customCommands=tuple(ports.Extensions.CustomCommands()))
+    return Model(ports=ports, config=config, customCommands=tuple(ports.extensions.custom_commands()))

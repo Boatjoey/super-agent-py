@@ -17,5 +17,5 @@ class ActionPlan:
     exists.
     """
 
-    ClearExisting: bool = False
-    Schedule: tuple[ScheduledAction, ...] = ()
+    clear_existing: bool = False
+    schedule: tuple[ScheduledAction, ...] = ()

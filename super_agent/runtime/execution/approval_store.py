@@ -21,16 +21,16 @@ from super_agent.runtime.protocol.types import ToolCall
 class ApprovalKey:
     """What "always allow" remembers: which tool, called how."""
 
-    ToolName: str = ""
-    InputHash: str = ""
+    tool_name: str = ""
+    input_hash: str = ""
 
 
 class ApprovalStore(Protocol):
     """Reads and writes the always-allow set."""
 
-    def AllowAlways(self, key: ApprovalKey) -> None: ...
+    def allow_always(self, key: ApprovalKey) -> None: ...
 
-    def IsAlwaysAllowed(self, key: ApprovalKey) -> bool: ...
+    def is_always_allowed(self, key: ApprovalKey) -> bool: ...
 
 
 class MemoryApprovalStore:
@@ -47,26 +47,26 @@ class MemoryApprovalStore:
         self._mode = PermissionMode("")
         self._rules = PermissionRules()
 
-    def AllowAlways(self, key: ApprovalKey) -> None:
+    def allow_always(self, key: ApprovalKey) -> None:
         self._always[key] = True
 
-    def IsAlwaysAllowed(self, key: ApprovalKey) -> bool:
+    def is_always_allowed(self, key: ApprovalKey) -> bool:
         return self._always.get(key, False)
 
-    def SetPermissionPolicy(self, mode: PermissionMode, rules: PermissionRules) -> None:
+    def set_permission_policy(self, mode: PermissionMode, rules: PermissionRules) -> None:
         self._mode = mode
         self._rules = rules
 
-    def PermissionMode(self) -> PermissionMode:
+    def permission_mode(self) -> PermissionMode:
         return self._mode
 
-    def PermissionRules(self) -> PermissionRules:
+    def permission_rules(self) -> PermissionRules:
         return self._rules
 
 
-def NewApprovalKey(call: ToolCall) -> ApprovalKey:
+def new_approval_key(call: ToolCall) -> ApprovalKey:
     """The key an approval decision is recorded under."""
-    return ApprovalKey(ToolName=call.Name, InputHash=hashCanonicalInput(call.Input))
+    return ApprovalKey(tool_name=call.name, input_hash=hashCanonicalInput(call.input))
 
 
 def hashCanonicalInput(input: str) -> str:

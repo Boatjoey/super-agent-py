@@ -25,10 +25,10 @@ from collections import deque
 from typing import Any, ClassVar, Final, Protocol
 
 from super_agent.tui.approval import (
-    ApproveAlways as ApproveAlways,
-    ApproveOnce as ApproveOnce,
+    APPROVE_ALWAYS as APPROVE_ALWAYS,
+    APPROVE_ONCE as APPROVE_ONCE,
+    DENY as DENY_APPROVAL,
     Decision as ApprovalDecision,
-    Deny as DenyApproval,
 )
 from super_agent.tui.attachments import Item as AttachmentSummary, Port as AttachmentsPort
 from super_agent.tui.commands import (
@@ -44,20 +44,22 @@ from super_agent.tui.commands import (
     WorkspacePort,
 )
 from super_agent.tui.transcript import (
+    ROLE_ASSISTANT as ROLE_ASSISTANT,
     Attachment as MessageAttachment,
     Message as Message,
     Role as Role,
-    RoleAssistant as RoleAssistant,
     ToolCall as ToolCall,
 )
 
 __all__ = [
+    "APPROVE_ALWAYS",
+    "APPROVE_ONCE",
+    "DENY_APPROVAL",
+    "ROLE_ASSISTANT",
     "AgentStatus",
     "AgentStatusChanged",
     "AgentSummary",
     "ApprovalDecision",
-    "ApproveAlways",
-    "ApproveOnce",
     "AttachmentSummary",
     "Cancellation",
     "Channel",
@@ -65,14 +67,12 @@ __all__ = [
     "ConversationError",
     "ConversationNotification",
     "ConversationView",
-    "DenyApproval",
     "MCPServerSummary",
     "Message",
     "MessageAppended",
     "MessageAttachment",
     "PermissionRequest",
     "Role",
-    "RoleAssistant",
     "SessionSummary",
     "SnapshotPort",
     "StreamChunkReceived",
@@ -87,35 +87,35 @@ __all__ = [
 class AgentStatus:
     """What the agent is doing, in presentation words rather than runtime states."""
 
-    Label: str = "Idle"
-    Busy: bool = False
-    AwaitingApproval: bool = False
+    label: str = "Idle"
+    busy: bool = False
+    awaiting_approval: bool = False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class PermissionRequest:
     """Why a tool call needs a decision, as the menu shows it."""
 
-    ToolName: str = ""
-    Command: str = ""
-    CommandClass: str = ""
-    CWD: str = ""
-    TouchedPaths: tuple[str, ...] = ()
-    EnvVars: tuple[str, ...] = ()
-    Reason: str = ""
+    tool_name: str = ""
+    command: str = ""
+    command_class: str = ""
+    cwd: str = ""
+    touched_paths: tuple[str, ...] = ()
+    env_vars: tuple[str, ...] = ()
+    reason: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ConversationView:
     """One read of conversation state, for a full transcript rebuild."""
 
-    AgentStatus: AgentStatus = dataclasses.field(default_factory=AgentStatus)
-    Messages: tuple[Message, ...] = ()
-    PendingTool: ToolCall | None = None
-    PendingPermission: PermissionRequest | None = None
-    PendingToolBatchIndex: int = 0
-    PendingToolBatchTotal: int = 0
-    StreamingMessage: Message | None = None
+    agent_status: AgentStatus = dataclasses.field(default_factory=AgentStatus)
+    messages: tuple[Message, ...] = ()
+    pending_tool: ToolCall | None = None
+    pending_permission: PermissionRequest | None = None
+    pending_tool_batch_index: int = 0
+    pending_tool_batch_total: int = 0
+    streaming_message: Message | None = None
 
 
 class ConversationNotification:
@@ -145,7 +145,7 @@ class AgentStatusChanged(ConversationNotification):
 
     kind: ClassVar[str] = "AgentStatusChanged"
 
-    Status: AgentStatus = dataclasses.field(default_factory=AgentStatus)
+    status: AgentStatus = dataclasses.field(default_factory=AgentStatus)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -154,10 +154,10 @@ class ToolApprovalRequested(ConversationNotification):
 
     kind: ClassVar[str] = "ToolApprovalRequested"
 
-    ToolCall: ToolCall = dataclasses.field(default_factory=ToolCall)
-    Request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
-    BatchIndex: int = 0
-    BatchTotal: int = 0
+    tool_call: ToolCall = dataclasses.field(default_factory=ToolCall)
+    request: PermissionRequest = dataclasses.field(default_factory=PermissionRequest)
+    batch_index: int = 0
+    batch_total: int = 0
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -173,7 +173,7 @@ class StreamChunkReceived(ConversationNotification):
 
     kind: ClassVar[str] = "StreamChunkReceived"
 
-    Message: Message | None = None
+    message: Message | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -182,7 +182,7 @@ class MessageAppended(ConversationNotification):
 
     kind: ClassVar[str] = "MessageAppended"
 
-    Message: Message = dataclasses.field(default_factory=Message)
+    message: Message = dataclasses.field(default_factory=Message)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -191,7 +191,7 @@ class ConversationError(ConversationNotification):
 
     kind: ClassVar[str] = "ConversationError"
 
-    Err: BaseException | None = None
+    err: BaseException | None = None
 
 
 class Channel[T]:
@@ -209,24 +209,24 @@ class Channel[T]:
         self._closed = False
         self._ready = asyncio.Event()
 
-    def Put(self, value: T) -> None:
+    def put(self, value: T) -> None:
         """Send one value. A send after the close is dropped, not delivered."""
         if self._closed:
             return
         self._items.append(value)
         self._ready.set()
 
-    def Close(self) -> None:
+    def close(self) -> None:
         """Say that no more values will arrive."""
         self._closed = True
         self._ready.set()
 
     @property
-    def Closed(self) -> bool:
+    def closed(self) -> bool:
         """Whether the producer has closed the channel."""
         return self._closed
 
-    async def Get(self) -> T | None:
+    async def get(self) -> T | None:
         """The next value, or ``None`` once the channel is closed and drained."""
         while True:
             if self._items:
@@ -254,16 +254,16 @@ class Cancellation:
         self._event = asyncio.Event()
 
     @property
-    def Cancelled(self) -> bool:
+    def cancelled(self) -> bool:
         """Whether the turn has been cancelled."""
         return self._cancelled
 
-    def Cancel(self) -> None:
+    def cancel(self) -> None:
         """Cancel the turn. Idempotent."""
         self._cancelled = True
         self._event.set()
 
-    async def Wait(self) -> None:
+    async def wait(self) -> None:
         """Block until the turn is cancelled, for ports that can race it."""
         await self._event.wait()
 
@@ -271,13 +271,13 @@ class Cancellation:
 class SnapshotPort(Protocol):
     """One read of conversation state."""
 
-    def Snapshot(self) -> ConversationView: ...
+    def snapshot(self) -> ConversationView: ...
 
 
 class TurnPort(Protocol):
     """Running and cancelling the turn in flight."""
 
-    async def RunTurn(
+    async def run_turn(
         self,
         text: str,
         notifications: Channel[ConversationNotification],
@@ -287,7 +287,7 @@ class TurnPort(Protocol):
         """Run one turn, reporting as it goes. Returns the failure, if any."""
         ...
 
-    async def Cancel(self) -> BaseException | None:
+    async def cancel(self) -> BaseException | None:
         """Cancel the turn the runtime is holding, if any."""
         ...
 

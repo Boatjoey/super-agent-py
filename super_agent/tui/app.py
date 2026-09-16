@@ -41,13 +41,13 @@ __all__ = [
     "OutputPrinter",
     "StartupInfo",
     "SubmitDone",
-    "WithClipboardWriter",
-    "WithOutputPrinter",
     "compactStatus",
     "composerCommands",
     "displayCWD",
     "printCommand",
     "scrollbackPrinter",
+    "with_clipboard_writer",
+    "with_output_printer",
 ]
 
 
@@ -55,18 +55,18 @@ __all__ = [
 class StartupInfo:
     """What the process knew at start-up and the TUI only displays."""
 
-    ModelName: str = ""
-    PermissionMode: str = ""
-    NoTools: bool = False
-    CWD: str = ""
-    InstructionPaths: tuple[str, ...] = ()
+    model_name: str = ""
+    permission_mode: str = ""
+    no_tools: bool = False
+    cwd: str = ""
+    instruction_paths: tuple[str, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class SubmitDone:
     """A turn finished. Carries the failure, if it failed."""
 
-    Err: BaseException | None = None
+    err: BaseException | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -77,15 +77,15 @@ class ConversationNotificationMsg:
     that has already been replaced is dropped instead of applied.
     """
 
-    Notification: ConversationNotification
-    Turn: int = 0
+    notification: ConversationNotification
+    turn: int = 0
 
 
 def scrollbackPrinter(content: str) -> runtime.Command[Msg] | None:
     """The default command output: committed above the live view."""
     if not content.strip():
         return None
-    return runtime.Scrollback(Content=content.rstrip("\n"))
+    return runtime.Scrollback(content=content.rstrip("\n"))
 
 
 @dataclasses.dataclass(slots=True)
@@ -117,17 +117,17 @@ class App:
     writeClipboard: ClipboardWriter = dataclasses.field(default_factory=lambda: actions.defaultClipboardWrite)
     printOutput: OutputPrinter = dataclasses.field(default_factory=lambda: scrollbackPrinter)
 
-    def Init(self) -> tuple[runtime.Command[Msg], ...]:
+    def init(self) -> tuple[runtime.Command[Msg], ...]:
         """The commands a freshly built app starts with.
 
         Only the attachment load is left: the composer has no asynchronous
         effect of its own.
         """
-        return (self.attachments.Init(),)
+        return (self.attachments.init(),)
 
     def needsInput(self) -> bool:
         """Whether the runtime is waiting on the user rather than on work."""
-        return self.agentStatus.AwaitingApproval
+        return self.agentStatus.awaiting_approval
 
 
 #: Every message the app's update accepts: the terminal's, the turn's, and each
@@ -154,7 +154,7 @@ type OutputPrinter = Callable[[str], runtime.Command[Msg] | None]
 type Option = Callable[[App], None]
 
 
-def WithClipboardWriter(write: ClipboardWriter) -> Option:
+def with_clipboard_writer(write: ClipboardWriter) -> Option:
     """Replace the clipboard writer, for a platform or a test."""
 
     def apply(app: App) -> None:
@@ -163,7 +163,7 @@ def WithClipboardWriter(write: ClipboardWriter) -> Option:
     return apply
 
 
-def WithOutputPrinter(printer: OutputPrinter) -> Option:
+def with_output_printer(printer: OutputPrinter) -> Option:
     """Replace the command-output printer, for scrollback or a test."""
 
     def apply(app: App) -> None:
@@ -178,7 +178,7 @@ def composerCommands(palette: Sequence[commands.Command]) -> tuple[ComposerComma
     The composer never learns the command catalogue. This is the one place the
     two features meet, and the root owns it.
     """
-    return tuple(ComposerCommand(Name=entry.Name, Description=entry.Description) for entry in palette)
+    return tuple(ComposerCommand(name=entry.name, description=entry.description) for entry in palette)
 
 
 def printCommand(app: App, content: str) -> runtime.Command[Msg] | None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from super_agent.tui.commands.catalog import (
     Command as Command,
-    IsCommand as IsCommand,
+    is_command as is_command,
 )
 from super_agent.tui.commands.format import (
     divider as divider,
@@ -23,7 +23,7 @@ from super_agent.tui.commands.model import (
     Config as Config,
     Input as Input,
     Model as Model,
-    New as New,
+    new as new,
 )
 from super_agent.tui.commands.outcome import (
     CompactDone as CompactDone,
@@ -55,13 +55,11 @@ __all__ = [
     "Config",
     "ExtensionPort",
     "Input",
-    "IsCommand",
     "MCPDone",
     "MCPPort",
     "MCPServerSummary",
     "MemoryPort",
     "Model",
-    "New",
     "Outcome",
     "PermissionPort",
     "Ports",
@@ -75,4 +73,6 @@ __all__ = [
     "formatNamedItems",
     "formatPermissions",
     "formatSessions",
+    "is_command",
+    "new",
 ]

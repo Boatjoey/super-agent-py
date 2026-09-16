@@ -12,15 +12,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from super_agent.tui.commands.model import Model
 
-__all__ = ["Command", "IsCommand", "Palette", "slashCommandDescriptions", "slashCommands"]
+__all__ = ["Command", "is_command", "palette", "slashCommandDescriptions", "slashCommands"]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Command:
     """One palette entry: the name the composer completes and the hint it shows."""
 
-    Name: str = ""
-    Description: str = ""
+    name: str = ""
+    description: str = ""
 
 
 #: The built-in commands, in palette order.
@@ -100,7 +100,7 @@ slashCommandDescriptions: dict[str, str] = {
 }
 
 
-def IsCommand(text: str) -> bool:
+def is_command(text: str) -> bool:
     """Whether submitted text is a slash command rather than a prompt.
 
     A pure predicate, so callers can route input without holding command state.
@@ -108,9 +108,9 @@ def IsCommand(text: str) -> bool:
     return text.startswith("/")
 
 
-def Palette(model: Model) -> tuple[Command, ...]:
+def palette(model: Model) -> tuple[Command, ...]:
     """The built-ins followed by the discovered custom commands."""
-    commands = [Command(Name=name, Description=slashCommandDescriptions[name]) for name in slashCommands]
+    commands = [Command(name=name, description=slashCommandDescriptions[name]) for name in slashCommands]
     for name in sorted(model.customCommands):
-        commands.append(Command(Name="/" + name.removeprefix("/"), Description="Custom command"))
+        commands.append(Command(name="/" + name.removeprefix("/"), description="Custom command"))
     return tuple(commands)

@@ -19,14 +19,14 @@ from datetime import UTC, datetime, timedelta
 _ID_LAYOUT = "%Y%m%dT%H%M%S"
 
 
-def FormatRFC3339Nano(moment: datetime) -> str:
+def format_rfc3339_nano(moment: datetime) -> str:
     """Format ``moment`` as RFC3339Nano."""
     base = f"{moment.year:04d}-{moment.month:02d}-{moment.day:02d}T{moment.hour:02d}:{moment.minute:02d}:{moment.second:02d}"
     fraction = f"{moment.microsecond:06d}".rstrip("0")
     return f"{base}.{fraction}{_offset(moment)}" if fraction else base + _offset(moment)
 
 
-def FormatRFC3339(moment: datetime) -> str:
+def format_rfc3339(moment: datetime) -> str:
     """Format ``moment`` as RFC3339: whole seconds only."""
     base = (
         f"{moment.year:04d}-{moment.month:02d}-{moment.day:02d}"
@@ -35,17 +35,17 @@ def FormatRFC3339(moment: datetime) -> str:
     return base + _offset(moment)
 
 
-def NowRFC3339Nano() -> str:
+def now_rfc3339_nano() -> str:
     """The current UTC time, formatted as the telemetry and metadata records are."""
-    return FormatRFC3339Nano(datetime.now(UTC))
+    return format_rfc3339_nano(datetime.now(UTC))
 
 
-def ParseRFC3339Nano(text: str) -> datetime:
+def parse_rfc3339_nano(text: str) -> datetime:
     """Parse a stored RFC3339 timestamp."""
     return datetime.fromisoformat(text)
 
 
-def NowID() -> str:
+def now_id() -> str:
     """A session identifier: UTC, nine fractional digits, without the dot.
 
     The format is fixed, so every identifier stays a legal directory name.
@@ -53,7 +53,7 @@ def NowID() -> str:
     return _formatID(time.time_ns(), keep_dot=False)
 
 
-def NowTurnID() -> str:
+def now_turn_id() -> str:
     """A turn identifier: the same instant, but the fraction keeps its dot."""
     return _formatID(time.time_ns(), keep_dot=True)
 

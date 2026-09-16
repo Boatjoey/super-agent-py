@@ -9,11 +9,11 @@ from typing import Final
 class ApprovalDecision(StrEnum):
     """One approval answer."""
 
-    ApproveOnce = "once"
-    ApproveAlways = "always"
-    DenyApproval = "deny"
+    APPROVE_ONCE = "once"
+    APPROVE_ALWAYS = "always"
+    DENY_APPROVAL = "deny"
 
 
-ApproveOnce: Final[ApprovalDecision] = ApprovalDecision.ApproveOnce
-ApproveAlways: Final[ApprovalDecision] = ApprovalDecision.ApproveAlways
-DenyApproval: Final[ApprovalDecision] = ApprovalDecision.DenyApproval
+APPROVE_ONCE: Final[ApprovalDecision] = ApprovalDecision.APPROVE_ONCE
+APPROVE_ALWAYS: Final[ApprovalDecision] = ApprovalDecision.APPROVE_ALWAYS
+DENY_APPROVAL: Final[ApprovalDecision] = ApprovalDecision.DENY_APPROVAL

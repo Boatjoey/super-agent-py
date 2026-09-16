@@ -37,31 +37,31 @@ class ActionID(str):
 class RunController(Protocol):
     """Owns the current run id, its cancellation, and liveness checks."""
 
-    def StartRun(self, parent: RunContext) -> tuple[RunID, RunContext]:
+    def start_run(self, parent: RunContext) -> tuple[RunID, RunContext]:
         """Cancel the previous run, begin a new one, and return its id and context."""
         ...
 
-    def InvalidateCurrentRun(self) -> None:
+    def invalidate_current_run(self) -> None:
         """Cancel the current run and retire its id without starting a new one."""
         ...
 
-    def CancelRun(self) -> None:
+    def cancel_run(self) -> None:
         """Cancel the current run and retire its id."""
         ...
 
-    def FinishRun(self, run_id: RunID) -> None:
+    def finish_run(self, run_id: RunID) -> None:
         """End ``run_id`` if it is still the current run."""
         ...
 
-    def CurrentRunID(self) -> RunID:
+    def current_run_id(self) -> RunID:
         """The current run id, or the zero id when no run is current."""
         ...
 
-    def CurrentContext(self) -> tuple[RunContext | None, bool]:
+    def current_context(self) -> tuple[RunContext | None, bool]:
         """The current run's context, and whether one exists."""
         ...
 
-    def IsCurrent(self, run_id: RunID) -> bool:
+    def is_current(self, run_id: RunID) -> bool:
         """Whether ``run_id`` is the live run."""
         ...
 
@@ -76,40 +76,40 @@ class DefaultRunController:
         self._run_id = RunID("")
         self._context: RunContext | None = None
 
-    def StartRun(self, parent: RunContext) -> tuple[RunID, RunContext]:
+    def start_run(self, parent: RunContext) -> tuple[RunID, RunContext]:
         self._cancel_current()
         self._next += 1
         self._run_id = RunID(f"run-{self._next}")
         self._context = RunContext(parent)
         return self._run_id, self._context
 
-    def InvalidateCurrentRun(self) -> None:
+    def invalidate_current_run(self) -> None:
         self._cancel_current()
         self._next += 1
         self._run_id = RunID(f"run-{self._next}")
 
-    def CancelRun(self) -> None:
+    def cancel_run(self) -> None:
         self._cancel_current()
         self._next += 1
         self._run_id = RunID(f"run-{self._next}")
 
-    def FinishRun(self, run_id: RunID) -> None:
+    def finish_run(self, run_id: RunID) -> None:
         if run_id == "" or run_id != self._run_id:
             return
         self._cancel_current()
 
-    def CurrentRunID(self) -> RunID:
+    def current_run_id(self) -> RunID:
         return self._run_id
 
-    def CurrentContext(self) -> tuple[RunContext | None, bool]:
+    def current_context(self) -> tuple[RunContext | None, bool]:
         if self._context is None:
             return None, False
         return self._context, True
 
-    def IsCurrent(self, run_id: RunID) -> bool:
+    def is_current(self, run_id: RunID) -> bool:
         return run_id != "" and run_id == self._run_id
 
     def _cancel_current(self) -> None:
         if self._context is not None:
-            self._context.Cancel()
+            self._context.cancel()
             self._context = None

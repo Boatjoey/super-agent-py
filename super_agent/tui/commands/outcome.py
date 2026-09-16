@@ -20,8 +20,8 @@ class StatusBar:
     :attr:`ModelName` keeps the value the status line already shows.
     """
 
-    ModelName: str = ""
-    PermissionMode: str = ""
+    model_name: str = ""
+    permission_mode: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -33,33 +33,33 @@ class Outcome:
     ``None`` outcome means the message produced no visible effect.
     """
 
-    Status: str = ""
-    Err: str = ""
+    status: str = ""
+    err: str = ""
     #: Committed to terminal scrollback rather than the live view.
-    Output: str = ""
+    output: str = ""
     #: Starts a new turn with this text, which is how workflow commands and
     #: expanded custom commands submit their instructions.
-    Prompt: str = ""
+    prompt: str = ""
     #: Queues a workspace file through the attachments feature.
-    AttachPath: str = ""
+    attach_path: str = ""
     #: Re-read conversation state after a command replaced, restored, or shrank
     #: the transcript.
-    RefreshSnapshot: bool = False
-    StatusBar: StatusBar | None = None
-    ShowHelp: bool = False
-    Quit: bool = False
+    refresh_snapshot: bool = False
+    status_bar: StatusBar | None = None
+    show_help: bool = False
+    quit: bool = False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class CompactDone:
     """The result of an asynchronous ``/compact`` run."""
 
-    Err: BaseException | None = None
+    err: BaseException | None = None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class MCPDone:
     """The result of an asynchronous MCP lifecycle change."""
 
-    Status: str = ""
-    Err: BaseException | None = None
+    status: str = ""
+    err: BaseException | None = None

@@ -38,12 +38,12 @@ from super_agent.llm import openai as _openai
 from super_agent.llm.factory import ProviderConfig
 from super_agent.runtime.protocol.run_context import DEFAULT_CANCEL_REASON, RunContext
 from super_agent.runtime.protocol.types import (
+    ROLE_ASSISTANT,
+    ROLE_SYSTEM,
+    ROLE_TOOL,
+    ROLE_USER,
     Message,
     ModelResponse,
-    RoleAssistant,
-    RoleSystem,
-    RoleTool,
-    RoleUser,
     StreamChunk,
     ToolCall,
     ToolSpec,
@@ -65,7 +65,7 @@ class ClaudeModel:
         self.client = client
         self.model = model
 
-    async def Next(
+    async def next(
         self,
         ctx: RunContext,
         messages: list[Message],
@@ -108,19 +108,19 @@ class ClaudeModel:
                     delta = event.delta
                     if isinstance(delta, TextDelta):
                         final_answer += delta.text
-                        on_stream_chunk(StreamChunk(ContentDelta=delta.text))
+                        on_stream_chunk(StreamChunk(content_delta=delta.text))
                     elif isinstance(delta, ThinkingDelta):
                         reasoning_content += delta.thinking
-                        on_stream_chunk(StreamChunk(ReasoningContentDelta=delta.thinking))
+                        on_stream_chunk(StreamChunk(reasoning_content_delta=delta.thinking))
                     elif isinstance(delta, InputJSONDelta):
                         current_tool_use_input += delta.partial_json
                 elif isinstance(event, RawContentBlockStopEvent):
                     if current_tool_use_id != "":
                         tool_calls.append(
                             ToolCall(
-                                ID=current_tool_use_id,
-                                Name=current_tool_use_name,
-                                Input=current_tool_use_input,
+                                id=current_tool_use_id,
+                                name=current_tool_use_name,
+                                input=current_tool_use_input,
                             )
                         )
                         current_tool_use_id = ""
@@ -138,21 +138,21 @@ class ClaudeModel:
         usage: Usage | None = None
         if input_tokens > 0 or output_tokens > 0:
             usage = Usage(
-                InputTokens=input_tokens,
-                OutputTokens=output_tokens,
-                TotalTokens=input_tokens + output_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
             )
         return ModelResponse(
-            Content=final_answer,
-            ReasoningContent=reasoning_content,
-            ToolCalls=tuple(tool_calls),
-            Usage=usage,
+            content=final_answer,
+            reasoning_content=reasoning_content,
+            tool_calls=tuple(tool_calls),
+            usage=usage,
         )
 
 
-def NewClaude(cfg: ProviderConfig) -> ClaudeModel:
+def new_claude(cfg: ProviderConfig) -> ClaudeModel:
     """A Claude model with the ``claude-3-7-sonnet-20250219`` default."""
-    cfg = _openai.with_defaults(cfg, ProviderConfig(Model="claude-3-7-sonnet-20250219"))
+    cfg = _openai.with_defaults(cfg, ProviderConfig(model="claude-3-7-sonnet-20250219"))
     return new_claude_model(cfg)
 
 
@@ -161,10 +161,10 @@ def new_claude_model(cfg: ProviderConfig) -> ClaudeModel:
     SDK's environment fallback (``ANTHROPIC_API_KEY``, ``ANTHROPIC_BASE_URL``) applies."""
     client = anthropic.AsyncAnthropic(
         http_client=_openai.http_client(),
-        api_key=cfg.APIKey or None,
-        base_url=cfg.BaseURL or None,
+        api_key=cfg.api_key or None,
+        base_url=cfg.base_url or None,
     )
-    return ClaudeModel(client=client, model=cfg.Model)
+    return ClaudeModel(client=client, model=cfg.model)
 
 
 def split_system_messages(messages: list[Message]) -> tuple[str, list[Message]]:
@@ -172,10 +172,10 @@ def split_system_messages(messages: list[Message]) -> tuple[str, list[Message]]:
     system = ""
     conversation: list[Message] = []
     for message in messages:
-        if message.Role == RoleSystem:
+        if message.role == ROLE_SYSTEM:
             if system != "":
                 system += "\n\n"
-            system += message.Content
+            system += message.content
             continue
         conversation.append(message)
     return system, conversation
@@ -185,29 +185,29 @@ def to_claude_messages(messages: list[Message]) -> list[MessageParam]:
     """Translate protocol messages into Messages API message params."""
     result: list[MessageParam] = []
     for message in messages:
-        if message.Role == RoleUser:
-            blocks: list[dict[str, Any]] = [{"type": "text", "text": message.Content}]
-            for attachment in message.Attachments:
-                blocks.extend(_attachment_blocks(attachment.Name, attachment.MIME, attachment.Data))
+        if message.role == ROLE_USER:
+            blocks: list[dict[str, Any]] = [{"type": "text", "text": message.content}]
+            for attachment in message.attachments:
+                blocks.extend(_attachment_blocks(attachment.name, attachment.mime, attachment.data))
             result.append(cast(MessageParam, {"role": "user", "content": blocks}))
-        elif message.Role == RoleAssistant:
+        elif message.role == ROLE_ASSISTANT:
             assistant_blocks: list[dict[str, Any]] = []
-            if message.Content != "":
-                assistant_blocks.append({"type": "text", "text": message.Content})
-            if message.ToolCalls:
-                for call in message.ToolCalls:
+            if message.content != "":
+                assistant_blocks.append({"type": "text", "text": message.content})
+            if message.tool_calls:
+                for call in message.tool_calls:
                     try:
-                        parsed: Any = json.loads(call.Input)
+                        parsed: Any = json.loads(call.input)
                     except json.JSONDecodeError:
                         parsed = {}
-                    assistant_blocks.append({"type": "tool_use", "id": call.ID, "name": call.Name, "input": parsed})
+                    assistant_blocks.append({"type": "tool_use", "id": call.id, "name": call.name, "input": parsed})
             if assistant_blocks:
                 result.append(cast(MessageParam, {"role": "assistant", "content": assistant_blocks}))
-        elif message.Role == RoleTool:
+        elif message.role == ROLE_TOOL:
             tool_result = {
                 "type": "tool_result",
-                "tool_use_id": message.ToolCallID,
-                "content": message.Content,
+                "tool_use_id": message.tool_call_id,
+                "content": message.content,
             }
             result.append(cast(MessageParam, {"role": "user", "content": [tool_result]}))
     return merge_adjacent_messages(result)
@@ -261,12 +261,12 @@ def to_claude_tools(tools: list[ToolSpec]) -> list[ToolUnionParam]:
     """
     result: list[ToolUnionParam] = []
     for tool in tools:
-        schema: dict[str, Any] = dict(tool.Parameters) if tool.Parameters is not None else {}
+        schema: dict[str, Any] = dict(tool.parameters) if tool.parameters is not None else {}
         schema["type"] = "object"
         result.append(
             cast(
                 ToolUnionParam,
-                {"name": tool.Name, "description": tool.Description, "input_schema": schema},
+                {"name": tool.name, "description": tool.description, "input_schema": schema},
             )
         )
     return result

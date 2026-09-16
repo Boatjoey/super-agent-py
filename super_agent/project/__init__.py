@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from super_agent.project.project import (
     Project as Project,
-    Resolve as Resolve,
     canonicalDirectory as canonicalDirectory,
+    resolve as resolve,
 )
 
 __all__ = [
     "Project",
-    "Resolve",
     "canonicalDirectory",
+    "resolve",
 ]

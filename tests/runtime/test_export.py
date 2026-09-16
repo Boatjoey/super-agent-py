@@ -12,32 +12,32 @@ from pathlib import Path
 import pytest
 
 from super_agent import store, workspace
-from super_agent.runtime.engine import NewEngineWithExecutor
+from super_agent.runtime.engine import new_engine_with_executor
 from super_agent.runtime.execution import DefaultScheduledActionExecutor
-from super_agent.runtime.machine import RoleSystem, RoleUser, ToolCall
+from super_agent.runtime.machine import ROLE_SYSTEM, ROLE_USER, ToolCall
 from super_agent.runtime.protocol.types import Message
-from super_agent.runtime.session import Metadata, NewPersistentSession, SessionID
+from super_agent.runtime.session import Metadata, SessionID, new_persistent_session
 
 
 def configured_workspace(root: str) -> workspace.Workspace:
-    return workspace.New(workspace.NewDefaultContext(root))
+    return workspace.new(workspace.new_default_context(root))
 
 
 @pytest.mark.parametrize("format", ["markdown", "json", "html"])
 def test_session_exports_markdown_json_and_local_html(tmp_path: Path, format: str) -> None:
     messages = [
-        Message(Role=RoleSystem, Content="rules"),
-        Message(Role=RoleUser, Content="<hello>"),
+        Message(role=ROLE_SYSTEM, content="rules"),
+        Message(role=ROLE_USER, content="<hello>"),
     ]
-    engine = NewEngineWithExecutor(DefaultScheduledActionExecutor(None, None), messages)
-    session = NewPersistentSession(
+    engine = new_engine_with_executor(DefaultScheduledActionExecutor(None, None), messages)
+    session = new_persistent_session(
         engine,
         None,
         configured_workspace(str(tmp_path)),
-        Metadata(Title="Demo", Provider="test", Model="model", CWD=str(tmp_path)),
+        Metadata(title="Demo", provider="test", model="model", cwd=str(tmp_path)),
     )
 
-    path = session.Export(format)
+    path = session.export(format)
 
     content = Path(path).read_text(encoding="utf-8")
     assert content, f"empty {format} export"
@@ -48,15 +48,15 @@ def test_session_exports_markdown_json_and_local_html(tmp_path: Path, format: st
 
 def test_export_writes_under_the_hyphenated_workspace_directory(tmp_path: Path) -> None:
     """The export path spelling is part of the on-disk contract."""
-    engine = NewEngineWithExecutor(DefaultScheduledActionExecutor(None, None), [])
-    session = NewPersistentSession(
+    engine = new_engine_with_executor(DefaultScheduledActionExecutor(None, None), [])
+    session = new_persistent_session(
         engine,
         None,
         configured_workspace(str(tmp_path)),
-        Metadata(ID=SessionID("session-1"), Title="Demo"),
+        Metadata(id=SessionID("session-1"), title="Demo"),
     )
 
-    path = session.Export("md")
+    path = session.export("md")
 
     assert path.endswith(".md")
     assert ".super-agent" in path
@@ -64,47 +64,47 @@ def test_export_writes_under_the_hyphenated_workspace_directory(tmp_path: Path) 
 
 
 def test_unknown_export_format_is_rejected(tmp_path: Path) -> None:
-    engine = NewEngineWithExecutor(DefaultScheduledActionExecutor(None, None), [])
-    session = NewPersistentSession(engine, None, configured_workspace(str(tmp_path)), Metadata())
+    engine = new_engine_with_executor(DefaultScheduledActionExecutor(None, None), [])
+    session = new_persistent_session(engine, None, configured_workspace(str(tmp_path)), Metadata())
 
     with pytest.raises(ValueError, match="export format must be markdown, json, or html"):
-        session.Export("pdf")
+        session.export("pdf")
 
 
 def test_session_export_includes_persisted_audit_events(tmp_path: Path) -> None:
     root = tmp_path / "sessions"
-    repository_store = store.New(str(root))
-    meta = repository_store.Create(store.Metadata(Title="Audit", Provider="test", Model="model", CWD=str(tmp_path)), [])
-    call = ToolCall(ID="call-1", Name="run_command", Input='{"command":"ls -la"}')
-    repository_store.Append(meta.ID, store.Record(Type=store.EventApprovalDecision, ToolCall=call, Decision="deny"))
-    repository_store.Append(meta.ID, store.Record(Type=store.EventError, Error="denied"))
+    repository_store = store.new(str(root))
+    meta = repository_store.create(store.Metadata(title="Audit", provider="test", model="model", cwd=str(tmp_path)), [])
+    call = ToolCall(id="call-1", name="run_command", input='{"command":"ls -la"}')
+    repository_store.append(meta.id, store.Record(type=store.EVENT_APPROVAL_DECISION, tool_call=call, decision="deny"))
+    repository_store.append(meta.id, store.Record(type=store.EVENT_ERROR, error="denied"))
 
-    engine = NewEngineWithExecutor(DefaultScheduledActionExecutor(None, None), [])
-    session = NewPersistentSession(
+    engine = new_engine_with_executor(DefaultScheduledActionExecutor(None, None), [])
+    session = new_persistent_session(
         engine,
-        store.NewRepository(repository_store),
+        store.new_repository(repository_store),
         configured_workspace(str(tmp_path)),
-        Metadata(ID=SessionID(meta.ID), Title="Audit"),
+        Metadata(id=SessionID(meta.id), title="Audit"),
     )
 
-    content = Path(session.Export("json")).read_text(encoding="utf-8")
+    content = Path(session.export("json")).read_text(encoding="utf-8")
 
     for expected in ('"events"', '"approval_decision"', '"run_command"', '"denied"'):
         assert expected in content, f"export missing {expected}: {content}"
     payload = json.loads(content)
-    # session.Metadata's keys are its dataclass field names; the export
-    # reproduces that rather than inventing lowercase ones.
-    assert payload["metadata"]["Title"] == "Audit"
+    # session.Metadata's keys are its dataclass field names, snake_case as the
+    # export writes them.
+    assert payload["metadata"]["title"] == "Audit"
     assert len(payload["events"]) == 2
 
 
 def test_export_reports_when_the_workspace_cannot_write() -> None:
     class InertWorkspace:
-        def Spec(self) -> object:
+        def spec(self) -> object:
             raise NotImplementedError
 
-    engine = NewEngineWithExecutor(DefaultScheduledActionExecutor(None, None), [])
-    session = NewPersistentSession(engine, None, InertWorkspace(), Metadata())  # type: ignore[arg-type]
+    engine = new_engine_with_executor(DefaultScheduledActionExecutor(None, None), [])
+    session = new_persistent_session(engine, None, InertWorkspace(), Metadata())  # type: ignore[arg-type]
 
     with pytest.raises(RuntimeError, match="session export is unavailable"):
-        session.Export("markdown")
+        session.export("markdown")

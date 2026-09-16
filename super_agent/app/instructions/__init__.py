@@ -25,7 +25,7 @@ import os
 from typing import Final
 
 #: The largest instruction file that is read, in bytes.
-MaxFileSize: Final[int] = 128 * 1024
+MAX_FILE_SIZE: Final[int] = 128 * 1024
 
 #: The user-level configuration directory spelling: no hyphen, under home.
 USER_CONFIG_DIRECTORY: Final[str] = ".superagent"
@@ -38,19 +38,19 @@ INSTRUCTION_FILES: Final[tuple[str, ...]] = ("AGENTS.md", "CLAUDE.md")
 class Source:
     """One file that contributed to a bundle."""
 
-    Path: str = ""
-    Kind: str = ""
+    path: str = ""
+    kind: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Bundle:
     """The concatenated instructions and where they came from."""
 
-    Content: str = ""
-    Sources: tuple[Source, ...] = ()
+    content: str = ""
+    sources: tuple[Source, ...] = ()
 
 
-def Load(cwd: str) -> Bundle:
+def load(cwd: str) -> Bundle:
     """Load every instruction layer that applies to ``cwd``."""
     home = os.path.expanduser("~")
     user_path = os.path.join(home, USER_CONFIG_DIRECTORY, "AGENTS.md")
@@ -65,12 +65,12 @@ def Load(cwd: str) -> Bundle:
             continue
         _append_source(parts, sources, os.path.join(directory, "CLAUDE.md"), "claude-compat")
 
-    return Bundle(Content="\n\n".join(parts), Sources=tuple(sources))
+    return Bundle(content="\n\n".join(parts), sources=tuple(sources))
 
 
-def LoadProjectInstructions(directory: str) -> str:
+def load_project_instructions(directory: str) -> str:
     """The concatenated instruction text for ``directory``."""
-    return Load(directory).Content
+    return load(directory).content
 
 
 def ancestorDirs(cwd: str) -> list[str]:
@@ -96,15 +96,15 @@ def _append_source(parts: list[str], sources: list[Source], path: str, kind: str
     if not os.path.exists(path) or os.path.isdir(path):
         return False
     size = os.path.getsize(path)
-    if size > MaxFileSize:
-        raise ValueError(f"instruction file {path} is too large: {size} bytes exceeds {MaxFileSize} bytes")
+    if size > MAX_FILE_SIZE:
+        raise ValueError(f"instruction file {path} is too large: {size} bytes exceeds {MAX_FILE_SIZE} bytes")
     text = _read_text(path).strip()
     if text == "":
         # An empty AGENTS.md provides no guidance, so it must not suppress the
         # CLAUDE.md fallback in the same directory.
         return False
     parts.append(text)
-    sources.append(Source(Path=path, Kind=kind))
+    sources.append(Source(path=path, kind=kind))
     return True
 
 
@@ -155,11 +155,11 @@ def _has_instruction_file(directory: str) -> bool:
 
 __all__ = [
     "INSTRUCTION_FILES",
+    "MAX_FILE_SIZE",
     "USER_CONFIG_DIRECTORY",
     "Bundle",
-    "Load",
-    "LoadProjectInstructions",
-    "MaxFileSize",
     "Source",
     "ancestorDirs",
+    "load",
+    "load_project_instructions",
 ]

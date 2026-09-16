@@ -32,18 +32,18 @@ from super_agent.runtime.execution import (
     DefaultScheduledActionExecutor,
     DefaultScheduledActionRunner,
     MemoryApprovalStore,
-    NewDefaultPolicy,
     Policy,
     RunController,
     ScheduledActionExecutor,
     ScheduledActionRunner,
+    new_default_policy,
 )
 from super_agent.runtime.machine import (
+    STATE_INITIALIZING,
     DefaultRuntimeDataChangeApplier,
     Message,
     RuntimeData,
     RuntimeDataChangeApplier,
-    StateInitializing,
 )
 from super_agent.runtime.protocol.types import Model, ToolRunner
 
@@ -71,11 +71,11 @@ class Engine(CommandsMixin, ActionLoopMixin, QueryMixin):
         self._applier = runtimeDataChangeApplier
         self._runs = runs
         self._approvals = approvals
-        self._runtime_data = RuntimeData(State=StateInitializing, Messages=list(initial or []))
+        self._runtime_data = RuntimeData(state=STATE_INITIALIZING, messages=list(initial or []))
         self._action_queue = ActionQueue()
         self._state_observer: StateObserver | None = None
 
-    def SetStateObserver(self, observer: StateObserver | None) -> None:
+    def set_state_observer(self, observer: StateObserver | None) -> None:
         """Install the per-turn observer, or clear it with ``None``."""
         self._state_observer = observer
 
@@ -91,17 +91,17 @@ class Engine(CommandsMixin, ActionLoopMixin, QueryMixin):
             await observer()
 
 
-def NewEngine(model: Model | None, tools: ToolRunner | None, initial: list[Message] | None) -> Engine:
+def new_engine(model: Model | None, tools: ToolRunner | None, initial: list[Message] | None) -> Engine:
     """The ordinary wiring: real executor, default policy, default everything."""
-    return NewEngineWithExecutor(DefaultScheduledActionExecutor(model, tools), initial)
+    return new_engine_with_executor(DefaultScheduledActionExecutor(model, tools), initial)
 
 
-def NewEngineWithExecutor(executor: ScheduledActionExecutor, initial: list[Message] | None) -> Engine:
+def new_engine_with_executor(executor: ScheduledActionExecutor, initial: list[Message] | None) -> Engine:
     """Wire the default policy and remember its mode and rules for approvals."""
     approvals = MemoryApprovalStore()
-    policy = NewDefaultPolicy()
-    approvals.SetPermissionPolicy(policy.Mode(), policy.Rules())
-    return NewEngineWithComponents(
+    policy = new_default_policy()
+    approvals.set_permission_policy(policy.mode(), policy.rules())
+    return new_engine_with_components(
         DefaultScheduledActionRunner(executor),
         DefaultActionResultResolver(policy, approvals),
         DefaultRuntimeDataChangeApplier(),
@@ -111,7 +111,7 @@ def NewEngineWithExecutor(executor: ScheduledActionExecutor, initial: list[Messa
     )
 
 
-def NewEngineWithExecutorAndPolicy(
+def new_engine_with_executor_and_policy(
     executor: ScheduledActionExecutor, policy: Policy, initial: list[Message] | None
 ) -> Engine:
     """As :func:`NewEngineWithExecutor`, with the caller's policy.
@@ -122,8 +122,8 @@ def NewEngineWithExecutorAndPolicy(
     """
     approvals = MemoryApprovalStore()
     if isinstance(policy, PolicySnapshot):
-        approvals.SetPermissionPolicy(policy.Mode(), policy.Rules())
-    return NewEngineWithComponents(
+        approvals.set_permission_policy(policy.mode(), policy.rules())
+    return new_engine_with_components(
         DefaultScheduledActionRunner(executor),
         DefaultActionResultResolver(policy, approvals),
         DefaultRuntimeDataChangeApplier(),
@@ -133,7 +133,7 @@ def NewEngineWithExecutorAndPolicy(
     )
 
 
-def NewEngineWithComponents(
+def new_engine_with_components(
     runner: ScheduledActionRunner,
     resolver: ActionResultResolver,
     runtimeDataChangeApplier: RuntimeDataChangeApplier,
@@ -147,12 +147,12 @@ def NewEngineWithComponents(
 
 __all__ = [
     "Engine",
-    "NewEngine",
-    "NewEngineWithComponents",
-    "NewEngineWithExecutor",
-    "NewEngineWithExecutorAndPolicy",
     "PolicySetter",
     "PolicySnapshot",
     "PolicyStore",
     "StateObserver",
+    "new_engine",
+    "new_engine_with_components",
+    "new_engine_with_executor",
+    "new_engine_with_executor_and_policy",
 ]

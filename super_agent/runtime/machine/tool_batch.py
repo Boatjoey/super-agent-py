@@ -16,6 +16,6 @@ class ToolCallBatch:
     says no call has been dispatched yet.
     """
 
-    ID: str = dataclasses.field(default="", metadata=json_field(name="id"))
-    Calls: list[ToolCall] = dataclasses.field(default_factory=list[ToolCall], metadata=json_field(name="calls"))
-    Index: int = dataclasses.field(default=0, metadata=json_field(name="index"))
+    id: str = dataclasses.field(default="", metadata=json_field(name="id"))
+    calls: list[ToolCall] = dataclasses.field(default_factory=list[ToolCall], metadata=json_field(name="calls"))
+    index: int = dataclasses.field(default=0, metadata=json_field(name="index"))

@@ -9,14 +9,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from super_agent.runtime.machine import Message, RoleSystem, RoleTool
+from super_agent.runtime.machine import ROLE_SYSTEM, ROLE_TOOL, Message
 from super_agent.runtime.protocol.run_context import RunContext
 from super_agent.runtime.session.repository import (
+    WORKSPACE_ACCESS_READ_WRITE,
     Metadata,
     Repository,
     SessionID,
     Summary,
-    WorkspaceAccessReadWrite,
     WorkspaceRootSpec,
     WorkspaceSpec,
     workspaceSpecPointer,
@@ -45,43 +45,43 @@ class HistoryMixin:
         def _tryLock(self) -> bool: ...
         def _unlock(self) -> None: ...
         def metaID(self) -> SessionID: ...
-        def Metadata(self) -> Metadata: ...
-        def Snapshot(self) -> EngineView: ...
+        def metadata(self) -> Metadata: ...
+        def snapshot(self) -> EngineView: ...
 
     # --- listing and forking -------------------------------------------------
 
-    def ListSessions(self) -> list[Summary]:
+    def list_sessions(self) -> list[Summary]:
         if self.repository is None:
             raise ValueError("session store is not configured")
-        return self.repository.List()
+        return self.repository.list()
 
-    async def Fork(self, title: str) -> Metadata:
+    async def fork(self, title: str) -> Metadata:
         """Copy this session's conversation into a new stored session."""
         if not self._tryLock():
             raise RuntimeError("session is already running a turn")
         try:
             if self.repository is None:
                 raise ValueError("session store is not configured")
-            current = self.Metadata()
+            current = self.metadata()
             title = title.strip()
             if title == "":
-                title = current.Title + " (fork)"
-            messages = list(self.Snapshot().Messages)
-            created = self.repository.Create(
+                title = current.title + " (fork)"
+            messages = list(self.snapshot().messages)
+            created = self.repository.create(
                 Metadata(
-                    Title=title,
-                    Provider=current.Provider,
-                    Model=current.Model,
-                    CWD=current.CWD,
-                    InstructionSources=current.InstructionSources,
-                    ParentID=current.ID,
-                    ProjectID=current.ProjectID,
-                    ConfigRoot=current.ConfigRoot,
-                    WorkspaceSpec=_spec_from_workspace(self.workspace),
+                    title=title,
+                    provider=current.provider,
+                    model=current.model,
+                    cwd=current.cwd,
+                    instruction_sources=current.instruction_sources,
+                    parent_id=current.id,
+                    project_id=current.project_id,
+                    config_root=current.config_root,
+                    workspace_spec=_spec_from_workspace(self.workspace),
                 ),
                 messages,
             )
-            await self.engine.ReplaceMessages(messages)
+            await self.engine.replace_messages(messages)
             self.meta = created
             self._rearmEmitter(len(messages))
             return created
@@ -90,12 +90,12 @@ class HistoryMixin:
 
     # --- memory --------------------------------------------------------------
 
-    def Memories(self) -> list[str]:
+    def memories(self) -> list[str]:
         if self.repository is None:
             raise ValueError("session store is not configured")
-        return self.repository.LoadMemory()
+        return self.repository.load_memory()
 
-    async def Remember(self, value: str) -> None:
+    async def remember(self, value: str) -> None:
         """Add one line to the cross-session memory, if it is not already there."""
         value = value.strip()
         if value == "":
@@ -105,36 +105,36 @@ class HistoryMixin:
         try:
             if self.repository is None:
                 raise ValueError("session store is not configured")
-            items = self.repository.LoadMemory()
+            items = self.repository.load_memory()
             if value in items:
                 return
             items.append(value)
-            self.repository.SaveMemory(items)
+            self.repository.save_memory(items)
             await self._replaceMemoryContext(items)
         finally:
             self._unlock()
 
-    async def ForgetMemories(self) -> None:
+    async def forget_memories(self) -> None:
         if not self._tryLock():
             raise RuntimeError("session is already running a turn")
         try:
             if self.repository is None:
                 raise ValueError("session store is not configured")
-            self.repository.SaveMemory([])
+            self.repository.save_memory([])
             await self._replaceMemoryContext([])
         finally:
             self._unlock()
 
     async def _replaceMemoryContext(self, items: list[str]) -> None:
         assert self.repository is not None
-        kept = withMemoryContext(list(self.Snapshot().Messages), items)
-        self.repository.SaveConversationReplacement(self.metaID(), kept)
-        await self.engine.ReplaceMessages(kept)
+        kept = withMemoryContext(list(self.snapshot().messages), items)
+        self.repository.save_conversation_replacement(self.metaID(), kept)
+        await self.engine.replace_messages(kept)
         self.emitter.reset(len(kept))
 
     # --- resume --------------------------------------------------------------
 
-    async def Resume(self, session_id: SessionID) -> None:
+    async def resume(self, session_id: SessionID) -> None:
         """Restore a stored session, upgrading legacy metadata exactly once.
 
         Every validation happens before anything is activated, so a resume that
@@ -147,7 +147,7 @@ class HistoryMixin:
         try:
             if self.repository is None:
                 raise ValueError("session store is not configured")
-            messages, meta = self.repository.Load(session_id)
+            messages, meta = self.repository.load(session_id)
             if self.workspace is None:
                 raise ValueError("workspace is not configured")
             spec, legacy = savedWorkspaceSpec(meta)
@@ -157,50 +157,50 @@ class HistoryMixin:
                 # re-resolve the saved cwd against the current filesystem and
                 # persist the result. Every later resume takes the strict path.
                 try:
-                    spec = self.workspace.Canonicalize(spec)
+                    spec = self.workspace.canonicalize(spec)
                 except Exception as error:
                     raise ValueError(f"saved workspace is no longer valid: {error}") from error
             try:
-                self.workspace.Validate(spec)
+                self.workspace.validate(spec)
             except Exception as error:
                 raise ValueError(f"saved workspace is no longer valid: {error}") from error
             if legacy:
                 # Persist before mutating the active session so a failed write
                 # leaves the resume untouched instead of half applied.
                 try:
-                    self.repository.SaveWorkspaceDescription(session_id, spec)
+                    self.repository.save_workspace_description(session_id, spec)
                 except Exception as error:
                     raise ValueError(f"persist migrated workspace: {error}") from error
-            memories = self.repository.LoadMemory()
+            memories = self.repository.load_memory()
             messages = withMemoryContext(messages, memories)
-            self.repository.SaveConversationReplacement(session_id, messages)
+            self.repository.save_conversation_replacement(session_id, messages)
             try:
-                self.workspace.Activate(spec)
+                self.workspace.activate(spec)
             except Exception as error:
                 raise ValueError(f"saved workspace is no longer valid: {error}") from error
 
             meta = _with_workspace(meta, spec)
-            await self.engine.ReplaceMessages(messages)
+            await self.engine.replace_messages(messages)
             self.meta = meta
             self._rearmEmitter(len(messages))
         finally:
             self._unlock()
 
-    def RenameSession(self, session_id: SessionID, title: str) -> None:
+    def rename_session(self, session_id: SessionID, title: str) -> None:
         if self.repository is None:
             raise ValueError("session store is not configured")
-        self.repository.RenameSession(session_id, title)
+        self.repository.rename_session(session_id, title)
 
-    def DeleteSession(self, session_id: SessionID) -> None:
+    def delete_session(self, session_id: SessionID) -> None:
         if self.repository is None:
             raise ValueError("session store is not configured")
         if session_id == self.metaID():
             raise ValueError("cannot delete active session")
-        self.repository.Delete(session_id)
+        self.repository.delete(session_id)
 
     # --- compaction and undo -------------------------------------------------
 
-    async def Compact(self, ctx: RunContext, summary: str, keepNewest: int) -> None:
+    async def compact(self, ctx: RunContext, summary: str, keepNewest: int) -> None:
         """Replace older turns with a summary, keeping the newest few.
 
         The compaction record is persisted before the engine is replaced, so the
@@ -211,28 +211,28 @@ class HistoryMixin:
         try:
             if self.repository is None:
                 raise ValueError("session store is not configured")
-            snapshot = self.Snapshot()
-            if not snapshot.Messages:
+            snapshot = self.snapshot()
+            if not snapshot.messages:
                 return
             if keepNewest < 1:
                 keepNewest = 4
-            current = list(snapshot.Messages)
+            current = list(snapshot.messages)
             if nonSystemMessageCount(current) <= keepNewest:
                 return
             summary = summary.strip()
             if summary == "":
-                summary = await self.engine.CompactSummary(ctx)
+                summary = await self.engine.compact_summary(ctx)
             kept = compactedMessages(current, summary, keepNewest)
             original = list(current)
-            self.repository.SaveCompaction(self.metaID(), summary, original, kept)
-            await self.engine.ReplaceMessages(kept)
+            self.repository.save_compaction(self.metaID(), summary, original, kept)
+            await self.engine.replace_messages(kept)
             # The kept messages were already emitted and persisted through the
             # compaction record; re-emitting them would duplicate the transcript.
             self.emitter.emittedMessages = len(kept)
         finally:
             self._unlock()
 
-    async def Undo(self) -> None:
+    async def undo(self) -> None:
         """Restore the workspace to the last checkpoint and drop what came after.
 
         The files are restored first. Only when that succeeds is the transcript
@@ -246,12 +246,12 @@ class HistoryMixin:
             if self.workspace is None:
                 raise ValueError("workspace is not configured")
             try:
-                files, messages, index = self.repository.LoadUndoPoint(self.metaID())
+                files, messages, index = self.repository.load_undo_point(self.metaID())
             except Exception as error:
                 raise ValueError("no checkpoint to undo") from error
-            self.workspace.Restore(files)
-            self.repository.TruncateAfter(self.metaID(), index)
-            await self.engine.ReplaceMessages(messages)
+            self.workspace.restore(files)
+            self.repository.truncate_after(self.metaID(), index)
+            await self.engine.replace_messages(messages)
             self.emitter.emittedMessages = len(messages)
         finally:
             self._unlock()
@@ -264,7 +264,7 @@ class HistoryMixin:
 
 
 def nonSystemMessageCount(messages: list[Message]) -> int:
-    return sum(1 for message in messages if message.Role != RoleSystem)
+    return sum(1 for message in messages if message.role != ROLE_SYSTEM)
 
 
 def compactedMessages(messages: list[Message], summary: str, keepNewest: int) -> list[Message]:
@@ -274,14 +274,14 @@ def compactedMessages(messages: list[Message], summary: str, keepNewest: int) ->
     backwards: a tool result with no preceding tool call is a transcript the
     provider rejects.
     """
-    system = [message for message in messages if message.Role == RoleSystem]
-    rest = [message for message in messages if message.Role != RoleSystem]
+    system = [message for message in messages if message.role == ROLE_SYSTEM]
+    rest = [message for message in messages if message.role != ROLE_SYSTEM]
     if len(rest) <= keepNewest:
         return [*system, *rest]
-    kept = [*system, Message(Role=RoleSystem, Content="Conversation summary:\n" + summary)]
+    kept = [*system, Message(role=ROLE_SYSTEM, content="Conversation summary:\n" + summary)]
     start = len(rest) - keepNewest
-    if rest[start].Role == RoleTool:
-        while start > 0 and rest[start].Role == RoleTool:
+    if rest[start].role == ROLE_TOOL:
+        while start > 0 and rest[start].role == ROLE_TOOL:
             start -= 1
     return [*kept, *rest[start:]]
 
@@ -291,10 +291,10 @@ def withMemoryContext(messages: list[Message], items: list[str]) -> list[Message
     kept = [
         message
         for message in messages
-        if message.Role != RoleSystem or not message.Content.startswith(MEMORY_SYSTEM_PREFIX)
+        if message.role != ROLE_SYSTEM or not message.content.startswith(MEMORY_SYSTEM_PREFIX)
     ]
     if items:
-        memory = Message(Role=RoleSystem, Content=MEMORY_SYSTEM_PREFIX + "- " + "\n- ".join(items))
+        memory = Message(role=ROLE_SYSTEM, content=MEMORY_SYSTEM_PREFIX + "- " + "\n- ".join(items))
         return [memory, *kept]
     return kept
 
@@ -305,15 +305,15 @@ def savedWorkspaceSpec(meta: Metadata) -> tuple[WorkspaceSpec, bool]:
     The second element marks metadata written before ``WorkspaceSpec``: it carries
     only a cwd, which the resume upgrades to a canonical spec exactly once.
     """
-    if meta.WorkspaceSpec is not None:
-        return workspaceSpecPointer(meta.WorkspaceSpec), False
-    if meta.CWD == "":
+    if meta.workspace_spec is not None:
+        return workspaceSpecPointer(meta.workspace_spec), False
+    if meta.cwd == "":
         raise ValueError("saved workspace is no longer valid: legacy session has no cwd")
     return (
         WorkspaceSpec(
-            PrimaryRoot=meta.CWD,
-            CWD=meta.CWD,
-            Roots=(WorkspaceRootSpec(Path=meta.CWD, Access=WorkspaceAccessReadWrite),),
+            primary_root=meta.cwd,
+            cwd=meta.cwd,
+            roots=(WorkspaceRootSpec(path=meta.cwd, access=WORKSPACE_ACCESS_READ_WRITE),),
         ),
         True,
     )
@@ -322,19 +322,19 @@ def savedWorkspaceSpec(meta: Metadata) -> tuple[WorkspaceSpec, bool]:
 def _spec_from_workspace(workspace: Workspace | None) -> WorkspaceSpec | None:
     if workspace is None:
         return None
-    return workspaceSpecPointer(workspace.Spec())
+    return workspaceSpecPointer(workspace.spec())
 
 
 def _with_workspace(meta: Metadata, spec: WorkspaceSpec) -> Metadata:
     return Metadata(
-        ID=meta.ID,
-        Title=meta.Title,
-        Provider=meta.Provider,
-        Model=meta.Model,
-        CWD=spec.CWD,
-        InstructionSources=meta.InstructionSources,
-        ParentID=meta.ParentID,
-        ProjectID=meta.ProjectID,
-        ConfigRoot=meta.ConfigRoot,
-        WorkspaceSpec=workspaceSpecPointer(spec),
+        id=meta.id,
+        title=meta.title,
+        provider=meta.provider,
+        model=meta.model,
+        cwd=spec.cwd,
+        instruction_sources=meta.instruction_sources,
+        parent_id=meta.parent_id,
+        project_id=meta.project_id,
+        config_root=meta.config_root,
+        workspace_spec=workspaceSpecPointer(spec),
     )

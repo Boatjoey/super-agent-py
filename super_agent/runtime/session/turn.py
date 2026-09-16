@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING
 from super_agent.errors import Cancelled
 from super_agent.runtime.engine import Engine, EngineView
 from super_agent.runtime.execution import (
+    ERR_APPROVAL_DISMISSED,
     ApprovalWaiter,
-    ErrApprovalDismissed,
     PermissionRequest,
 )
 from super_agent.runtime.machine import ApprovalDecision, StreamChunk, ToolCall, UserMessageSubmitted
@@ -57,16 +57,16 @@ async def waitApproval(
     reported to the model as a tool error and a cancellation is not.
     """
     getter = asyncio.ensure_future(approvals.get())
-    cancelled = asyncio.ensure_future(ctx.Done().wait())
+    cancelled = asyncio.ensure_future(ctx.done().wait())
     try:
         done, _pending = await asyncio.wait({getter, cancelled}, return_when=asyncio.FIRST_COMPLETED)
         if getter in done:
             decision = getter.result()
             if isinstance(decision, ApprovalsClosed):
-                error = ctx.Err()
+                error = ctx.err()
                 if error is not None:
                     raise error
-                raise ErrApprovalDismissed
+                raise ERR_APPROVAL_DISMISSED
             return decision
         raise Cancelled("run cancelled")
     finally:
@@ -89,14 +89,14 @@ class TurnMixin:
         def _tryLock(self) -> bool: ...
         def _unlock(self) -> None: ...
         def metaID(self) -> SessionID: ...
-        def Snapshot(self) -> EngineView: ...
+        def snapshot(self) -> EngineView: ...
         async def emitSnapshot(self, notifications: asyncio.Queue[SessionNotification]) -> None: ...
         def persistTurnBoundary(self) -> None: ...
         def persistMessage(self, message: object) -> None: ...
         def persistApproval(self, decision: ApprovalDecision, call: ToolCall) -> None: ...
         def persistError(self, error: BaseException | None) -> None: ...
 
-    async def RunTurn(
+    async def run_turn(
         self,
         ctx: RunContext,
         query: str,
@@ -116,11 +116,11 @@ class TurnMixin:
                 # Track live state transitions while actions drain: states such as
                 # RunningTool and AdvancingQueue pass between snapshot points, and
                 # the header should follow them as they happen.
-                self.engine.SetStateObserver(observer)
+                self.engine.set_state_observer(observer)
                 try:
                     error = await self._run(ctx, query, notifications, approvals)
                 finally:
-                    self.engine.SetStateObserver(None)
+                    self.engine.set_state_observer(None)
             finally:
                 self._unlock()
         finally:
@@ -151,7 +151,7 @@ class TurnMixin:
             # A full queue drops this chunk rather than blocking the model. The
             # notification carries the whole accumulated message, so the consumer
             # converges on the same text from the next one.
-            notification = StreamChunkReceived(Chunk=chunk, Message=self.Snapshot().StreamingMessage)
+            notification = StreamChunkReceived(chunk=chunk, message=self.snapshot().streaming_message)
             with contextlib.suppress(asyncio.QueueFull):
                 notifications.put_nowait(notification)
 
@@ -161,9 +161,9 @@ class TurnMixin:
         self._attachments = []
 
         try:
-            await self.engine.RunTurn(
+            await self.engine.run_turn(
                 ctx,
-                UserMessageSubmitted(Content=query, Attachments=tuple(attachments)),
+                UserMessageSubmitted(content=query, attachments=tuple(attachments)),
                 onStreamChunk,
                 waiter,
             )
@@ -171,7 +171,7 @@ class TurnMixin:
             error = self.failTurn(notifications, failure)
         else:
             error = None
-        await self.emitter.emit(notifications, self.engine.Snapshot(), self.persistMessage)
+        await self.emitter.emit(notifications, self.engine.snapshot(), self.persistMessage)
         return error
 
     def _approvalWaiter(self, approvals: asyncio.Queue[ApprovalDecision | ApprovalsClosed]) -> ApprovalWaiter:
@@ -191,7 +191,7 @@ class TurnMixin:
         return _WaitApprovalFunc(wait)
 
     def failTurn(self, notifications: asyncio.Queue[SessionNotification], failure: BaseException) -> BaseException:
-        notifications.put_nowait(SessionError(Err=failure))
+        notifications.put_nowait(SessionError(err=failure))
         self.persistError(failure)
         return failure
 
@@ -204,5 +204,5 @@ class _WaitApprovalFunc:
     def __init__(self, wait: Callable[[RunContext, ToolCall, PermissionRequest], Awaitable[ApprovalDecision]]) -> None:
         self._wait = wait
 
-    async def WaitApproval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
+    async def wait_approval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
         return await self._wait(ctx, call, request)

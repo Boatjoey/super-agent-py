@@ -21,7 +21,7 @@ class CheckpointMixin:
 
         def metaID(self) -> SessionID: ...
 
-    def Checkpoint(self, call: ToolCall) -> None:
+    def checkpoint(self, call: ToolCall) -> None:
         """Record the files ``call`` is about to change.
 
         A session without persistence or without a workspace simply has nowhere to
@@ -32,8 +32,8 @@ class CheckpointMixin:
         paths = checkpointPaths(call)
         if not paths:
             return
-        files: list[FileSnapshot] = self.workspace.Capture(paths)
-        self.repository.SaveCheckpoint(self.metaID(), call, files)
+        files: list[FileSnapshot] = self.workspace.capture(paths)
+        self.repository.save_checkpoint(self.metaID(), call, files)
 
 
 def checkpointPaths(call: ToolCall) -> list[str]:
@@ -42,14 +42,14 @@ def checkpointPaths(call: ToolCall) -> list[str]:
     ``write_file`` and ``apply_patch`` name one ``path``; ``format`` names a
     ``files`` list. Anything else leaves nothing to restore.
     """
-    if call.Name in ("write_file", "apply_patch"):
-        args = _parse(call.Input)
+    if call.name in ("write_file", "apply_patch"):
+        args = _parse(call.input)
         path = args.get("path") if args is not None else None
         if isinstance(path, str) and path != "":
             return [path]
         return []
-    if call.Name == "format":
-        args = _parse(call.Input)
+    if call.name == "format":
+        args = _parse(call.input)
         files = args.get("files") if args is not None else None
         if isinstance(files, list):
             return [item for item in cast("list[Any]", files) if isinstance(item, str)]

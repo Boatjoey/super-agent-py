@@ -16,9 +16,9 @@ from typing import Any
 
 import pytest
 
-from super_agent.runtime.protocol.run_context import LiveContext
+from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ToolCall
-from super_agent.tools import DefaultRegistry, Registry
+from super_agent.tools import Registry, default_registry
 from super_agent.tools.workspace import WorkspaceContext
 from tests.tools.test_workspace import workspace_for
 
@@ -34,7 +34,7 @@ def must_write(root: Path, relative: str, content: str) -> None:
 
 
 async def run(registry: Registry, name: str, payload: dict[str, Any]) -> str:
-    return await registry.Run(LiveContext(), ToolCall(Name=name, Input=json.dumps(payload)))
+    return await registry.run(live_context(), ToolCall(name=name, input=json.dumps(payload)))
 
 
 def run_git(cwd: Path, *args: str) -> None:
@@ -42,7 +42,7 @@ def run_git(cwd: Path, *args: str) -> None:
 
 
 def test_default_registry_exposes_the_second_priority_tools(tmp_path: Path) -> None:
-    names = {spec.Name for spec in DefaultRegistry(workspace_for(tmp_path)).Specs()}
+    names = {spec.name for spec in default_registry(workspace_for(tmp_path)).specs()}
 
     for name in ("run_command", "go_test", "format", "git_status", "git_diff"):
         assert name in names
@@ -51,7 +51,7 @@ def test_default_registry_exposes_the_second_priority_tools(tmp_path: Path) -> N
 @pytest.mark.asyncio
 async def test_run_command_uses_the_workspace_cwd_and_truncates_output(tmp_path: Path) -> None:
     must_write(tmp_path, "nested/name.txt", "hello")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
     payload = {
         "command": 'printf "%s:" "$(basename "$PWD")" && cat name.txt && printf abcdefghijklmnopqrstuvwxyz',
         "cwd": "nested",
@@ -66,7 +66,7 @@ async def test_run_command_uses_the_workspace_cwd_and_truncates_output(tmp_path:
 
 @pytest.mark.asyncio
 async def test_run_command_rejects_a_cwd_outside_the_workspace(tmp_path: Path) -> None:
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     with pytest.raises(RuntimeError, match="outside readable workspace roots"):
         await run(registry, "run_command", {"command": "pwd", "cwd": ".."})
@@ -79,12 +79,12 @@ async def test_run_command_defaults_to_the_injected_workspace_cwd(tmp_path: Path
     process_cwd = tmp_path
     assert os.path.realpath(process_cwd) != os.path.realpath(injected)
     workspace: WorkspaceContext = workspace_for(injected)
-    registry = DefaultRegistry(workspace)
+    registry = default_registry(workspace)
 
     got = await run(registry, "run_command", {"command": "pwd"})
 
     assert got.strip() == os.path.realpath(injected)
-    assert got.strip() == workspace.GetCWD()
+    assert got.strip() == workspace.get_cwd()
 
 
 @needs_go
@@ -92,7 +92,7 @@ async def test_run_command_defaults_to_the_injected_workspace_cwd(tmp_path: Path
 async def test_go_test_runs_packages(tmp_path: Path) -> None:
     must_write(tmp_path, "go.mod", "module example.com/x\n\ngo 1.21\n")
     must_write(tmp_path, "main.go", "package main\n")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await run(registry, "go_test", {"packages": ["./..."]})
 
@@ -103,7 +103,7 @@ async def test_go_test_runs_packages(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_format_runs_gofmt_on_workspace_files(tmp_path: Path) -> None:
     must_write(tmp_path, "main.go", 'package main\nfunc main(){println("hi")}\n')
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     got = await run(registry, "format", {"files": ["main.go"]})
 
@@ -119,7 +119,7 @@ async def test_git_status_and_diff_are_read_only(tmp_path: Path) -> None:
     run_git(tmp_path, "add", "tracked.txt")
     must_write(tmp_path, "tracked.txt", "after\n")
     must_write(tmp_path, "new.txt", "new\n")
-    registry = DefaultRegistry(workspace_for(tmp_path))
+    registry = default_registry(workspace_for(tmp_path))
 
     status = await run(registry, "git_status", {})
     assert "AM tracked.txt" in status

@@ -40,13 +40,13 @@ class ApprovalDismissed(Cancelled):
 #: The sentinel the engine compares against with
 #: :func:`super_agent.errors.errors_is`. Any other approval failure is a real
 #: fault and takes the error path, which answers the outstanding tool calls.
-ErrApprovalDismissed: Final[ApprovalDismissed] = ApprovalDismissed("approval dismissed")
+ERR_APPROVAL_DISMISSED: Final[ApprovalDismissed] = ApprovalDismissed("approval dismissed")
 
 
 class ApprovalWaiter(Protocol):
     """The port the session supplies so a human can decide."""
 
-    async def WaitApproval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
+    async def wait_approval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
         """Return the decision, or raise :data:`ErrApprovalDismissed`."""
         ...
 
@@ -54,7 +54,7 @@ class ApprovalWaiter(Protocol):
 class ScheduledActionExecutor(Protocol):
     """Turns a scheduled action into a result."""
 
-    async def Execute(
+    async def execute(
         self,
         ctx: RunContext,
         action: ScheduledAction,
@@ -67,9 +67,9 @@ class ScheduledActionExecutor(Protocol):
 class ScheduledActionInput:
     """Everything an action needs that is not the action itself."""
 
-    Messages: tuple[Message, ...] = ()
-    ToolSpecs: tuple[ToolSpec, ...] = ()
-    ApprovalWaiter: ApprovalWaiter | None = None
+    messages: tuple[Message, ...] = ()
+    tool_specs: tuple[ToolSpec, ...] = ()
+    approval_waiter: ApprovalWaiter | None = None
 
 
 class DefaultScheduledActionExecutor:
@@ -81,12 +81,12 @@ class DefaultScheduledActionExecutor:
         self._model = model
         self._tools = tools
 
-    def ToolSpecs(self) -> list[ToolSpec]:
+    def tool_specs(self) -> list[ToolSpec]:
         if self._tools is None:
             return []
-        return self._tools.Specs()
+        return self._tools.specs()
 
-    async def Execute(
+    async def execute(
         self,
         ctx: RunContext,
         action: ScheduledAction,
@@ -108,14 +108,14 @@ class DefaultScheduledActionExecutor:
     ) -> ScheduledActionResult:
         if self._model is None:
             raise ValueError("no model is configured")
-        response = await self._model.Next(ctx, list(env.Messages), list(env.ToolSpecs), chunk_func)
-        return ModelReplied(Response=response)
+        response = await self._model.next(ctx, list(env.messages), list(env.tool_specs), chunk_func)
+        return ModelReplied(response=response)
 
     async def _run_tool(self, ctx: RunContext, action: RunTool) -> ScheduledActionResult:
         if self._tools is None:
             raise ValueError("no tools are configured")
         try:
-            result = await self._tools.Run(ctx, action.Call)
+            result = await self._tools.run(ctx, action.call)
         except Cancelled:
             raise
         except asyncio.CancelledError:
@@ -128,13 +128,13 @@ class DefaultScheduledActionExecutor:
             # so it can choose another action. Raising instead would leave the
             # dispatched call unanswered, and a transcript with an unanswered tool
             # call is rejected by the provider — and persisted.
-            return ToolFinished(Call=action.Call, Result=f"Error: {error}")
-        return ToolFinished(Call=action.Call, Result=result)
+            return ToolFinished(call=action.call, result=f"Error: {error}")
+        return ToolFinished(call=action.call, result=result)
 
     async def _await_approval(
         self, ctx: RunContext, action: AwaitApproval, env: ScheduledActionInput
     ) -> ScheduledActionResult:
-        if env.ApprovalWaiter is None:
+        if env.approval_waiter is None:
             raise ValueError("approval waiter is not configured")
-        decision = await env.ApprovalWaiter.WaitApproval(ctx, action.Call, action.Request)
-        return ApprovalReceived(Call=action.Call, Decision=decision)
+        decision = await env.approval_waiter.wait_approval(ctx, action.call, action.request)
+        return ApprovalReceived(call=action.call, decision=decision)
