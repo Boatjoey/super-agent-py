@@ -92,7 +92,7 @@ class Model:
         """Apply one key. The boolean reports a decision was submitted.
 
         The latch is what makes a double keypress harmless: once submitted, every
-        key is ignored until :meth:`Open` or :meth:`Clear` runs, so the next
+        key is ignored until :meth:`open` or :meth:`clear` runs, so the next
         request cannot be answered by the tail of this one.
         """
         if self.request is None or self.submitted:

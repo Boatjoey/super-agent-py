@@ -13,9 +13,9 @@ The walk stops at the nearest directory containing ``.git``. Directories above t
 topmost one that holds any instruction file are trimmed, so a stray ``AGENTS.md``
 in ``/`` cannot change what a project sees.
 
-The driver ``LoadProjectInstructions`` lives here, and ``super_agent.app``
+The driver ``load_project_instructions`` lives here, and ``super_agent.app``
 re-exports it under the same name so callers keep writing
-``app.LoadProjectInstructions``.
+``app.load_project_instructions``.
 """
 
 from __future__ import annotations

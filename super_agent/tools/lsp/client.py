@@ -47,7 +47,7 @@ max_message_bytes: Final[int] = 32 << 20
 write_timeout_seconds: Final[float] = 30.0
 #: How long a pushed diagnostic is given to arrive after a ``didOpen``.
 diagnostics_settle_seconds: Final[float] = 0.3
-#: Bounds the graceful shutdown attempted by :meth:`_Client.Close`.
+#: Bounds the graceful shutdown attempted by :meth:`_Client.close`.
 shutdown_timeout_seconds: Final[float] = 1.0
 
 #: The five tool names every configured manager exposes, in order.
@@ -64,7 +64,7 @@ tool_names: Final[tuple[str, ...]] = (
 class ServerConfig:
     """One configured language server.
 
-    ``Root`` is filled in by :func:`Connect` from the workspace's working
+    ``Root`` is filled in by :func:`connect` from the workspace's working
     directory, so callers leave it empty.
     """
 

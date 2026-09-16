@@ -27,12 +27,12 @@ transition, and the transition schedules the next action.
 
 Four stages carry the semantics worth knowing:
 
-- `SnapshotFrom` validates the complete runtime data and exposes only the guards a transition needs.
-- `Transition` decides the next state, the runtime-data changes, and the action plan. It is pure.
+- `snapshot_from` validates the complete runtime data and exposes only the guards a transition needs.
+- `transition` decides the next state, the runtime-data changes, and the action plan. It is pure.
 - `RuntimeDataChangeApplier` clones runtime data, applies the changes, and validates the result. A
   candidate that fails validation is never committed, so an invalid intermediate state cannot exist.
 - The engine commits the runtime data **and** the action plan under one lock, and only then runs the
-  plan. `ActionPlan.ClearExisting` retracts obsolete queue work in the same atomic step that schedules
+  plan. `ActionPlan.clear_existing` retracts obsolete queue work in the same atomic step that schedules
   the replacement, so there is no window where the queue belongs to a state that no longer exists.
 
 Scheduled actions run only after that commit. Nothing observes an action running against runtime data
@@ -66,7 +66,7 @@ compute the transition, commit it atomically, and let the new actions enter the 
 
 ## Scheduled Actions
 
-Four actions exist, enumerated by `machine.AllScheduledActions` and defined in `machine.md`:
+Four actions exist, enumerated by `machine.ALL_SCHEDULED_ACTIONS` and defined in `machine.md`:
 `CallModel`, `RunTool`, `CheckToolQueue`, and `AwaitApproval`.
 
 Model calls, tool execution, and human approval all travel the same action → result → event path. That
@@ -106,8 +106,8 @@ Execution performs the work, and Machine decides the transitions.
 
 ## Run Lifecycle and Staleness
 
-`Engine.RunTurn` starts a run; it is the only entry point that accepts `UserMessageSubmitted`. Every
-other external machine event goes through `Engine.DispatchEvent`, which rejects a user message outright
+`Engine.run_turn` starts a run; it is the only entry point that accepts `UserMessageSubmitted`. Every
+other external machine event goes through `Engine.dispatch_event`, which rejects a user message outright
 so a turn cannot be started by accident.
 
 Each run has a `RunID`. `RunController` owns the id, the cancel function, and the liveness check. When
@@ -147,7 +147,7 @@ does not tokenize; see the limitations in `session.md`.
   persistence without scheduling actions.
 
 Machine-side terms — `State`, `Event`, `RuntimeData`, `RuntimeDataChange`, `ActionPlan`,
-`ScheduledAction`, `MachineSnapshot`, `Transition` — are defined in `machine.md`.
+`ScheduledAction`, `MachineSnapshot`, `transition` — are defined in `machine.md`.
 
 ## Reading Order
 
@@ -162,5 +162,5 @@ runtime/session/turn.py
   -> runtime/machine/transition.py
 ```
 
-In one sentence: `Transition` decides the next step, the engine's single action loop drives it forward,
+In one sentence: `transition` decides the next step, the engine's single action loop drives it forward,
 and the Session only connects user input to notifications.

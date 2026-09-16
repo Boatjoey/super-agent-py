@@ -1,7 +1,7 @@
 """The tool registry: advertisement, dispatch, and lifecycle hooks.
 
 No lock guards the registry: every mutation here is synchronous and the event loop
-cannot interleave it, so ``Add``, ``Remove``, and ``Replace`` are atomic by
+cannot interleave it, so ``add``, ``remove``, and ``replace`` are atomic by
 construction and a lock would only be ceremony.
 """
 
@@ -176,7 +176,7 @@ def default_registry(workspace: WorkspaceContext | None) -> Registry:
 
 
 def registry_for_workspace(workspace: WorkspaceContext | None) -> Registry:
-    """``DefaultRegistry`` for one workspace binding."""
+    """``default_registry`` for one workspace binding."""
     return default_registry(workspace)
 
 

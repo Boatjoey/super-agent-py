@@ -35,7 +35,7 @@ def test_snapshot_includes_pending_tool_batch_progress() -> None:
     """The header shows "2/2", so the batch counters must reach the view.
 
     Building the view literal only pins the field names. The second half here also
-    drives the real ``Snapshot()`` path, because that is where the counters are
+    drives the real ``snapshot()`` path, because that is where the counters are
     actually filled in — and where a regression would hide.
     """
     from super_agent.runtime.engine import EngineView

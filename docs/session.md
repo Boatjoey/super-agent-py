@@ -9,7 +9,7 @@ This file covers what the agent "remembers": how context is assembled, persisted
 ## What Context Is
 
 There is no vector database and no cross-session long-term memory. Everything the agent can recall is
-the `[]Message` handed to the model, held in `runtime/machine.RuntimeData.Messages`.
+the `[]Message` handed to the model, held in `runtime/machine.RuntimeData.messages`.
 
 `Message` (`runtime/protocol/types.py`) has four roles:
 
@@ -18,11 +18,11 @@ the `[]Message` handed to the model, held in `runtime/machine.RuntimeData.Messag
 | `system` | Built-in prompt and project instructions |
 | `user` | The user's question, optionally with attachments |
 | `assistant` | Model output, including reasoning content and tool calls |
-| `tool` | A tool result, linked to its call by `ToolCallID` |
+| `tool` | A tool result, linked to its call by `tool_call_id` |
 
 Every model call passes the complete message list and the current tool definitions:
-`Messages + ToolSpecs -> Model.Next -> ModelResponse`. Whether the model "remembers" something is
-therefore exactly whether it is still in `Messages`.
+`messages + tool_specs -> Model.next -> ModelResponse`. Whether the model "remembers" something is
+therefore exactly whether it is still in `messages`.
 
 ## Initial Context
 
@@ -41,10 +41,10 @@ selected project root as its configuration root.
 `WorkspaceSpec` is the durable description of the workspace: primary root, cwd, and roots with their
 access modes. It contains no authorization behaviour. `workspace.Context` is reconstructed from that
 description and performs canonicalization, symlink validation, containment, and read/write decisions.
-New session metadata persists `ProjectID`, `ConfigRoot`, and `WorkspaceSpec` as independent fields;
+New session metadata persists `project_id`, `config_root`, and `workspace_spec` as independent fields;
 none is derived from another during replay.
 
-`app.NewSession` builds one `system` message from:
+`app.new_session` builds one `system` message from:
 
 ```text
 app.SystemPrompt
@@ -52,7 +52,7 @@ app.SystemPrompt
   + project instructions from the repository root down to the working directory
 ```
 
-`app/instructions.Load` applies these rules:
+`app/instructions.load` applies these rules:
 
 1. Read the optional user-level spec at `~/.superagent/AGENTS.md`.
 2. Then read project instructions in root-to-leaf order, merging as it descends.
@@ -91,14 +91,14 @@ a tool result beginning with `Error:`, and a denied call into `denied: <tool-nam
 `denied by permission policy: <reason>`, so the model can react instead of losing the turn. Approval
 decisions are persisted for audit but are never sent to the model.
 
-During streaming, output accumulates in `StreamingContent` and `StreamingReasoning` for live display.
+During streaming, output accumulates in `streaming_content` and `streaming_reasoning` for live display.
 Only the committed final response becomes a history message.
 
 ## Runtime Versus Persisted
 
 Context exists at two levels:
 
-- `RuntimeData.Messages` is the live truth the model is called with.
+- `RuntimeData.messages` is the live truth the model is called with.
 - `~/.superagent/sessions/<session-id>/events.jsonl` is the durable event log used to rebuild history.
 
 `runtime/session/snapshot_emitter.py` watches engine snapshots, forwards newly appended messages to the
@@ -114,7 +114,7 @@ twice.
 ```
 
 The event log holds more than the model context. On replay, `store.messagesFromRecords` converts only
-five record types into `Messages`: appended messages, tool results, reset, compaction, and context
+five record types into `messages`: appended messages, tool results, reset, compaction, and context
 replacement. Approvals, errors, and cancels exist for audit and never enter the context.
 
 Creation writes the transcript first and `meta.json` last, so an interrupted creation cannot leave an
@@ -122,7 +122,7 @@ orphan session that looks complete.
 
 ## Turning a Session: `/resume`
 
-`Session.Resume` loads the event log and saved workspace through `Repository.Load`. Before changing the
+`Session.resume` loads the event log and saved workspace through `Repository.load`. Before changing the
 active session it validates every saved workspace root and cwd against the current filesystem and
 reconstructs a fresh context. Missing, moved, or symlink-replaced primary roots, missing additional
 roots, and a cwd outside the restored roots are hard failures reported as `saved workspace is no
@@ -136,14 +136,14 @@ saved `cwd` against the current filesystem, validates the result, and persists t
 description before mutating anything. Every later resume then takes the strict path above, so the
 lenient upgrade never becomes a permanent fallback. An old session without a saved cwd cannot be
 resumed. The upgrade uses the old session's data, never current process state, and it leaves
-`ProjectID`, `ConfigRoot`, and other metadata untouched.
+`project_id`, `config_root`, and other metadata untouched.
 
 A session that already carries a `WorkspaceSpec` is never upgraded. If its saved spec no longer
 validates, the resume fails instead of falling back to `cwd`. If the canonical upgrade cannot be
 persisted, the resume fails rather than report a migration that did not happen.
 
-After workspace validation, `Session.Resume` rebuilds `Messages` and calls
-`Engine.ReplaceMessages`, which:
+After workspace validation, `Session.resume` rebuilds `messages` and calls
+`Engine.replace_messages`, which:
 
 - cancels the current run so late results are dropped;
 - clears pending approval, current tool, tool batch, and streaming buffers;
@@ -152,7 +152,7 @@ After workspace validation, `Session.Resume` rebuilds `Messages` and calls
 
 `/resume` restores persisted *messages*. It does not resume a half-executed tool call.
 
-`ConfigRoot` remains independent on resume. Restoring workspace access does not scan any workspace
+`config_root` remains independent on resume. Restoring workspace access does not scan any workspace
 root for instructions, hooks, skills, plugins, or project configuration. This phase preserves the
 saved config-root identity but does not hot-reload extension configuration while switching sessions.
 
@@ -164,7 +164,7 @@ not an additional workspace root.
 
 ## Compacting: `/compact [summary]`
 
-`Session.Compact` shrinks the model context to "a summary plus the most recent messages":
+`Session.compact` shrinks the model context to "a summary plus the most recent messages":
 
 1. If no summary is supplied, make one extra model call over the full history to produce it.
 2. Preserve every `system` message.
@@ -173,12 +173,12 @@ not an additional workspace root.
 5. Persist the compaction record first, then replace the engine's messages, so memory and disk cannot
    diverge.
 
-The record keeps both `OriginalMessages` and `KeptMessages`; a later resume uses `KeptMessages`.
+The record keeps both `original_messages` and `kept_messages`; a later resume uses `kept_messages`.
 Compaction is lossy — details the summary does not cover are no longer sent to the model.
 
 ## Resetting
 
-`Session.Reset` writes a `reset` event before calling `Engine.Reset`. The machine's `ResetConversation`
+`Session.reset` writes a `reset` event before calling `Engine.reset`. The machine's `ResetConversation`
 runtime-data change drops every non-`system` message and keeps all `system` messages:
 
 ```text
@@ -230,7 +230,7 @@ retained for inspection.
 
 Worth knowing, because they are easy to assume otherwise:
 
-- Every model call sends all of `Messages`. The project does not tokenize and does not auto-compact
+- Every model call sends all of `messages`. The project does not tokenize and does not auto-compact
   before a limit.
 - `/compact` is user-triggered; summary quality depends on the model or the text you supply.
 - Persistence is per-session. A new session does not retrieve other sessions.

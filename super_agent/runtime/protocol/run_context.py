@@ -6,7 +6,7 @@ has to answer "has this run been cancelled" and to give waiters something to
 block on.
 
 It lives in ``runtime/protocol`` because it appears in the port signatures
-(``Model.Next``, ``ToolRunner.Run``) and because ``llm`` and ``tools`` may reach
+(``Model.next``, ``ToolRunner.run``) and because ``llm`` and ``tools`` may reach
 only this package under the dependency rule.
 """
 
@@ -16,7 +16,7 @@ import asyncio
 
 from super_agent.errors import Cancelled
 
-#: Reason attached to a :class:`Cancelled` raised by :meth:`RunContext.RaiseIfCancelled`.
+#: Reason attached to a :class:`Cancelled` raised by :meth:`RunContext.raise_if_cancelled`.
 DEFAULT_CANCEL_REASON = "run cancelled"
 
 

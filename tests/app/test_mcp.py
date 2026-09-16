@@ -2,7 +2,7 @@
 
 The server is :mod:`tests.helpers.mcp_echo_server`, run as ``python -m``. That is
 why the controller's workspace is the repository root: ``python -m`` resolves the
-module against the process working directory, and ``MCPController.Add`` builds a
+module against the process working directory, and ``MCPController.add`` builds a
 server configuration with no environment of its own.
 """
 

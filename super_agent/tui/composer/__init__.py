@@ -1,7 +1,7 @@
 """The composer feature.
 
 The package surface, re-exported so callers keep writing
-``composer.Model`` and ``composer.Submit``.
+``composer.Model`` and ``composer.SUBMIT``.
 """
 
 from __future__ import annotations

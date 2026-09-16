@@ -1,6 +1,6 @@
 """Engine commands: everything the outside world asks the engine to do.
 
-``Cancel`` and ``Reset`` retire the current run *before* dispatching, so an action
+``cancel`` and ``reset`` retire the current run *before* dispatching, so an action
 still in flight can never write into the state the command just established.
 """
 

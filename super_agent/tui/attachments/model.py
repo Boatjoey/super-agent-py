@@ -3,7 +3,7 @@
 The feature owns the queue and the port it asks for a file; the root owns the
 status line the outcome feeds.
 
-``Attach`` and ``PendingAttachments`` return a command that runs off the update
+``attach`` and ``pending_attachments`` return a command that runs off the update
 loop: both return an awaitable command whose result message comes back through
 the runtime, because the port does I/O.
 """

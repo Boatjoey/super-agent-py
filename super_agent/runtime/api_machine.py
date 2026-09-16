@@ -1,7 +1,7 @@
 """Facade re-exports for ``runtime/machine``.
 
 This re-exports the machine's whole vocabulary so the rest of the program can
-write ``runtime.Transition``. It must NOT reintroduce the
+write ``runtime.transition``. It must NOT reintroduce the
 retired ``ToolCallsReceived``, ``ToolCallAvailable``, ``EventClassifier``, or
 ``ResultResolver`` names: those were replaced by ``ToolBatchReceived`` and
 ``ActionResultResolver``, and their absence is what stops an adapter from drifting

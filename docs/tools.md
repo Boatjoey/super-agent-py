@@ -5,17 +5,17 @@ see `architecture.md`.
 
 ## Registry
 
-`tools.Registry` holds the visible tools. Both `tools.DefaultRegistry` and `tools.SandboxedRegistry`
+`tools.Registry` holds the visible tools. Both `tools.default_registry` and `tools.sandboxed_registry`
 require the application to inject one workspace context when constructing the built-ins; tools do not
 discover their policy from the process working directory.
-`Registry.Add` merges dynamically discovered tools
+`Registry.add` merges dynamically discovered tools
 atomically and rejects a batch outright when a name is empty, duplicated within the batch, or already
-registered, so a partial merge cannot leave the set inconsistent. `tools.DefaultRegistry` builds the
-built-ins; `tools.SandboxedRegistry` wires the same set to a sandboxed command runner.
+registered, so a partial merge cannot leave the set inconsistent. `tools.default_registry` builds the
+built-ins; `tools.sandboxed_registry` wires the same set to a sandboxed command runner.
 
 ## Built-in Tools
 
-Thirteen tools ship in `DefaultRegistry`:
+Thirteen tools ship in `default_registry`:
 
 | Tool | Purpose |
 |---|---|

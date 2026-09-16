@@ -10,7 +10,7 @@ rather than reaching for ``argparse``:
 * there are no subcommands, no positional arguments, and no ``--version``;
 * parsing stops at the first argument that is not a flag.
 
-:func:`Parse` reports by raising :class:`FlagError` rather than exiting, so the
+:func:`parse` reports by raising :class:`FlagError` rather than exiting, so the
 entry point owns the exit status: 2 for a flag error, 0 for ``-h``. Printing and
 exiting are deliberately left to the caller.
 """

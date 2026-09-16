@@ -7,11 +7,11 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 
 - Python project (3.12): agent runtime, LLM adapters, local tools, Rich TUI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
 - Design pattern: hexagonal architecture with a functional core and imperative shell. `runtime/machine` is the pure domain core; engine, session, TUI, LLM, tools, and store are ports or adapters around it.
-- State-machine flow is `Event -> validated MachineSnapshot -> Transition -> RuntimeDataChange + ActionPlan -> transactional RuntimeDataChangeApplier/Executor -> ActionResultResolver -> Event`; dependencies point toward the machine.
+- State-machine flow is `Event -> validated MachineSnapshot -> transition -> RuntimeDataChange + ActionPlan -> transactional RuntimeDataChangeApplier/Executor -> ActionResultResolver -> Event`; dependencies point toward the machine.
 - Keep `RunID` stale filtering in the engine. Keep state, call-id, queue guards, and invariants in `runtime/machine`.
 - RuntimeDataChangeAppliers must clone, apply, and validate runtime data; the engine commits runtime data and the transition's action plan under one lock only after validation.
 - The engine owns the single agent loop and notifies a per-turn state observer after state-changing transitions; the session supplies approval, streaming, notification, and persistence ports without scheduling actions.
-- Start turns through `Engine.RunTurn`; route other external machine events through `Engine.DispatchEvent`. Only `UserMessageSubmitted` starts a run, and `AwaitApproval` keeps approval waiting inside the scheduled-action loop.
+- Start turns through `Engine.run_turn`; route other external machine events through `Engine.dispatch_event`. Only `UserMessageSubmitted` starts a run, and `AwaitApproval` keeps approval waiting inside the scheduled-action loop.
 - Keep state-machine logic in `runtime/machine/transition.py`; transitions use one package-private static registry keyed by state and event kind.
 - Keep state definitions in `runtime/machine/state.py`, complete machine data in `runtime/machine/runtime_data.py`, runtime-data changes in `runtime/machine/runtime_data_change.py`, action plans in `runtime/machine/action_plan.py`, and tool-batch data in `runtime/machine/tool_batch.py`.
 - Keep orchestration in `runtime/engine/`; constructors belong in `engine.py`, commands in `commands.py`, scheduled-action draining in `action_loop.py`, and queries in `query.py`.
@@ -28,14 +28,14 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Load layered instructions with `app/instructions`: user-level spec, root-to-leaf `AGENTS.md`, fallback `CLAUDE.md`.
 - Preserve `system` messages such as project instructions across reset.
 - Do not scatter transition rules into `tui/`, `llm/`, or `tools/`.
-- Use existing vocabulary: `State`, `RuntimeData`, `Event`, `RuntimeDataChange`, `ActionPlan`, `ScheduledAction`, `Transition`.
+- Use existing vocabulary: `State`, `RuntimeData`, `Event`, `RuntimeDataChange`, `ActionPlan`, `ScheduledAction`, `transition`.
 - Follow the hexagonal architecture in `docs/architecture.md`; `tui` must not import `runtime`.
 - Keep the TUI as the only interaction surface; do not add headless, server, or alternate UI entry points.
 - LLM and tool adapters may import `runtime/protocol`, not the root `runtime` facade.
 - MCP stdio adapters live in `tools/mcp`; discovered tools join `tools.Registry` atomically and remain risky under the common permission policy.
 - `app.MCPController` coordinates MCP lifecycle, dynamic registry changes, and atomic settings persistence; TUI only calls its application-facing adapter.
-- Go exported identifiers keep their Go spelling (`StateIdle`, `AppendUserMessage`, `RunTurn`) so the two implementations can be read side by side; module names are snake_case.
-- Concurrency is asyncio: `context.Context` maps to a per-run `RunContext` plus an `asyncio.Task`, goroutines to tasks, channels to `asyncio.Queue`, and subprocesses to `create_subprocess_exec`. Adapters convert `asyncio.CancelledError` into the project's `Cancelled` at their boundary; `CancelledError` is a `BaseException`, so it passes through `except Exception`.
+- Python naming: modules, functions, and methods are `snake_case`; classes are `PascalCase`; module constants and enum members are `UPPER_SNAKE`; dataclass fields are `snake_case`.
+- Concurrency is asyncio: a run carries a per-run `RunContext` plus an `asyncio.Task`, channels are `asyncio.Queue`, and subprocesses use `create_subprocess_exec`. Adapters convert `asyncio.CancelledError` into the project's `Cancelled` at their boundary; `CancelledError` is a `BaseException`, so it passes through `except Exception`.
 - Adapters translate third-party SDK values into `runtime/protocol` types at the boundary; SDK objects never reach the machine.
 
 ## Documentation
@@ -67,7 +67,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Reset tests should prove system messages are preserved.
 - Tests that parse documents or source must fail loudly when the format changes rather than silently matching nothing.
 - GitHub Actions runs `./scripts/verify.sh` for pushes and pull requests.
-- There is no `-race` equivalent: `python -X dev`, `PYTHONASYNCIODEBUG=1`, strict `pytest-asyncio`, and a deliberate-yield stress loop approximate it. `docs/contributing.md` records the residual gap.
+- Python has no race detector: `python -X dev`, `PYTHONASYNCIODEBUG=1`, strict `pytest-asyncio`, and a deliberate-yield stress loop approximate one. `docs/contributing.md` records the residual gap.
 
 ## Security
 

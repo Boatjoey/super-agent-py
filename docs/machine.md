@@ -48,8 +48,8 @@ noise without adding information.
 ## Transition Table
 
 The canonical edge list. `tests/architecture/test_spec.py` enumerates all 6 states ×
-`machine.AllEvents` (15 events, 90 pairs) and asserts that the set of accepted pairs with their
-`NextState` matches this table exactly — in both directions, so an undocumented edge fails too.
+`machine.ALL_EVENTS` (15 events, 90 pairs) and asserts that the set of accepted pairs with their
+`next_state` matches this table exactly — in both directions, so an undocumented edge fails too.
 
 | State | Event | Next | RuntimeDataChanges | ActionPlan |
 |---|---|---|---|---|
@@ -70,10 +70,10 @@ The canonical edge list. `tests/architecture/test_spec.py` enumerates all 6 stat
 | any | ResetRequested | Idle | ResetConversation | Clear existing |
 
 `any` means every state, `Initializing` and `Idle` included. The `RuntimeDataChanges` column for an
-`any` row is a superset sketch, not an exact list: `handleErrorOccurred` and `handleCancelRequested`
+`any` row is a superset sketch, not an exact list: `handle_error_occurred` and `handle_cancel_requested`
 append one `AppendToolResult` per outstanding call, so the count varies with the starting state (4
 changes from `WaitingLLM`, 5 from `WaitingApproval`, `RunningTool`, or a single-call `AdvancingQueue`
-batch). The conformance test therefore pins the edge set and `NextState` only, while
+batch). The conformance test therefore pins the edge set and `next_state` only, while
 `tests/runtime/test_transition.py` pins the exact change lists per starting state.
 
 Two denial paths exist and they are not the same thing:
@@ -85,7 +85,7 @@ Two denial paths exist and they are not the same thing:
 Both append the denial as that call's tool result and continue advancing the queue, so the model can
 choose another action rather than losing the turn.
 
-`handleErrorOccurred` and `handleCancelRequested` both answer every call the model asked for — the
+`handle_error_occurred` and `handle_cancel_requested` both answer every call the model asked for — the
 former with the error reason, the latter with a `cancelled` result. A dispatched call is always in
 exactly one of three places — awaiting approval, running, or not yet reached by the batch — so the
 outstanding set is the pending call, the current call, and every remaining batch call. Each gets a
@@ -102,25 +102,25 @@ in place.
 ```python
 @dataclass(slots=True)
 class RuntimeData:
-    State: State
-    Messages: list[Message] = field(default_factory=list[Message])
-    PendingTool: ToolCall | None = None  # awaiting approval
-    PendingPermission: PermissionRequest | None = None
-    CurrentTool: ToolCall | None = None  # executing
-    ToolBatch: ToolCallBatch | None = None  # remaining queue
-    StreamingContent: str = ""
-    StreamingReasoning: str = ""
+    state: State
+    messages: list[Message] = field(default_factory=list[Message])
+    pending_tool: ToolCall | None = None  # awaiting approval
+    pending_permission: PermissionRequest | None = None
+    current_tool: ToolCall | None = None  # executing
+    tool_batch: ToolCallBatch | None = None  # remaining queue
+    streaming_content: str = ""
+    streaming_reasoning: str = ""
 ```
 
 ## Invariants
 
-`ValidateRuntimeData` (`snapshot.py`) is the authority; these are its rules. `SnapshotFrom` runs it
+`validate_runtime_data` (`snapshot.py`) is the authority; these are its rules. `snapshot_from` runs it
 before every transition, and the `RuntimeDataChangeApplier` runs it again on the cloned candidate, so
 an invalid intermediate state can never be committed.
 
 Global:
 
-- Tool batch index is within `[0, len(Calls)]`.
+- Tool batch index is within `[0, len(calls)]`.
 - A pending permission requires a pending tool.
 - Streaming content exists only in `WaitingLLM`.
 
@@ -130,10 +130,10 @@ Per state:
 |---|---|---|
 | `Initializing`, `Idle`, `WaitingLLM` | — | pending tool, pending permission, current tool, tool batch |
 | `AdvancingQueue` | tool batch, index in range | pending tool, pending permission, current tool |
-| `WaitingApproval` | batch, pending tool, pending permission; pending tool equals `Calls[Index-1]` | current tool |
-| `RunningTool` | batch, current tool; current tool equals `Calls[Index-1]` | pending tool, pending permission |
+| `WaitingApproval` | batch, pending tool, pending permission; pending tool equals `calls[index-1]` | current tool |
+| `RunningTool` | batch, current tool; current tool equals `calls[index-1]` | pending tool, pending permission |
 
-The `Calls[Index-1]` requirement is why the batch advances *before* a call is dispatched: the call
+The `calls[index-1]` requirement is why the batch advances *before* a call is dispatched: the call
 being approved or run is always the one just consumed.
 
 ## Errors
@@ -148,12 +148,12 @@ Three error types separate three different mistakes (`errors.py`):
 ## RuntimeDataChange
 
 A `RuntimeDataChange` synchronously constructs the next `RuntimeData` from the current one. The
-complete vocabulary is `machine.AllRuntimeDataChanges` (`runtime_data_change.py`); the applier
+complete vocabulary is `machine.ALL_RUNTIME_DATA_CHANGES` (`runtime_data_change.py`); the applier
 (`runtime_data_change_applier.py`) clones, applies in order, and validates.
 
 Transitions that end a run cannot simply drop work, so they flush and clear explicitly:
 `FlushStreamingAssistant`, `ClearPendingTool`, `ClearCurrentTool`, `ClearToolCallBatch`. A transition
-that needs to retract queued work sets `ActionPlan.ClearExisting` instead.
+that needs to retract queued work sets `ActionPlan.clear_existing` instead.
 
 `ResetConversation` clears every non-`system` message and preserves all `system` messages. Replay
 applies the same rule, so a reset survives a restart while project instructions do not disappear.
@@ -163,15 +163,15 @@ applies the same rule, so a reset survives a restart while project instructions 
 ```python
 @dataclass(frozen=True, slots=True)
 class ActionPlan:
-    ClearExisting: bool = False
-    Schedule: tuple[ScheduledAction, ...] = ()
+    clear_existing: bool = False
+    schedule: tuple[ScheduledAction, ...] = ()
 ```
 
 Clearing obsolete queue work and scheduling new work is one atomic decision, not two. The engine
 commits the plan together with the runtime data under a single lock; scheduled actions run only after
 that commit.
 
-Four `ScheduledAction` types exist (`scheduled_action.py`, enumerated by `machine.AllScheduledActions`):
+Four `ScheduledAction` types exist (`scheduled_action.py`, enumerated by `machine.ALL_SCHEDULED_ACTIONS`):
 
 | Action | Work |
 |---|---|
@@ -212,23 +212,23 @@ handler's second-parameter annotation and checks it with `isinstance` at call ti
 mis-registration returns a `ProtocolViolationError` instead of failing in some unrelated way later.
 
 Handlers that do not need the snapshot take `_ MachineSnapshot`. Handlers that must relate the event
-to current data read it — `handleToolResultReceived` checks that a current tool exists and that the
+to current data read it — `handle_tool_result_received` checks that a current tool exists and that the
 event's call ID matches it.
 
 ## Worked Example: one user message
 
 Take a `UserMessageSubmitted` arriving in `Idle`.
 
-1. **Register** — `transitionKey{StateIdle, eventUserMessageSubmitted}` maps to
-   `adaptTransition(handleUserMessageSubmitted)`.
-2. **Decide** — the handler returns `NextState: StateWaitingLLM`,
-   `RuntimeDataChanges: [AppendUserMessage{...}]`, `ActionPlan{Schedule: [CallModel{}]}`.
-   `ClearExisting` stays `false` because nothing needs retracting.
-3. **Apply** — `SnapshotFrom` validates the current data, `Transition` produces the decision, the
-   applier clones and mutates, `ValidateRuntimeData` checks the candidate, the engine commits data and
+1. **Register** — `TransitionKey(STATE_IDLE, UserMessageSubmitted.kind)` maps to
+   `adapt_transition(handle_user_message_submitted)`.
+2. **Decide** — the handler returns `next_state=STATE_WAITING_LLM`,
+   `runtime_data_changes=(AppendUserMessage(...),)`, `ActionPlan(schedule=(CallModel(),))`.
+   `clear_existing` stays `False` because nothing needs retracting.
+3. **Apply** — `snapshot_from` validates the current data, `transition` produces the decision, the
+   applier clones and mutates, `validate_runtime_data` checks the candidate, the engine commits data and
    plan together.
 4. **Dispatch** — only now does `CallModel` run, via `ScheduledActionRunner` →
-   `ScheduledActionExecutor` → `Model.Next`. The engine is already in `WaitingLLM`, so the TUI can show
+   `ScheduledActionExecutor` → `Model.next`. The engine is already in `WaitingLLM`, so the TUI can show
    the model working.
 5. **Continue** — `ActionResultResolver` turns the model result into the next event: a plain reply
    becomes `AssistantMessageReceived` (→ `Idle`), a tool request becomes `ToolBatchReceived`
@@ -247,7 +247,7 @@ One user message is therefore not a single state change but the start of a loop 
   schedule new work.
 - `ScheduledAction`: requested work — a model call, tool execution, queue processing, or approval wait.
 - `MachineSnapshot`: a validated read-only view exposing only transition guards.
-- `Transition`: a pure state-machine decision with state, call, and queue guards.
+- `transition`: a pure state-machine decision with state, call, and queue guards.
 - `RuntimeDataChangeApplier`: applies runtime-data changes to cloned data and validates the result.
 - `ToolCallBatch`: the queued calls of the current batch, with an index marking how far it has advanced.
 
@@ -256,10 +256,10 @@ Engine-side terms — `Engine`, `ActionQueue`, `ActionResultResolver`, `Schedule
 
 ## Adding a Transition
 
-1. Declare the event and its `eventKind` in `runtime/machine/event.py`, and add it to `AllEvents`.
+1. Declare the event and its `event_kind` in `runtime/machine/event.py`, and add it to `ALL_EVENTS`.
 2. Write the handler in `runtime/machine/transition.py`.
-3. Register the rule in `newTransitionRegistry`.
-4. Return the required `RuntimeDataChanges` and `ActionPlan`.
+3. Register the rule in `_new_transition_registry`.
+4. Return the required `runtime_data_changes` and `ActionPlan`.
 5. Add the row to the table above — it is the spec, and the conformance test fails without it.
 6. Cover the legal path, the rejection path, and the exact output order in
    `tests/runtime/test_transition.py`.

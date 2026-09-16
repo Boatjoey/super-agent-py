@@ -138,7 +138,7 @@ def sample_tool_calls() -> tuple[machine.ToolCall, ...]:
 def well_formed_event(prototype: machine.Event) -> machine.Event:
     """Return an event carrying the content its handler validates.
 
-    ``machine.AllEvents`` holds zero values, which would make ``ToolBatchReceived``
+    ``machine.ALL_EVENTS`` holds zero values, which would make ``ToolBatchReceived``
     fail its empty-batch guard and ``ToolResultReceived`` fail its call guard. A
     rejection must mean "the table does not document this edge", never "the sample
     was malformed".
@@ -172,7 +172,7 @@ def well_formed_event(prototype: machine.Event) -> machine.Event:
 
 def state_snapshot(state_name: str, event: machine.Event) -> machine.MachineSnapshot:
     """Build runtime data satisfying the invariants of ``state_name`` and the
-    preconditions of ``event``, so calling ``Transition`` measures the edge
+    preconditions of ``event``, so calling ``transition`` measures the edge
     registry rather than guard setup.
 
     Mirrors ``transition_snapshot`` in ``tests/runtime/test_transition.py``; the

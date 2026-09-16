@@ -17,7 +17,7 @@ class StatusBar:
     """The session values a command changed on the root's status line.
 
     Only a command that switches agents moves the model, so an empty
-    :attr:`ModelName` keeps the value the status line already shows.
+    :attr:`model_name` keeps the value the status line already shows.
     """
 
     model_name: str = ""

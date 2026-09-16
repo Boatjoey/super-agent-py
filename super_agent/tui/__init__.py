@@ -1,12 +1,12 @@
 """The Rich inbound adapter: the only interaction surface.
 
 This package keeps its surface in six root modules, one per concern, and this
-module stands in for the package namespace so callers keep writing ``tui.New``
+module stands in for the package namespace so callers keep writing ``tui.new``
 and ``tui.Message``.
 
 Four things live here because they read the whole model rather than one feature:
 
-* :func:`New` wires the features to the conversation port, including the one
+* :func:`new` wires the features to the conversation port, including the one
   translation the root owns — the command palette's entry type into the
   composer's.
 * :func:`infoBar`, :func:`welcomeString`, and :func:`footerView` compose

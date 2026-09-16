@@ -1,15 +1,15 @@
 """Building one session: the composition root's constructor.
 
 Everything the runtime needs is created here and handed over exactly once; after
-:func:`NewSessionWithExtensions` returns, the session owns the extension and
+:func:`new_session_with_extensions` returns, the session owns the extension and
 language-server processes, the telemetry sink, and the durable store.
 
 Three shapes are worth naming:
 
 * the constructor is a coroutine, since connecting MCP and LSP servers is;
-* an asynchronous ``Close`` is adapted to the session's synchronous
+* an asynchronous ``close`` is adapted to the session's synchronous
   :class:`~super_agent.runtime.session.Closer` port by :class:`asyncCloser`, whose
-  coroutine :func:`waitPendingClosers` awaits after ``session.Close()``;
+  coroutine :func:`waitPendingClosers` awaits after ``session.close()``;
 * the tool hooks are a runner wrapping the registry (:class:`toolHooks`) rather
   than a registry observer, because the observer port is synchronous and a hook
   runs a command.
@@ -88,8 +88,8 @@ async def new_session_with_mcp(cfg: Config) -> tuple[Session, MCPController | No
 async def new_session_with_extensions(cfg: Config) -> tuple[Session, MCPController | None, AgentController]:
     """Build the runtime, the tools, and the controllers for one session.
 
-    The model is built from the *resolved* provider configuration — ``cfg.ModelConfig``
-    — and not from the raw ``cfg.ProviderConfigs`` entry. That entry still holds
+    The model is built from the *resolved* provider configuration — ``cfg.model_config``
+    — and not from the raw ``cfg.provider_configs`` entry. That entry still holds
     the template placeholder whenever the credential came from the environment,
     and sending ``sk-...`` as a bearer token is the bug this port fixes.
     """
@@ -254,7 +254,7 @@ class toolHooks:
     wrapping the runner instead: the pre-hook finishes before the tool starts, a
     pre-hook failure
     aborts the call, and a post-hook failure is appended to the output rather than
-    turning a finished call into a failed one. Hooks run through ``RunDirect``, so
+    turning a finished call into a failed one. Hooks run through ``run_direct``, so
     a hook cannot re-enter the hooks that invoked it.
     """
 
@@ -328,13 +328,13 @@ _pendingCloses: list[asyncio.Task[None]] = []
 
 
 class asyncCloser:
-    """An asynchronous ``Close`` adapted to the session's synchronous port.
+    """An asynchronous ``close`` adapted to the session's synchronous port.
 
     Each extension process hands the session a closer that wants to close
     asynchronously — killing a child and waiting for it — while the session's close
     loop calls each closer synchronously. The coroutine is therefore scheduled on
     the running loop and kept, and :func:`waitPendingClosers` awaits it once
-    ``session.Close()`` has returned.
+    ``session.close()`` has returned.
     """
 
     __slots__ = ("_close",)

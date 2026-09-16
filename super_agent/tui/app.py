@@ -5,7 +5,7 @@ dimensions, and layout composition. Every user capability lives in the feature
 that owns it, so nothing here knows how a command, an approval, or an attachment
 behaves.
 
-The package surface — ``New``, ``infoBar``, ``welcomeString``, ``footerView``,
+The package surface — ``new``, ``infoBar``, ``welcomeString``, ``footerView``,
 and ``applyOutcome`` — lives in ``super_agent/tui/__init__.py``, because those
 functions read the whole model and wire several features together.
 """

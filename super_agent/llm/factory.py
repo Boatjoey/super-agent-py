@@ -2,7 +2,7 @@
 
 A provider name maps to a factory that builds a
 :class:`~super_agent.runtime.protocol.types.Model`. The registry of built-in
-providers is built on the first :func:`NewModel` call rather than at import, so
+providers is built on the first :func:`new_model` call rather than at import, so
 that importing a single provider module never depends on the package ``__init__``.
 """
 
@@ -47,7 +47,7 @@ class ModelRegistry:
         self.factories[provider] = factory
 
     def create(self, provider: str, cfg: ProviderConfig) -> Model:
-        """Build the model for ``provider``, defaulting to :data:`DefaultProvider`."""
+        """Build the model for ``provider``, defaulting to :data:`DEFAULT_PROVIDER`."""
         if provider == "":
             provider = DEFAULT_PROVIDER
         factory = self.factories.get(provider)

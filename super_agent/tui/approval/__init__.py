@@ -1,7 +1,7 @@
 """The tool-approval feature.
 
 The package surface, re-exported so callers keep writing
-``approval.Model`` and ``approval.ApproveOnce``.
+``approval.Model`` and ``approval.APPROVE_ONCE``.
 """
 
 from __future__ import annotations

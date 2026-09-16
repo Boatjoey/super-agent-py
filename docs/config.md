@@ -34,7 +34,7 @@ the credential when the settings entry leaves it unset. A provider that is absen
 or that ends up with no credential, fails config load with a message naming what is missing rather
 than failing later as an authentication error on the first turn.
 
-**The resolved configuration is the one the model is built from.** `NewSessionWithExtensions`
+**The resolved configuration is the one the model is built from.** `new_session_with_extensions`
 constructs the adapter from the resolved entry, never from the raw `providers` map, so a settings
 file that still holds the template placeholder cannot send `sk-...` as a bearer token. A custom agent
 profile that names another provider uses that provider's entry as written, and a profile that

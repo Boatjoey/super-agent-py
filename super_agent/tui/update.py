@@ -8,7 +8,7 @@ which feature sees a key first — so both are fixed:
 * keys: help overlay, then approval, then the root's own keys, then the
   transcript, then the composer.
 
-One shape difference: ``Update`` is a coroutine. The key branch reaches the
+One shape difference: ``update`` is a coroutine. The key branch reaches the
 command feature, which awaits its ports, so the caller awaits the update.
 """
 
@@ -180,7 +180,7 @@ async def updateKey(app: App, key: str) -> tuple[App, tuple[runtime.Command[Msg]
         case IntentKind.CLEAR:
             app.status = "Input cleared"
         case _:
-            # ``NoIntent`` never reaches here: an absent intent is tested above.
+            # ``NO_INTENT`` never reaches here: an absent intent is tested above.
             pass
     return app, ()
 

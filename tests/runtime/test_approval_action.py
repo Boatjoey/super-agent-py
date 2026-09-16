@@ -87,7 +87,7 @@ async def test_await_approval_without_a_waiter_is_a_fault() -> None:
 async def test_approval_dismissal_is_reported_as_the_sentinel() -> None:
     """The engine cancels on dismissal, so the sentinel must survive identically.
 
-    ``ErrApprovalDismissed`` is a single instance: the engine compares against it
+    ``ERR_APPROVAL_DISMISSED`` is a single instance: the engine compares against it
     by identity rather than by type or message.
     """
     executor = DefaultScheduledActionExecutor(None, None)

@@ -3,7 +3,7 @@
 The editing surface is a plain value-plus-cursor buffer, because the part the
 root actually relies on is small: insert, delete, move, and the history stack.
 
-``Update`` returns ``(Model, Intent | None)``, and this feature has no
+``update`` returns ``(Model, Intent | None)``, and this feature has no
 asynchronous effect to hand back, so there is no cursor-blink command to return.
 """
 

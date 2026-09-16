@@ -69,7 +69,7 @@ class WindowSizeMsg:
 class KeyMsg:
     """One key press, named with the TUI's canonical key vocabulary.
 
-    ``Key`` is the canonical name: a single character for a printable key,
+    ``key`` is the canonical name: a single character for a printable key,
     otherwise ``enter``, ``tab``, ``esc``, ``up``, ``down``, ``ctrl+c``,
     ``alt+o``, ``shift+enter``, and so on. The features switch on these names, so
     the decoder produces exactly them.

@@ -6,8 +6,8 @@ half-swapped context would let one turn resolve paths against the old roots and
 the next against the new ones.
 
 The adapter implements the session's :class:`~super_agent.runtime.session.Workspace`
-port — ``Spec``, ``Validate``, ``Canonicalize``, ``Activate``, ``Capture``,
-``Restore`` — and the narrower attachment and export ports on top of it.
+port — ``spec``, ``validate``, ``canonicalize``, ``activate``, ``capture``,
+``restore`` — and the narrower attachment and export ports on top of it.
 """
 
 from __future__ import annotations

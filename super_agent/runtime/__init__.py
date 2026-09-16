@@ -3,7 +3,7 @@
 The compatibility surface is grouped into ``api_model.py``, ``api_machine.py``,
 ``api_execution.py``, ``api_engine.py``, and ``api_session.py``, all in package
 `runtime`. This module is that package: it re-exports each of those modules and
-adds nothing of its own, so ``runtime.Transition`` and ``runtime.MachineSnapshot``
+adds nothing of its own, so ``runtime.transition`` and ``runtime.MachineSnapshot``
 are reachable from one place.
 
 Internal packages depend on the narrow package that owns a type, never on this

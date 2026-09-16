@@ -158,7 +158,7 @@ class Repository(Protocol):
 
     def load_undo_point(self, session_id: SessionID) -> tuple[list[FileSnapshot], list[Message], int]:
         """The files of the most recent non-empty checkpoint, the transcript as of
-        that checkpoint, and the record index for :meth:`TruncateAfter`."""
+        that checkpoint, and the record index for :meth:`truncate_after`."""
         ...
 
     def truncate_after(self, session_id: SessionID, index: int) -> None:

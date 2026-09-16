@@ -1,7 +1,7 @@
 """The slash-command feature.
 
 The package surface, re-exported so callers keep writing ``commands.Outcome`` and
-``commands.IsCommand``. ``Command`` stays the palette entry; the effect type a
+``commands.is_command``. ``Command`` stays the palette entry; the effect type a
 handler returns stays inside ``commands/model.py``.
 """
 

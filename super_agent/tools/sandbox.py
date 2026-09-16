@@ -90,7 +90,7 @@ class command_runner:
 
 
 #: Falls back to the unsandboxed direct runner. Production registries are built
-#: through ``SandboxedRegistry``, which always supplies a runner; the fallback
+#: through ``sandboxed_registry``, which always supplies a runner; the fallback
 #: exists for tests that construct bare tool values.
 direct_command_runner: Final[command_runner] = command_runner()
 

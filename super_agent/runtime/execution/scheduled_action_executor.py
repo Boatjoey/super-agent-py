@@ -47,7 +47,7 @@ class ApprovalWaiter(Protocol):
     """The port the session supplies so a human can decide."""
 
     async def wait_approval(self, ctx: RunContext, call: ToolCall, request: PermissionRequest) -> ApprovalDecision:
-        """Return the decision, or raise :data:`ErrApprovalDismissed`."""
+        """Return the decision, or raise :data:`ERR_APPROVAL_DISMISSED`."""
         ...
 
 

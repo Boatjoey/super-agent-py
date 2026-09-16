@@ -44,7 +44,7 @@ to unrelated features.
 
 | Feature | Owns |
 |---|---|
-| `tui/composer` | The prompt input, its history, queued follow-ups, and the slash-command palette. Emits `Submit`, `Queue`, `Steer`, and `Clear` intents. |
+| `tui/composer` | The prompt input, its history, queued follow-ups, and the slash-command palette. Emits `SUBMIT`, `QUEUE`, `STEER`, and `CLEAR` intents. |
 | `tui/transcript` | Committed messages, live streaming content, tool-call and reasoning expansion, and copying the latest code block. |
 | `tui/approval` | The pending tool-approval request, its selection, and the decision the runtime receives. |
 | `tui/attachments` | Files queued for the next turn. |
@@ -139,7 +139,7 @@ Run rules:
 
 ## Layout
 
-The TUI uses the terminal's main screen. `View` owns the welcome block, conversation, live streaming
+The TUI uses the terminal's main screen. `view` owns the welcome block, conversation, live streaming
 content, approval and command menus, composer, and status line. This single managed transcript lets
 tool details expand in place without duplicating conversation history.
 

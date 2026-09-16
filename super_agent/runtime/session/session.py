@@ -154,7 +154,7 @@ class SessionBase:
     def metaID(self) -> SessionID:
         """The active session id.
 
-        ``Cancel`` runs lock-free, so this reads through the same field it would
+        ``cancel`` runs lock-free, so this reads through the same field it would
         otherwise race with during a resume.
         """
         return self.meta.id

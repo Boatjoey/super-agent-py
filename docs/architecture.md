@@ -64,12 +64,12 @@ adapters are out of scope.
 tool. Its file layout:
 
 - `state.py`: the runtime state type and its constants.
-- `event.py`: the event interface, event kinds, and `AllEvents`.
+- `event.py`: the event interface, event kinds, and `ALL_EVENTS`.
 - `runtime_data.py`: the complete mutable machine data.
-- `runtime_data_change.py`: the runtime-data change vocabulary and `AllRuntimeDataChanges`.
+- `runtime_data_change.py`: the runtime-data change vocabulary and `ALL_RUNTIME_DATA_CHANGES`.
 - `runtime_data_change_applier.py`: transactional clone, apply, and validate.
 - `action_plan.py`: the post-transition action-queue plan.
-- `scheduled_action.py`: the post-commit scheduled-action vocabulary and `AllScheduledActions`.
+- `scheduled_action.py`: the post-commit scheduled-action vocabulary and `ALL_SCHEDULED_ACTIONS`.
 - `tool_batch.py`: queued tool-batch state.
 - `snapshot.py`: snapshot construction and state invariants.
 - `transition.py`: the static transition registry and its handlers.
@@ -103,7 +103,7 @@ alias facade.
 - `persistence.py`: persistence notifications.
 - `notifications.py`: the session-to-UI notification protocol.
 - `repository.py`: the persistence and workspace ports, including checkpoint creation,
-  `LoadUndoPoint`, `TruncateAfter`, and the one-time `SaveWorkspaceDescription` upgrade.
+  `load_undo_point`, `truncate_after`, and the one-time `save_workspace_description` upgrade.
 
 The TUI's feature ownership, message routing, focus, effects, views, and port rules are specified in
 [`tui.md`](tui.md#feature-architecture).
@@ -127,4 +127,4 @@ coordinates MCP lifecycle, dynamic tool registration, rollback, and atomic setti
   `runtime/machine`.
 
 Use the existing vocabulary: `State`, `RuntimeData`, `Event`, `RuntimeDataChange`, `ActionPlan`,
-`ScheduledAction`, `Transition`.
+`ScheduledAction`, `transition`.

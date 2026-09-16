@@ -10,7 +10,7 @@ unified: ``~/.superagent/`` (settings, home, no hyphen) and ``<workspace>/.super
 agent/`` (worktrees and exports, with a hyphen). This module only ever uses the
 first.
 
-:func:`LoadConfig` resolves the selected provider's credential, and that resolved
+:func:`load_config` resolves the selected provider's credential, and that resolved
 value is what the session builds the adapter from — the raw ``providers`` map on
 :class:`Config` is kept only so a custom agent profile can name a different
 provider. Building the model from the unresolved map is a credential bug: it can
@@ -75,7 +75,7 @@ type Lookup = Callable[[str], str | None]
 #: The user-level configuration directory spelling: no hyphen, under home.
 USER_CONFIG_DIRECTORY: Final[str] = ".superagent"
 
-#: The placeholder :func:`DefaultSettings` writes into a fresh ``settings.json``.
+#: The placeholder :func:`default_settings` writes into a fresh ``settings.json``.
 #: It is not a credential, so it is treated as unset.
 CLAUDE_PLACEHOLDER: Final[str] = "sk-ant-..."
 DEFAULT_PLACEHOLDER: Final[str] = "sk-..."
@@ -200,8 +200,8 @@ class Settings:
 class Config:
     """Everything startup decided, resolved and ready for the session.
 
-    Mutable on purpose: :func:`super_agent.app.session.NewSessionWithExtensions`
-    points ``Sandbox.Workspace`` at the workspace's primary root once it knows it.
+    Mutable on purpose: :func:`super_agent.app.session.new_session_with_extensions`
+    points ``sandbox.workspace`` at the workspace's primary root once it knows it.
     """
 
     provider: str = ""
@@ -362,7 +362,7 @@ def load_config(flags: Flags, lookup: Lookup | None = None) -> Config:
 
 
 def apikeyPlaceholder(provider: str) -> str:
-    """The value :func:`DefaultSettings` writes for ``provider``.
+    """The value :func:`default_settings` writes for ``provider``.
 
     It is not a real credential, so it is treated as "unset" to let the provider's
     environment variable take over instead of being sent as a bearer token.

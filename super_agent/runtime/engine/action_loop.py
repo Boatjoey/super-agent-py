@@ -1,6 +1,6 @@
 """The single agent loop.
 
-``RunTurn`` starts it, and ``run_scheduled_actions`` drains the queue until the
+``run_turn`` starts it, and ``run_scheduled_actions`` drains the queue until the
 queue is empty *and* the state is ``Idle``. An empty queue in any other state is
 not a quiet finish, it is an invariant violation: something scheduled work that
 never ran, or ran without scheduling its successor.
@@ -136,7 +136,7 @@ class ActionLoopMixin:
         """Route an external event into the machine.
 
         ``UserMessageSubmitted`` is refused here: starting a turn and starting a
-        run are the same act, and only :meth:`RunTurn` performs both.
+        run are the same act, and only :meth:`run_turn` performs both.
         """
         if isinstance(event, UserMessageSubmitted):
             raise ValueError("user messages must be submitted through Engine.RunTurn")

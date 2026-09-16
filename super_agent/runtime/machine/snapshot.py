@@ -1,7 +1,7 @@
 """Validation and the read-only view a transition guards against.
 
-``ValidateRuntimeData`` is the authority on what a coherent ``RuntimeData`` looks
-like. ``SnapshotFrom`` runs it before every transition, and the applier runs it
+``validate_runtime_data`` is the authority on what a coherent ``RuntimeData`` looks
+like. ``snapshot_from`` runs it before every transition, and the applier runs it
 again on the cloned candidate, so an invalid intermediate state can never be
 committed.
 """

@@ -13,7 +13,7 @@ Two ordering rules matter:
 
 * The connect happens outside the manager lock. It can block for the whole
   connect timeout on a hung server, and holding the lock would freeze
-  ``Tools``/``Servers`` for every reader. The closed and duplicate checks run
+  ``tools``/``servers`` for every reader. The closed and duplicate checks run
   again under the lock before the connection is installed.
 * Truncation cuts on a rune boundary, so multibyte text does not turn into
   replacement characters at the cut point.
@@ -72,7 +72,7 @@ class ServerConfig:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ServerInfo:
-    """One connected server, as reported by :meth:`Manager.Servers`."""
+    """One connected server, as reported by :meth:`Manager.servers`."""
 
     name: str = ""
     tools: tuple[str, ...] = ()
@@ -417,7 +417,7 @@ async def connect_server(ctx: RunContext, config: ServerConfig) -> tuple[_Server
         raise
 
 
-#: The hook :meth:`Manager.Restart` runs to move a server's tools in the registry.
+#: The hook :meth:`Manager.restart` runs to move a server's tools in the registry.
 type ReplaceTools = Callable[[list[str], list[RemoteTool]], None]
 
 

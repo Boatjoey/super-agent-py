@@ -167,7 +167,7 @@ path -> canonicalize -> containment check -> CanRead/CanWrite -> I/O
 cat ~/.ssh/id_rsa
 ```
 
-shell 子进程直接使用操作系统文件系统 API，应用层的 `CanRead()` 并不会自动拦截它。
+shell 子进程直接使用操作系统文件系统 API，应用层的 `can_read()` 并不会自动拦截它。
 
 因此：
 
@@ -425,18 +425,18 @@ super-agent 已经实现了上述模型中的核心对象。它把三件容易�
 
 | 类型 | 文件 | 角色 |
 |---|---|---|
-| `project.Project` | `project/project.py` | 身份：解析出的 root 及其稳定 id。由 `project.Resolve` 产生。 |
+| `project.Project` | `project/project.py` | 身份：解析出的 root 及其稳定 id。由 `project.resolve` 产生。 |
 | `workspace.Context` | `workspace/context.py` | 访问策略对象，也是**进程无关的运行时唯一真相来源**。持有一个 primary root、一个 cwd，以及若干带 `read` / `read_write` 标记的 root。 |
-| `workspace.Workspace` | `workspace/workspace.py` | 一个由互斥锁保护的、**可切换**的 `Context` 绑定，同时是 session 文件系统适配器（checkpoint、attachment、export）。通过 `Spec`/`Validate`/`Canonicalize`/`Activate` 实现 `runtime/session.Workspace` 端口。 |
+| `workspace.Workspace` | `workspace/workspace.py` | 一个由互斥锁保护的、**可切换**的 `Context` 绑定，同时是 session 文件系统适配器（checkpoint、attachment、export）。通过 `spec`/`validate`/`canonicalize`/`activate` 实现 `runtime/session.Workspace` 端口。 |
 | `session.WorkspaceSpec` | `runtime/session/repository.py` | 可持久化的 JSON 描述：primary root、cwd、带访问模式的 roots。它**不携带授权语义** —— 校验与访问决策属于具体的 `workspace` 实现。 |
 
-`store` 会把 `WorkspaceSpec` 与两个相互独立的字段 `ProjectID`、`ConfigRoot` 一起写入 session metadata；replay 期间三者互不派生（`session.md`）。
+`store` 会把 `WorkspaceSpec` 与两个相互独立的字段 `project_id`、`config_root` 一起写入 session metadata；replay 期间三者互不派生（`session.md`）。
 
 ### 访问策略
 
-路径策略集中在 `workspace.Context`：`ResolvePath`、`CanRead`、`CanWrite`，底层是规范路径（canonical）包含判断。内建的文件、搜索、命令、bash、git、format、LSP、checkpoint，以及 attachment/export 路径，全部经由注入的 context，而不是进程工作目录。具体的包含规则与 cwd 规则由 `tools.md` 规定；配置与访问的分离由 `session.md` 规定。
+路径策略集中在 `workspace.Context`：`resolve_path`、`can_read`、`can_write`，底层是规范路径（canonical）包含判断。内建的文件、搜索、命令、bash、git、format、LSP、checkpoint，以及 attachment/export 路径，全部经由注入的 context，而不是进程工作目录。具体的包含规则与 cwd 规则由 `tools.md` 规定；配置与访问的分离由 `session.md` 规定。
 
-内建工具依赖一个窄端口 `tools.WorkspaceContext`（`GetPrimaryRoot`、`GetCWD`、`ResolvePath`、`CanRead`、`CanWrite`），而不是具体 context。命令工具在**调用时**从该端口取 sandbox bind root，因此一次切换了 context 的 resume 会改变后续命令的运行位置。
+内建工具依赖一个窄端口 `tools.WorkspaceContext`（`get_primary_root`、`get_cwd`、`resolve_path`、`can_read`、`can_write`），而不是具体 context。命令工具在**调用时**从该端口取 sandbox bind root，因此一次切换了 context 的 resume 会改变后续命令的运行位置。
 
 ### 生命周期
 
@@ -484,7 +484,7 @@ resume
 | `tools/workspace.py` | 面向内建工具的窄 `WorkspaceContext` 端口与读写解析 |
 | `runtime/session/repository.py` | `WorkspaceSpec` DTO 与 `Workspace` 端口 |
 | `runtime/session/history.py` | Resume：校验、激活、一次性 legacy 升级 |
-| `store/` | spec 的 JSON 持久化，含 `SaveWorkspaceDescription` |
+| `store/` | spec 的 JSON 持久化，含 `save_workspace_description` |
 | `app/config.py`、`app/session.py`、`app/subagents.py` | 组合根接线 |
 
 完整的包与文件职责由 `architecture.md` 拥有。

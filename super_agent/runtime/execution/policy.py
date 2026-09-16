@@ -54,7 +54,7 @@ PERMISSION_MODE_ACCEPT_EDITS: Final[PermissionMode] = PermissionMode("accept-edi
 PERMISSION_MODE_PLAN: Final[PermissionMode] = PermissionMode("plan")
 PERMISSION_MODE_BYPASS: Final[PermissionMode] = PermissionMode("bypass")
 
-#: The zero value for the type. :func:`NewPolicy` reads it as "use the default".
+#: The zero value for the type. :func:`new_policy` reads it as "use the default".
 ZERO_PERMISSION_MODE: Final[PermissionMode] = PermissionMode("")
 
 

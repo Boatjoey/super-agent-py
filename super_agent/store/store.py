@@ -12,7 +12,7 @@ equality is not required:
 
 Concurrency: a :class:`threading.Lock` guards every method. Every method is
 synchronous, but the store is reached from the session's asynchronous code and
-from the TUI's own threads, and ``Append`` performs a ``meta.json``
+from the TUI's own threads, and ``append`` performs a ``meta.json``
 read-modify-write next to an append plus ``fsync``. The lock keeps those cycles
 whole; a "no lock at all" argument could not show that.
 """
@@ -162,8 +162,8 @@ class Record:
     """One line of ``events.jsonl``.
 
     Presence of ``Message``, ``ToolCall``, ``Checkpoint``, ``Compact``, and
-    ``Messages`` depends on ``Type``: those fields are optional and only the ones
-    a given ``Type`` needs are set.
+    ``messages`` depends on ``type``: those fields are optional and only the ones
+    a given ``type`` needs are set.
     """
 
     type: str = dataclasses.field(default="", metadata=jsonutil.json_field(name="type"))
@@ -220,7 +220,7 @@ def new(root: str) -> Store:
 
 
 def open_default() -> Store:
-    """A store at :func:`DefaultRoot`."""
+    """A store at :func:`default_root`."""
     return Store(default_root())
 
 
@@ -341,7 +341,7 @@ class Store:
             return meta
 
     def append(self, session_id: SessionID, record: Record) -> None:
-        """Append one record, refreshing the session's ``UpdatedAt`` best effort."""
+        """Append one record, refreshing the session's ``updated_at`` best effort."""
         with self._lock:
             validateID(session_id)
             self._append_unlocked(session_id, record)

@@ -1,7 +1,7 @@
 """Facade re-exports for ``runtime/execution``.
 
 The execution compatibility surface, so callers can write
-``runtime.NewDefaultPolicy()``. It is the only place the facade touches execution,
+``runtime.new_default_policy()``. It is the only place the facade touches execution,
 and it touches nothing else — R4 in
 ``tests/architecture/test_dependencies.py`` keeps it that way.
 """

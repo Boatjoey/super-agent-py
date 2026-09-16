@@ -95,7 +95,7 @@ class FakeWorkspace:
 
 
 def new_context(primary_root: str | Path, cwd: str | Path, roots: list[Root]) -> FakeWorkspace:
-    """Build a workspace over explicit roots, as ``workspace.NewContext`` does."""
+    """Build a workspace over explicit roots, as ``workspace.new_context`` does."""
     return FakeWorkspace(str(primary_root), str(cwd), roots)
 
 

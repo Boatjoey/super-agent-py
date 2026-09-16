@@ -1,8 +1,8 @@
 """The engine: the run lifecycle, the action loop, and the ports around it.
 
-These cases drive the engine through ``session.RunTurn``. The session layer is
+These cases drive the engine through ``session.run_turn``. The session layer is
 not exercised here, so the cases whose subject is engine behaviour call
-``Engine.RunTurn`` directly with an approval waiter in place of the approval
+``Engine.run_turn`` directly with an approval waiter in place of the approval
 channel. The cases whose subject is a session notification live in
 ``tests/runtime/test_session_notifications.py``.
 

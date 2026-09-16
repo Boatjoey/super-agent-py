@@ -1,6 +1,6 @@
 """Facade re-exports for ``runtime/engine``.
 
-The engine's compatibility surface, so callers can write ``runtime.NewEngine(...)``
+The engine's compatibility surface, so callers can write ``runtime.new_engine(...)``
 without importing the subpackage. R4 in ``tests/architecture/test_dependencies.py``
 keeps this file from reaching any concrete adapter.
 """

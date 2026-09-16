@@ -19,7 +19,7 @@ __all__ = ["BlockingModel", "GateModel", "ScriptedModel", "StreamingCancelModel"
 class ScriptedModel:
     """Replays one response per call and records the last message it was sent.
 
-    ``Next`` appends the final input message to ``calls`` and pops the next
+    ``next`` appends the final input message to ``calls`` and pops the next
     scripted response, so a test can assert both what the model was shown and how
     many times it was called.
     """

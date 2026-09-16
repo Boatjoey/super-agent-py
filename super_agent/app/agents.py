@@ -93,7 +93,7 @@ class filteredToolRunner:
 
 
 class routedModel:
-    """The model the engine calls, which :meth:`AgentController.Use` swaps.
+    """The model the engine calls, which :meth:`AgentController.use` swaps.
 
     The engine holds this one object for its whole life, so a profile switch
     reaches it without rewiring the executor.

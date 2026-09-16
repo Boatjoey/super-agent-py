@@ -39,7 +39,7 @@ class ApprovalsClosed:
 
     An :class:`asyncio.Queue` cannot be closed, so the close is delivered as a
     value; :func:`waitApproval` turns it into
-    :data:`~super_agent.runtime.execution.ErrApprovalDismissed`.
+    :data:`~super_agent.runtime.execution.ERR_APPROVAL_DISMISSED`.
     """
 
 
@@ -78,7 +78,7 @@ async def waitApproval(
 
 
 class TurnMixin:
-    """``RunTurn`` and its failure path."""
+    """``run_turn`` and its failure path."""
 
     if TYPE_CHECKING:
         engine: Engine

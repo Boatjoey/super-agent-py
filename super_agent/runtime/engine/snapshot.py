@@ -17,7 +17,7 @@ from super_agent.runtime.machine import (
 class EngineView:
     """A consistent snapshot of engine state.
 
-    ``IsBusy`` and ``NeedsInput`` are derived here rather than by each caller, so
+    ``is_busy`` and ``needs_input`` are derived here rather than by each caller, so
     every presentation layer agrees about what "working" and "waiting for you"
     mean.
     """

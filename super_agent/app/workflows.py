@@ -1,7 +1,7 @@
 """Extension workflows: hooks, custom commands, and the read-only repository queries.
 
-A hook runs a shell command through ``tools.Registry.RunDirect``, never through
-``Run``: ``Run`` is what triggers the pre-tool and post-tool hooks, so a hook that
+A hook runs a shell command through ``tools.Registry.run_direct``, never through
+``run``: ``run`` is what triggers the pre-tool and post-tool hooks, so a hook that
 reached it would re-enter the observer that invoked it.
 """
 

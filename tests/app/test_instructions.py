@@ -3,7 +3,7 @@
 The layered-instruction tests are pure function calls. The session tests build a
 real session, which means building a real model: the OpenAI SDK the Python
 adapter wraps refuses to construct without a credential, so those tests supply
-``ModelConfig`` explicitly. Nothing in them reaches the network.
+``model_config`` explicitly. Nothing in them reaches the network.
 """
 
 from __future__ import annotations

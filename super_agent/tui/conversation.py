@@ -11,7 +11,7 @@ that owns it.
 Two pieces exist for Python's concurrency model:
 
 * :class:`Channel` is a queue with an explicit close. ``asyncio.Queue`` cannot be
-  closed, so the close is a flag and ``Get`` returns ``None`` once the producer
+  closed, so the close is a flag and ``get`` returns ``None`` once the producer
   has closed and drained the buffer — which is what ends a listener command.
 * :class:`Cancellation` is the cancel handle one turn is started with. It is a
   value, so a port that starts before the cancel still sees the cancel.
@@ -199,7 +199,7 @@ class Channel[T]:
 
     The producer closes it to say "no more will arrive"; a listener command then
     ends. ``asyncio.Queue`` has no close, so the close is a flag and
-    :meth:`Get` returns ``None`` on it.
+    :meth:`get` returns ``None`` on it.
     """
 
     __slots__ = ("_closed", "_items", "_ready")
@@ -305,7 +305,7 @@ class Conversation(
     AttachmentsPort,
     Protocol,
 ):
-    """The composition-boundary bundle :func:`super_agent.tui.New` accepts.
+    """The composition-boundary bundle :func:`super_agent.tui.new` accepts.
 
     ``App`` keeps the snapshot and turn ports and routes every other capability
     to the feature that owns it. ``Protocol`` is listed explicitly: a class that

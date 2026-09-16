@@ -1,6 +1,6 @@
 """OpenAI-compatible chat adapter.
 
-One implementation serves both OpenAI and DeepSeek: :func:`NewDeepSeek` is the
+One implementation serves both OpenAI and DeepSeek: :func:`new_deep_seek` is the
 same model with a different base URL and without an explicit usage request. The
 adapter streams chat completions and accumulates deltas itself so the merge rules
 — tool-call fragments keyed by ``index`` with ``function.arguments`` concatenated

@@ -43,7 +43,7 @@ def test_action_ids_stay_unique_across_a_clear() -> None:
     """A cleared action must not be confusable with a later one.
 
     The engine drops stale completions by comparing action ids, so reusing an id
-    after ``Clear`` would let a cancelled action's result apply to its successor.
+    after ``clear`` would let a cancelled action's result apply to its successor.
     """
     queue = ActionQueue()
     queue.queue(RunID("run-1"), machine.CallModel())

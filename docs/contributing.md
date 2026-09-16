@@ -99,12 +99,13 @@ commit points are still atomic.
 
 The style is deliberate and consistent across the codebase:
 
-- **Exported identifiers keep their PascalCase spelling.** `StateIdle`, `AppendUserMessage`,
-  `RunTurn`, `ApplyRuntimeDataChanges`. Package-private helpers are snake_case
-  (`handle_engine_ready`, `same_tool_call`), because they are implementation detail.
+- **Naming follows PEP 8.** Modules, functions, and methods are `snake_case`; classes are
+  `PascalCase`; module constants and enum members are `UPPER_SNAKE`; dataclass fields are
+  `snake_case`. So `STATE_IDLE`, `AppendUserMessage`, `run_turn`, and `apply_runtime_data_changes`
+  all read as Python, not as a foreign spelling.
 - **Module names are snake_case**: `runtime/machine/transition.py`.
-- **A package re-exports its surface from `__init__.py`**, so `machine.StateIdle` and
-  `machine.Transition` resolve from the package namespace.
+- **A package re-exports its surface from `__init__.py`**, so `machine.STATE_IDLE` and
+  `machine.transition` resolve from the package namespace.
 - **Value types are `@dataclass` with an explicit codec** (`super_agent/jsonutil.py`), not a
   validation library. Each field declares its JSON key with `json_field`, so the key names stay
   stable regardless of the Python attribute name.

@@ -381,7 +381,7 @@ async def test_openai_model_uses_environment_api_key_when_config_key_is_empty(
 
     The SDK sends the request with no ``Authorization`` header when no key is
     configured anywhere, but it refuses to build a client without credentials. So
-    the property this pins is that an empty ``APIKey`` leaves the variable unset
+    the property this pins is that an empty ``api_key`` leaves the variable unset
     for the SDK, so the environment fallback still applies rather than being
     shadowed by an empty value.
     """

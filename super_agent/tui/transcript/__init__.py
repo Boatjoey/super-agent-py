@@ -1,7 +1,7 @@
 """The transcript feature.
 
 The package surface, re-exported so callers keep writing
-``transcript.Model`` and ``transcript.RoleAssistant``.
+``transcript.Model`` and ``transcript.ROLE_ASSISTANT``.
 """
 
 from __future__ import annotations

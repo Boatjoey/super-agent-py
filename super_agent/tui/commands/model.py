@@ -4,8 +4,8 @@ The feature owns which commands exist, what each one means, and the operations i
 starts; the root owns the effects a command asks for, including every
 cross-feature one.
 
-``Handle`` is a coroutine rather than a blocking call. The ports it reaches, such
-as ``Workspace.Diagnostics``, do I/O, so the caller awaits :meth:`Model.Handle`.
+``handle`` is a coroutine rather than a blocking call. The ports it reaches, such
+as ``Workspace.diagnostics``, do I/O, so the caller awaits :meth:`Model.handle`.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ class Model:
         return self, Outcome(status=message.status)
 
     async def handle(self, input: Input) -> tuple[Model, Outcome | None, Command | None]:
-        """Run the slash command in ``input.Text``. Callers check ``IsCommand`` first."""
+        """Run the slash command in ``input.text``. Callers check ``is_command`` first."""
         parts = input.text.split()
         command = parts[0]
         match command:
@@ -396,7 +396,7 @@ class Model:
         return Outcome(status="Branch status", output=result)
 
 
-#: The workflow prompts, verbatim from ``Handle``.
+#: The workflow prompts, verbatim from ``handle``.
 _REVIEW_PROMPT = (
     "Review the current changes. Inspect the git diff, relevant code, and LSP diagnostics when configured, "
     "then report only actionable defects with file and line references. Do not modify files."

@@ -3,7 +3,7 @@
 The lsp package surface: everything callers write as ``lsp.X`` is re-exported
 here.
 
-``lsp.Tools()`` returns one :class:`Tool` per query name; the tools join
+``lsp.tools()`` returns one :class:`Tool` per query name; the tools join
 ``tools.Registry`` like any built-in, and the manager reconnects lazily when the
 workspace working directory changes.
 """

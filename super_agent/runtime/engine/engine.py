@@ -114,7 +114,7 @@ def new_engine_with_executor(executor: ScheduledActionExecutor, initial: list[Me
 def new_engine_with_executor_and_policy(
     executor: ScheduledActionExecutor, policy: Policy, initial: list[Message] | None
 ) -> Engine:
-    """As :func:`NewEngineWithExecutor`, with the caller's policy.
+    """As :func:`new_engine_with_executor`, with the caller's policy.
 
     The approval store is seeded from the policy's own mode and rules when it
     exposes them, so the engine's two copies of the policy cannot start out

@@ -1,7 +1,7 @@
 """Facade re-exports for ``runtime/session``.
 
 The session's compatibility surface, so callers can write
-``runtime.NewSession(...)``. R4 in
+``runtime.new_session(...)``. R4 in
 ``tests/architecture/test_dependencies.py`` keeps this file from reaching any
 concrete adapter.
 """
