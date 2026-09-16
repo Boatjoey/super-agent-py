@@ -1,0 +1,14 @@
+{"type":"session_started","session_id":"20260916T120000123456789","time":"2026-09-16T09:44:54.026498Z"}
+{"type":"message_appended","session_id":"20260916T120000123456789","time":"2026-09-16T09:44:54.034182Z","message":{"role":"system","content":"system prompt"}}
+{"type":"session_started","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:00.123456789Z"}
+{"type":"message_appended","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:01Z","message":{"role":"user","content":"hello"}}
+{"type":"message_appended","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:02Z","message":{"role":"assistant","content":"hi there","reasoning_content":"thinking"}}
+{"type":"message_appended","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:03Z","message":{"role":"assistant","content":"calling","tool_calls":[{"id":"call-1","name":"bash","input":"{\"command\":\"pwd\"}"}]}}
+{"type":"tool_result","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:04Z","tool_call":{"id":"call-1","name":"bash","input":"{\"command\":\"pwd\"}"},"result":"/tmp/workspace"}
+{"type":"approval_decision","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:05Z","tool_call":{"id":"call-1","name":"bash","input":"{\"command\":\"pwd\"}"},"decision":"once"}
+{"type":"checkpoint","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:06Z","checkpoint":{"id":"20260916T120006.000000000","files":[{"path":"a.txt","exists":true,"content":"old","mode":420}],"reason":"write_file"}}
+{"type":"error","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:07Z","error":"something failed"}
+{"type":"cancel","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:08Z"}
+{"type":"compact","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:09Z","compact":{"summary":"the summary","original_messages":[{"role":"user","content":"a"},{"role":"user","content":"b"}],"kept_messages":[{"role":"system","content":"system prompt"},{"role":"system","content":"Conversation summary:\nthe summary"}]}}
+{"type":"reset","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:10Z"}
+{"type":"context_replaced","session_id":"20260916T120000123456789","turn_id":"20260916T120000.123456789","time":"2026-09-16T12:00:11Z","messages":[{"role":"system","content":"replaced"}]}

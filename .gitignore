@@ -1,0 +1,29 @@
+# 项目编译的产物
+/build/
+/dist/
+*.egg-info/
+
+# 环境变量配置（包含敏感信息）
+.env
+
+# Python 测试和编译中间产物
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+/coverage.xml
+/htmlcov/
+*.out
+
+# uv
+.venv/
+
+# IDE 目录
+.vscode/
+
+# coding agent 的配置
+.agents
+.claude
+.codex
+/.super-agent/

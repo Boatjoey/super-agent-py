@@ -1,0 +1,27 @@
+{
+  "id": "20260916T120000123456789",
+  "title": "fixture session",
+  "created_at": "2026-09-16T12:00:00.123456789Z",
+  "updated_at": "2026-09-16T09:44:54.164417Z",
+  "provider": "deepseek",
+  "model": "deepseek-reasoner",
+  "cwd": "/tmp/workspace",
+  "instruction_fingerprint": "abc123",
+  "instruction_sources": [
+    "AGENTS.md",
+    "/home/user/.superagent/AGENTS.md"
+  ],
+  "current_turn_id": "20260916T120000.123456789",
+  "project_id": "/tmp/workspace",
+  "config_root": "/home/user",
+  "workspace": {
+    "primary_root": "/tmp/workspace",
+    "cwd": "/tmp/workspace",
+    "roots": [
+      {
+        "path": "/tmp/workspace",
+        "access": "read_write"
+      }
+    ]
+  }
+}
