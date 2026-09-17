@@ -16,7 +16,7 @@ from textual.message import Message as TextualMessage
 from textual.screen import ModalScreen
 from textual.widgets import Static, TextArea
 
-from super_agent.tui import runtime
+from super_agent.tui import runtime, theme
 from super_agent.tui.app import App as AppModel, Msg
 from super_agent.tui.approval import ApprovalDialog
 from super_agent.tui.composer import Composer
@@ -101,6 +101,8 @@ class Application(TextualApp[None]):
 
     def __init__(self, model: AppModel) -> None:
         super().__init__()
+        self.register_theme(theme.THEME)
+        self.theme = theme.NAME
         self.model = model
         self._tasks: set[asyncio.Task[None]] = set()
         self._listener: asyncio.Task[None] | None = None
@@ -272,12 +274,12 @@ class Application(TextualApp[None]):
         if self.model.err:
             status.append("error: " + self.model.err, style=self.model.styles.error)
         elif self.model.status:
-            status.append(self.model.status, style=self.model.styles.status)
+            status.append(self.model.status, style=self.model.styles.accent)
         else:
             tools = "tools off" if self.model.info.no_tools else "tools on"
             status.append(
                 f"{self.model.info.permission_mode or 'ask'} · {self.model.info.model_name} · {tools}",
-                style=self.model.styles.footer,
+                style=self.model.styles.secondary,
             )
         self.query_one("#status", Static).update(status)
         self._sync_model_to_editor()

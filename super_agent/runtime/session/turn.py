@@ -21,12 +21,13 @@ from super_agent.runtime.execution import (
 )
 from super_agent.runtime.machine import ApprovalDecision, StreamChunk, ToolCall, UserMessageSubmitted
 from super_agent.runtime.protocol.run_context import RunContext
-from super_agent.runtime.protocol.types import Attachment
+from super_agent.runtime.protocol.types import Attachment, Usage
 from super_agent.runtime.session.notifications import (
     NOTIFICATIONS_CLOSED,
     SessionError,
     SessionNotification,
     StreamChunkReceived,
+    UsageReported,
 )
 
 if TYPE_CHECKING:
@@ -113,13 +114,26 @@ class TurnMixin:
                 async def observer() -> None:
                     await self.emitSnapshot(notifications)  # type: ignore[attr-defined]
 
+                def on_usage(usage: Usage | None) -> None:
+                    # The provider's counts for one model call, forwarded as they
+                    # arrive. A response the adapter could not measure carries no
+                    # counts, so there is nothing to report. A full queue drops this
+                    # rather than blocking the model, the way a stream chunk is
+                    # dropped.
+                    if usage is None:
+                        return
+                    with contextlib.suppress(asyncio.QueueFull):
+                        notifications.put_nowait(UsageReported(usage=usage))
+
                 # Track live state transitions while actions drain: states such as
                 # RunningTool and AdvancingQueue pass between snapshot points, and
                 # the header should follow them as they happen.
                 self.engine.set_state_observer(observer)
+                self.engine.set_model_usage_observer(on_usage)
                 try:
                     error = await self._run(ctx, query, notifications, approvals)
                 finally:
+                    self.engine.set_model_usage_observer(None)
                     self.engine.set_state_observer(None)
             finally:
                 self._unlock()

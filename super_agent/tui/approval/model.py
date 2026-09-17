@@ -20,6 +20,8 @@ __all__ = [
     "Decision",
     "Model",
     "Request",
+    "Styles",
+    "default_styles",
 ]
 
 #: The three answers, spelled as the runtime spells them.
@@ -27,13 +29,31 @@ _DECISIONS_BY_ROW: Final[tuple[str, ...]] = ("once", "always", "deny")
 
 #: The selected-row marker, U+203A.
 _SELECTED_MARKER = "\u203a"
-#: A feature may not reach for the root's styles (R6), so the menu keeps its own
-#: palette.
-_BANNER = Style(bgcolor="color(3)", color="color(0)")
+#: Emphasis is not colour, so the menu keeps it: the palette owns colour only.
 _BOLD = Style(bold=True)
-_DIM = Style(color="color(8)", italic=True)
-_SELECTED = Style(color="color(6)", bold=True)
-_ACCENT = Style(color="color(6)", italic=True)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Styles:
+    """The roles the approval menu renders with.
+
+    The shape is the feature's; the values are the root's palette, handed over
+    at construction, because a feature may not reach for the root's styles (R6).
+    """
+
+    banner: Style
+    dim: Style
+    selected: Style
+    accent: Style
+
+
+def default_styles() -> Styles:
+    """The menu's own defaults, used when a model is built bare.
+
+    No colour: the root builds the real styles from the palette and passes them
+    to :class:`Model`.
+    """
+    return Styles(banner=Style(), dim=Style(), selected=Style(), accent=Style())
 
 
 class Decision(str):
@@ -71,6 +91,7 @@ class Model:
     request: Request | None = None
     selection: int = 0
     submitted: bool = False
+    styles: Styles = dataclasses.field(default_factory=default_styles)
 
     def active(self) -> bool:
         """Whether a request is waiting for an answer."""
@@ -125,22 +146,23 @@ class Model:
         request = self.request
         if request is None:
             return Text()
+        styles = self.styles
         rendered = Text()
-        rendered.append(" ACTION REQUIRED ", style=_BANNER)
+        rendered.append(" ACTION REQUIRED ", style=styles.banner)
         if request.batch_total > 0:
             rendered.append(f" tool {request.batch_index}/{request.batch_total}:")
         rendered.append(" approve ")
         rendered.append(request.tool_name, style=_BOLD)
         rendered.append("?")
         for index, option in enumerate(("1. Yes, run once", "2. Yes, always allow", "3. No, deny")):
-            prefix, style = "  ", _DIM
+            prefix, style = "  ", styles.dim
             if index == self.selection:
-                prefix, style = _SELECTED_MARKER + " ", _SELECTED
+                prefix, style = _SELECTED_MARKER + " ", styles.selected
             rendered.append("\n")
             rendered.append(prefix + option, style=style)
         if self.submitted:
             rendered.append("\n")
-            rendered.append(" Decision submitted…", style=_ACCENT)
+            rendered.append(" Decision submitted…", style=styles.accent)
         if request.command_class != "" or request.reason != "":
             cwd = request.cwd or fallbackCWD
             meta = f" class: {request.command_class} cwd: {cwd}"
@@ -149,11 +171,11 @@ class Model:
             if request.reason != "":
                 meta += " reason: " + request.reason
             rendered.append("\n")
-            rendered.append(meta, style=_DIM)
+            rendered.append(meta, style=styles.dim)
         elif request.input != "":
             user_input = request.input
             if len(user_input) > 240:
                 user_input = user_input[:240] + "..."
             rendered.append("\n")
-            rendered.append(f" cwd: {fallbackCWD} input: {user_input}", style=_DIM)
+            rendered.append(f" cwd: {fallbackCWD} input: {user_input}", style=styles.dim)
         return rendered

@@ -23,6 +23,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Keep turn I/O wiring in `runtime/session/turn.py` and history use cases in `runtime/session/history.py`.
 - Keep storage and filesystem access behind `runtime/session.Repository` and `runtime/session.Workspace`.
 - Follow the feature-oriented TUI boundaries in `docs/tui.md`; keep views pure and ports feature-local.
+- Keep the TUI on the terminal's ANSI palette and default foreground. Never construct a colour from an RGB triple, a hexadecimal literal, or an indexed palette entry, and never use ANSI blue or yellow as a foreground; syntax highlighting is the one exception. `tests/architecture/test_theme.py` enforces this.
 - Map runtime states to presentation-only `tui.AgentStatus` values in `app/tui_adapter.py`; TUI must not define runtime state enums.
 - Keep durable session storage in `store/` and filesystem checkpoint access in `workspace/`.
 - Load layered instructions with `app/instructions`: user-level spec, root-to-leaf `AGENTS.md`, fallback `CLAUDE.md`.

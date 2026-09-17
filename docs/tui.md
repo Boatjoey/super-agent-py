@@ -118,10 +118,31 @@ Extensions:
 | `Ctrl+Y` | Copy the latest assistant code block |
 | `Ctrl+O` | Expand or collapse the latest tool-call group |
 | `Alt+O` | Expand or collapse all tool-call groups |
-| `Ctrl+T` | Expand or collapse the latest reasoning block |
-| `Alt+T` | Expand or collapse all reasoning blocks |
+| `Ctrl+R` | Expand or collapse the latest reasoning block |
+| `Alt+R` | Expand or collapse all reasoning blocks |
+| `Ctrl+T` | Open the transcript pager |
+| `Ctrl+G` | Edit the composer draft in `$VISUAL` or `$EDITOR` |
 | `?` | Open help while the composer is empty; otherwise insert the character |
 | `F1` | Open help |
+
+### Key contexts
+
+Keys belong to a named context, and exactly one context owns input at a time. A context is entered
+by taking its focus and left by returning focus to the composer, so a shortcut is never ambiguous
+between two visible surfaces.
+
+| Context | Owner | Answers |
+|---|---|---|
+| `global` | The root app | Quit, help, terminal resize, and focus recovery |
+| `chat` | `tui/transcript` | Viewport navigation and block expansion |
+| `composer` | `tui/composer` | Editing, submission, history, and the command palette |
+| `editor` | The external editor | Everything, while `$VISUAL` or `$EDITOR` owns the terminal |
+| `pager` | The transcript pager | Scrolling and searching the transcript |
+| `list` | `tui/commands` | Navigating a command or choice list |
+| `approval` | `tui/approval` | Answering a pending tool approval |
+
+This is the focus rule above, named: input belongs to the feature that owns focus. The root keeps
+only the genuinely global keys.
 
 ## Mouse
 
@@ -138,7 +159,8 @@ Composer rules worth knowing:
 
 Run rules:
 
-- Queued prompts run in order. The footer previews the first three and summarises the remainder.
+- Queued prompts run in order. The composer area previews the first three and summarises the
+  remainder.
 - Manual cancellation with `Esc` or `Ctrl+C` clears queued prompts. Steering cancellation preserves
   them, because the user is mid-thought rather than abandoning the work.
 
@@ -164,7 +186,41 @@ output use overlays and restore focus to its previous owner when closed.
 - Reset, resume, compact, and undo reconcile the retained transcript from current conversation state.
 - Resize preserves the draft, selection, transcript position, pending approval, and active stream.
 - Below 18 terminal rows, queue details and command choices use their compact forms.
-- The bottom status line contains permission mode, model, and whether tools are enabled.
+- The status line is an ordered row of items selected by `tui.status_line` in settings — see
+  `config.md`. An item whose data is unavailable is omitted rather than shown empty, and setting the
+  key to `null` removes the row and returns its height to the transcript.
+
+## Appearance
+
+Colour carries meaning and is never decoration. The TUI draws from the terminal's own ANSI palette
+and its default foreground and background, so the interface follows whatever colour scheme the
+terminal is configured with — dark or light — without a theme to pick.
+
+| Role | Colour |
+|---|---|
+| Default text, assistant prose, tool output | The terminal's default foreground |
+| Secondary text: reasoning, metadata, hints, tree guides | Default foreground, dimmed |
+| User input, selection, status indicators | ANSI cyan |
+| Success and added lines | ANSI green |
+| Errors, failures, and removed lines | ANSI red |
+| The agent's identity marker | ANSI magenta |
+
+Those six roles are the whole vocabulary. The TUI never uses ANSI blue or yellow as a foreground,
+never uses ANSI black or white as a foreground, and never constructs a colour from an RGB triple, a
+hexadecimal literal, or an indexed palette entry. `tests/architecture/test_theme.py` enforces this
+by parsing the TUI's own colour construction sites.
+
+Because colour is delegated to the terminal, a screenshot of this interface is not a colour
+reference. Syntax highlighting inside fenced code is the one exception: it is selected by name from
+`tui.syntax_theme` and is not defined by the TUI.
+
+Message markers, in the roles above:
+
+- A user prompt is marked `❯` in cyan.
+- The agent's reply is marked `●` in magenta.
+- A tool call is a compact action summary in cyan; expanding it reveals detail beneath a tree guide
+  in dimmed default text.
+- Reasoning is a single dimmed line until expanded.
 
 ## Approval UI
 
@@ -178,5 +234,5 @@ Tool approval is a modal selectable menu rather than a bare prompt:
   answer the next prompt by accident.
 - The prompt stays open until the runtime moves on, and closing it returns focus to the composer.
 
-The engine reports live states while actions run, so the header follows `WaitingApproval` and
+The engine reports live states while actions run, so the status line follows `WaitingApproval` and
 `RunningTool` as they happen rather than only at snapshot boundaries.

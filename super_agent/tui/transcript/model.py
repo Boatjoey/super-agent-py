@@ -51,7 +51,11 @@ class MarkdownRenderer(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Styles:
-    """The styles the transcript renders with."""
+    """The styles the transcript renders with.
+
+    The shape is the feature's; the values are the root's palette, handed over
+    at construction, because a feature may not reach for the root's styles (R6).
+    """
 
     status: Style
     user_label: Style
@@ -62,14 +66,18 @@ class Styles:
 
 
 def default_styles() -> Styles:
-    """The transcript's own defaults, used when a model is built bare."""
-    secondary, accent = "color(8)", "color(6)"
+    """The transcript's own defaults, used when a model is built bare.
+
+    No colour: the palette belongs to the root, which builds the real styles and
+    passes them to :func:`new`. A bare model still renders, in the terminal's
+    default foreground.
+    """
     return Styles(
-        status=Style(color=accent, italic=True),
-        user_label=Style(color="color(2)", bold=True),
-        tool_label=Style(color=accent, bold=True),
-        thinking=Style(color=secondary, italic=True),
-        footer=Style(color=secondary, italic=True),
+        status=Style(),
+        user_label=Style(),
+        tool_label=Style(),
+        thinking=Style(),
+        footer=Style(),
         markdown_renderer=_PlainMarkdownRenderer(),
     )
 

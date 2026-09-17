@@ -69,7 +69,7 @@ def helpView(app: App) -> Text:
     """The commands and shortcuts overlay, in a bordered box."""
     width = max(1, min(app.width, max(_HELP_MIN_WIDTH, min(_HELP_MAX_WIDTH, app.width - 4))))
     inner = max(1, width - 4)
-    lines: list[Text] = [Text("Commands & Shortcuts", style=app.styles.command_label)]
+    lines: list[Text] = [Text("Commands & Shortcuts", style=app.styles.accent_bold)]
     lines.append(Text(""))
     lines.extend(_nameLines(app, _COMMAND_HELP))
     lines.append(Text(""))
@@ -91,7 +91,7 @@ def _nameLines(app: App, items: Sequence[tuple[str, str]]) -> list[Text]:
     """Help rows whose first column is a styled command name."""
     lines: list[Text] = []
     for name, description in items:
-        line = Text(name, style=app.styles.command_label)
+        line = Text(name, style=app.styles.accent_bold)
         line.append(" " * max(1, 13 - len(name)) + description)
         lines.append(line)
     return lines

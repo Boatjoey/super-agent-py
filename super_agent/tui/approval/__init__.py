@@ -14,6 +14,16 @@ from super_agent.tui.approval.model import (
     Decision as Decision,
     Model as Model,
     Request as Request,
+    Styles as Styles,
 )
 
-__all__ = ["APPROVE_ALWAYS", "APPROVE_ONCE", "DENY", "ApprovalDialog", "Decision", "Model", "Request"]
+__all__ = [
+    "APPROVE_ALWAYS",
+    "APPROVE_ONCE",
+    "DENY",
+    "ApprovalDialog",
+    "Decision",
+    "Model",
+    "Request",
+    "Styles",
+]

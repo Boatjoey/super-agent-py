@@ -1,9 +1,15 @@
 """The TUI's visual vocabulary.
 
+Every colour the interface draws is named here, once, from the terminal's own
+ANSI palette: ``docs/tui.md#appearance`` fixes six roles and this module is their
+only home. A feature never constructs a colour — it declares the shape of the
+styles it renders with and the root hands it the values, because a feature may
+not import this module (R6). ``tests/architecture/test_theme.py`` fails when a
+feature reaches for a colour anyway.
+
 Rich supplies the two pieces this needs, so the module keeps a clean split:
 
-* :class:`Styles` carries one :class:`rich.style.Style` per role, using Rich's
-  ``color(N)`` form of the 256-colour palette.
+* :class:`Styles` carries one :class:`rich.style.Style` per role.
 * :class:`MarkdownRenderer` renders markdown for the transcript. Its wrapping and
   block padding differ from a width-perfect string, which is why the tests assert
   width invariants rather than rendered strings.
@@ -22,6 +28,15 @@ from rich.style import Style
 from rich.text import Text
 
 __all__ = ["DefaultMarkdownRenderer", "MarkdownRenderer", "Styles", "default_styles"]
+
+#: The ANSI colour names the palette uses, in Rich's spelling. Which colour each
+#: one draws is the terminal's decision, not this module's (see
+#: :mod:`super_agent.tui.theme` for the same roles stated for Textual).
+_DEFAULT = "default"
+_ACCENT = "cyan"
+_SUCCESS = "green"
+_FAILURE = "red"
+_IDENTITY = "magenta"
 
 
 class MarkdownRenderer(Protocol):
@@ -89,26 +104,35 @@ def _strip_blank_lines(text: Text) -> Text:
 class Styles:
     """One style per role, plus the markdown renderer the transcript uses."""
 
-    status: Style
-    user_label: Style
-    tool_label: Style
-    command_label: Style
-    thinking: Style
+    #: Default text, assistant prose, and tool output.
+    default: Style
+    #: Secondary text: reasoning, metadata, hints, and tree guides.
+    secondary: Style
+    #: User input, selection, and status indicators.
+    accent: Style
+    #: The accent for a marker the eye should catch: a prompt, a selected row.
+    accent_bold: Style
+    #: The accent as a block, for the approval banner.
+    banner: Style
+    #: Success and added lines.
+    success: Style
+    #: Errors, failures, and removed lines.
     error: Style
-    footer: Style
+    #: The agent's identity marker.
+    identity: Style
     markdown_renderer: MarkdownRenderer
 
 
 def default_styles() -> Styles:
-    """The default styles: cyan accents, dim secondary text."""
-    secondary, accent = "color(8)", "color(6)"
+    """The palette: the six roles of ``docs/tui.md#appearance`` and the emphasis they carry."""
     return Styles(
-        status=Style(color=accent, italic=True),
-        user_label=Style(color="color(2)", bold=True),
-        tool_label=Style(color=accent, bold=True),
-        command_label=Style(color="color(3)", bold=True),
-        thinking=Style(color=secondary, italic=True),
-        error=Style(color="color(1)", bold=True),
-        footer=Style(color=secondary, italic=True),
+        default=Style(),
+        secondary=Style(dim=True),
+        accent=Style(color=_ACCENT),
+        accent_bold=Style(color=_ACCENT, bold=True),
+        banner=Style(color=_DEFAULT, bgcolor=_ACCENT, bold=True),
+        success=Style(color=_SUCCESS),
+        error=Style(color=_FAILURE, bold=True),
+        identity=Style(color=_IDENTITY),
         markdown_renderer=DefaultMarkdownRenderer(),
     )

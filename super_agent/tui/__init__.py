@@ -71,6 +71,7 @@ from super_agent.tui.conversation import (
     AttachmentSummary as AttachmentSummary,
     Cancellation as Cancellation,
     Channel as Channel,
+    ContextUsage as ContextUsage,
     Conversation as Conversation,
     ConversationError as ConversationError,
     ConversationNotification as ConversationNotification,
@@ -86,6 +87,7 @@ from super_agent.tui.conversation import (
     ToolApprovalRequested as ToolApprovalRequested,
     ToolCall as ToolCall,
     TurnPort as TurnPort,
+    UsageReported as UsageReported,
 )
 from super_agent.tui.runtime import (
     CLEAR_SCREEN as CLEAR_SCREEN,
@@ -148,6 +150,7 @@ __all__ = [
     "ClipboardDone",
     "ClipboardWriter",
     "Command",
+    "ContextUsage",
     "Conversation",
     "ConversationError",
     "ConversationNotification",
@@ -181,6 +184,7 @@ __all__ = [
     "TranscriptMarkdownRenderer",
     "TranscriptStyles",
     "TurnPort",
+    "UsageReported",
     "WindowSizeMsg",
     "applyOutcome",
     "batch",
@@ -236,9 +240,24 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
         snapshot=session,
         turnPort=session,
         commands=command_model,
-        composer=composer.new(composerCommands(command_model.palette())),
-        approval=approval_feature.Model(),
-        attachments=attachments.new(session),
+        composer=composer.new(
+            composerCommands(command_model.palette()),
+            styles=composer.Styles(
+                prompt=styles.accent_bold,
+                accent=styles.accent,
+                selected=styles.accent_bold,
+                dim=styles.secondary,
+            ),
+        ),
+        approval=approval_feature.Model(
+            styles=approval_feature.Styles(
+                banner=styles.banner,
+                dim=styles.secondary,
+                selected=styles.accent_bold,
+                accent=styles.accent,
+            )
+        ),
+        attachments=attachments.new(session, styles=attachments.Styles(accent=styles.accent)),
         transcript=transcript.Model(welcome=""),
         styles=styles,
         info=info,
@@ -246,11 +265,11 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
     app.transcript = transcript.new(
         welcomeString(app),
         TranscriptStyles(
-            status=styles.status,
-            user_label=styles.user_label,
-            tool_label=styles.tool_label,
-            thinking=styles.thinking,
-            footer=styles.footer,
+            status=styles.accent,
+            user_label=styles.accent_bold,
+            tool_label=styles.accent_bold,
+            thinking=styles.secondary,
+            footer=styles.secondary,
             markdown_renderer=styles.markdown_renderer,
         ),
     )
@@ -266,8 +285,8 @@ def infoBar(app: App) -> Text:
     rendered = Text()
     for index, part in enumerate(parts):
         if index:
-            rendered.append(" · ", style=app.styles.footer)
-        rendered.append(part, style=app.styles.footer)
+            rendered.append(" · ", style=app.styles.secondary)
+        rendered.append(part, style=app.styles.secondary)
     return clampLines(app.width, rendered)
 
 
@@ -287,7 +306,7 @@ def footerView(app: App) -> Text:
     if app.err:
         rendered.append(" !! error: " + app.err, style=app.styles.error)
     elif app.status:
-        rendered.append(" " + compactStatus(app.status, 3), style=app.styles.status)
+        rendered.append(" " + compactStatus(app.status, 3), style=app.styles.accent)
     for part in (app.attachments.view(), app.approval.view(app.info.cwd)):
         if part.plain:
             rendered.append("\n")

@@ -14,7 +14,8 @@ from super_agent.tui.attachments.model import (
     Model as Model,
     Outcome as Outcome,
     Port as Port,
+    Styles as Styles,
     new as new,
 )
 
-__all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "Outcome", "Port", "new"]
+__all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "Outcome", "Port", "Styles", "new"]

@@ -11,6 +11,7 @@ from super_agent.tui.composer.model import (
     Intent as Intent,
     IntentKind as IntentKind,
     Model as Model,
+    Styles as Styles,
     new as new,
     normalize_commands as normalize_commands,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "Intent",
     "IntentKind",
     "Model",
+    "Styles",
     "new",
     "normalize_commands",
 ]

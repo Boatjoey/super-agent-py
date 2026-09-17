@@ -92,15 +92,21 @@ security boundary. What actually contains a command is the sandbox, described in
 ## Session's Role
 
 `runtime/session` starts a turn and supplies ports; it never schedules actions. `runtime/session/turn.py`
-provides exactly three things to the engine:
+provides exactly four things to the engine:
 
 - an `ApprovalWaiter`, which reads the approval channel and persists each decision;
 - an `onStreamChunk` callback, which forwards streaming output as notifications;
 - a state observer, registered per turn, which converts engine snapshots into `SessionNotification`
-  values.
+  values;
+- a usage observer, registered per turn, which reports what each completed model call of the current
+  run cost as a `UsageReported` notification. A response the adapter could not measure reports nothing.
 
 The state observer is how the TUI follows states that pass *between* snapshot points, such as
 `RunningTool` while a tool executes. It runs outside the engine lock so it can read snapshots safely.
+
+The usage observer carries the provider's own token counts, so the interface can show context usage
+without tokenizing the conversation itself. Both observers are installed for one turn and cleared when
+it ends.
 
 This keeps the dependency direction intact: Session starts the use case, Engine owns the loop,
 Execution performs the work, and Machine decides the transitions.

@@ -126,6 +126,7 @@ class ActionLoopMixin:
 
         def messages(self) -> list[Message]: ...
         async def _notify_state_observer(self) -> None: ...
+        def _notify_model_usage_observer(self, usage: Usage | None) -> None: ...
 
     async def dispatch_event(
         self,
@@ -352,6 +353,11 @@ class ActionLoopMixin:
             # A stale completion is discarded, not applied. This is the whole
             # mechanism that keeps a cancelled turn out of the next one.
             return
+
+        if isinstance(completion.result, ModelReplied):
+            # The interface hears what a model call cost only while that call
+            # still belongs to the conversation.
+            self._notify_model_usage_observer(completion.result.response.usage)
 
         # Specs are fetched outside the engine lock on purpose: a registry change
         # (an MCP reconnect, say) can block Specs for seconds, and the lock must

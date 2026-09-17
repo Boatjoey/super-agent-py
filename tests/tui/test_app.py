@@ -803,7 +803,7 @@ async def test_tui_renders_session_notifications_without_snapshot_reads() -> Non
     assert "from notification" in render(view(app))
 
 
-def test_conversation_declares_six_notification_kinds() -> None:
+def test_conversation_declares_seven_notification_kinds() -> None:
     """The sealed set is the port's contract; a drift here must fail loudly."""
     assert NOTIFICATION_KINDS == (
         "AgentStatusChanged",
@@ -811,6 +811,7 @@ def test_conversation_declares_six_notification_kinds() -> None:
         "ToolApprovalCleared",
         "StreamChunkReceived",
         "MessageAppended",
+        "UsageReported",
         "ConversationError",
     )
 

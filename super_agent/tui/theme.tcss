@@ -35,6 +35,7 @@ Screen {
     max-height: 8;
     padding: 0 2;
     color: $text-muted;
+    text-style: dim;
 }
 
 #composer {
@@ -42,11 +43,11 @@ Screen {
     min-height: 3;
     max-height: 8;
     margin: 0 1;
-    border: round $accent;
+    border: round $border-blurred;
 }
 
 #composer:focus {
-    border: round $accent;
+    border: round $border;
 }
 
 #status {
