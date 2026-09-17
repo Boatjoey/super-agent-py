@@ -617,3 +617,7 @@ async def test_rendered_segments_stay_on_the_palette() -> None:
         assert drawn, "the compositor painted no colour at all"
         barred = sorted(colour for colour in drawn if _message(colour, foreground=True) is not None)
         assert not barred, f"the compositor would paint {barred}, which the palette does not have"
+
+        # Magenta is the agent's identity marker, and this probe draws no marker:
+        # Textual's magenta border or cursor leaking through would show up here.
+        assert "magenta" not in drawn and "bright_magenta" not in drawn

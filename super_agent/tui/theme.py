@@ -36,9 +36,9 @@ _SUCCESS = "ansi_green"
 _FAILURE = "ansi_red"
 
 #: The variables Textual's stylesheet reads but does not derive from a theme
-#: colour. The first two are referenced by Textual's own base stylesheet, so the
-#: stylesheet does not parse without them; the rest override ANSI-mode defaults
-#: that name a colour the palette does not have.
+#: colour. ``ansi-background`` and ``ansi-foreground`` are referenced by Textual's
+#: own base stylesheet, which does not parse without them; the rest override the
+#: ANSI-mode defaults that name a colour the palette does not have.
 _VARIABLES: dict[str, str] = {
     # Blue in Textual's defaults, where the accent is cyan.
     "scrollbar": _ACCENT,
