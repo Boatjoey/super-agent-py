@@ -36,8 +36,22 @@ class TranscriptScreen(VerticalScroll):
     async def on_mount(self) -> None:
         await self.mount(self._welcome, self._stream)
 
+    def _take_width(self, model: Model) -> None:
+        """Tell the model the width it is rendered into.
+
+        The pane's content width, not the terminal's: markdown is measured
+        against the box it lands in, and the padding and the scrollbar are
+        already subtracted from this number. Measuring against the terminal
+        instead is what left wrapped prose centred for a box several columns
+        wider than the one it appeared in.
+        """
+        width = self.content_size.width
+        if width > 0 and width != model.width:
+            model.set_width(width)
+
     async def sync(self, model: Model) -> None:
         """Reconcile changed blocks without replacing the viewport."""
+        self._take_width(model)
         if model.welcome != self._welcome_value:
             self._welcome.update(model.welcome)
             self._welcome_value = model.welcome

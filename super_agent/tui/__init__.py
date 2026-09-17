@@ -265,11 +265,13 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
     app.transcript = transcript.new(
         welcomeString(app),
         TranscriptStyles(
-            status=styles.accent,
-            user_label=styles.accent_bold,
-            tool_label=styles.accent_bold,
-            thinking=styles.secondary,
-            footer=styles.secondary,
+            default=styles.default,
+            secondary=styles.secondary,
+            accent=styles.accent,
+            accent_bold=styles.accent_bold,
+            identity=styles.identity,
+            success=styles.success,
+            error=styles.error,
             markdown_renderer=styles.markdown_renderer,
         ),
     )

@@ -926,11 +926,11 @@ async def test_tool_calls_are_summarized_and_expand_on_demand() -> None:
         "expanded details stay below their tool call"
     )
 
-    app, _ = await press(app, "ctrl+t")
+    app, _ = await press(app, "ctrl+r")
     latest_thinking = render(view(app))
     assert "patch reasoning" in latest_thinking and "private reasoning" not in latest_thinking
 
-    app, _ = await press(app, "alt+t")
+    app, _ = await press(app, "alt+r")
     all_thinking = render(view(app))
     assert "patch reasoning" in all_thinking and "private reasoning" in all_thinking
 
@@ -1153,12 +1153,12 @@ async def test_question_mark_opens_help_only_without_a_draft() -> None:
 
 
 @pytest.mark.asyncio
-async def test_alt_o_and_alt_t_toggle_every_group() -> None:
+async def test_alt_o_and_alt_r_toggle_every_group() -> None:
     program = Application(new_app(FakeConversation()))
 
     async with program.run_test(size=(80, 24)) as pilot:
         await pilot.press("alt+o")
-        await pilot.press("alt+t")
+        await pilot.press("alt+r")
         await pilot.pause()
 
     assert program.model.transcript.expandAllTools

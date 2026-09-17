@@ -26,8 +26,9 @@ from rich.markdown import Markdown
 from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
+from rich.theme import Theme
 
-__all__ = ["DefaultMarkdownRenderer", "MarkdownRenderer", "Styles", "default_styles"]
+__all__ = ["DEFAULT_SYNTAX_THEME", "DefaultMarkdownRenderer", "MarkdownRenderer", "Styles", "default_styles"]
 
 #: The ANSI colour names the palette uses, in Rich's spelling. Which colour each
 #: one draws is the terminal's decision, not this module's (see
@@ -37,6 +38,22 @@ _ACCENT = "cyan"
 _SUCCESS = "green"
 _FAILURE = "red"
 _IDENTITY = "magenta"
+
+#: The syntax theme fenced code is highlighted with unless configured otherwise.
+#: Rich ships ANSI-only themes, so code follows the terminal palette instead of
+#: carrying one of its own; ``monokai``, the Rich default, is truecolor and would
+#: look wrong on a light terminal.
+DEFAULT_SYNTAX_THEME = "ansi_dark"
+
+#: Rich's own markdown styles paint inline code and code blocks on black, which
+#: assumes a dark terminal. Both keep the colour and drop the background, so the
+#: text sits on whatever the terminal is already showing.
+_MARKDOWN_THEME = Theme(
+    {
+        "markdown.code": f"bold {_ACCENT}",
+        "markdown.code_block": _ACCENT,
+    }
+)
 
 
 class MarkdownRenderer(Protocol):
@@ -52,10 +69,15 @@ class DefaultMarkdownRenderer:
 
     Rendering happens through a private console whose width is the caller's, so
     the result is a plain :class:`rich.text.Text` the transcript can compose,
-    clamp, and measure without a console of its own.
+    clamp, and measure without a console of its own. The console carries the
+    palette's markdown theme, so a code block is highlighted in the terminal's
+    colours rather than in a theme of Rich's choosing.
     """
 
-    __slots__ = ()
+    __slots__ = ("_syntax_theme",)
+
+    def __init__(self, syntax_theme: str = DEFAULT_SYNTAX_THEME) -> None:
+        self._syntax_theme = syntax_theme
 
     def render(self, content: str, width: int) -> Text:
         console = Console(
@@ -64,8 +86,10 @@ class DefaultMarkdownRenderer:
             force_terminal=False,
             color_system=None,
             legacy_windows=False,
+            theme=_MARKDOWN_THEME,
         )
-        lines = console.render_lines(Markdown(content), console.options, pad=False)
+        markdown = Markdown(content, code_theme=self._syntax_theme, inline_code_theme=self._syntax_theme)
+        lines = console.render_lines(markdown, console.options, pad=False)
         rendered = Text()
         for index, segments in enumerate(lines):
             if index:
@@ -123,8 +147,13 @@ class Styles:
     markdown_renderer: MarkdownRenderer
 
 
-def default_styles() -> Styles:
-    """The palette: the six roles of ``docs/tui.md#appearance`` and the emphasis they carry."""
+def default_styles(syntax_theme: str = DEFAULT_SYNTAX_THEME) -> Styles:
+    """The palette: the six roles of ``docs/tui.md#appearance`` and the emphasis they carry.
+
+    ``syntax_theme`` names the theme fenced code is highlighted with; it is the
+    one place a colour outside the six roles is allowed, because a syntax theme
+    is a palette in its own right.
+    """
     return Styles(
         default=Style(),
         secondary=Style(dim=True),
@@ -134,5 +163,5 @@ def default_styles() -> Styles:
         success=Style(color=_SUCCESS),
         error=Style(color=_FAILURE, bold=True),
         identity=Style(color=_IDENTITY),
-        markdown_renderer=DefaultMarkdownRenderer(),
+        markdown_renderer=DefaultMarkdownRenderer(syntax_theme),
     )
