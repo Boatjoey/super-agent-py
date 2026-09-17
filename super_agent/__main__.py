@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import importlib.metadata
 import os
 import sys
 
@@ -67,6 +68,7 @@ async def run(cfg: app.Config) -> int:
                 app.new_tui_conversation(session, mcpController, agentController),
                 tui.StartupInfo(
                     model_name=llm.model_display_name(profile.provider, llm.ProviderConfig(model=profile.model)),
+                    version=importlib.metadata.version("super-agent-py"),
                     permission_mode=str(profile.permission_mode),
                     no_tools=cfg.no_tools,
                     cwd=cwd,

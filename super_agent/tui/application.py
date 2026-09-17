@@ -182,7 +182,12 @@ class Application(TextualApp[None]):
         yield Static(id="unread")
         yield Static(id="queue", markup=False)
         yield Static(id="suggestions", markup=False)
-        yield Composer(placeholder="Ask anything…", id="composer", soft_wrap=True, show_line_numbers=False)
+        yield Composer(
+            placeholder="\u276f Ask Super Agent to do anything",
+            id="composer",
+            soft_wrap=True,
+            show_line_numbers=False,
+        )
         yield Static(id="status", markup=False)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:

@@ -172,8 +172,10 @@ normal exit, cancellation, and failure. The transcript is a retained scrollable 
 composer and status line remain fixed below it. Approval, help, command choices, and long command
 output use overlays and restore focus to its previous owner when closed.
 
-- The compact welcome block contains the product name, model, working directory, and final loaded
-  instruction-source filename.
+- The compact bordered welcome card contains the product name and version, model, working directory,
+  and final loaded instruction-source filename. A short `/help` tip sits directly below it.
+- The composer is a rounded bordered prompt with `Ask Super Agent to do anything` as its empty-state
+  hint. The status line remains directly below it.
 - User prompts are visually prominent. Assistant prose wraps to the available width without an extra
   left indent. Code preserves indentation and remains accessible horizontally; content is never
   silently truncated.

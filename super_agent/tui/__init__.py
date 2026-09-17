@@ -256,13 +256,18 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
 
 
 def welcomeString(app: App) -> str:
-    """The compact welcome block: product, model, working directory, instructions."""
-    parts = [app.info.model_name]
+    """The compact welcome card: product, version, model, directory, instructions."""
+    title = ">_ Super Agent"
+    if app.info.version:
+        title += f" (v{app.info.version})"
+    rows = [title, ""]
+    if app.info.model_name:
+        rows.append("model:       " + app.info.model_name)
     if location := displayCWD(app.info.cwd):
-        parts.append(location)
+        rows.append("directory:   " + location)
     if app.info.instruction_paths:
-        parts.append(os.path.basename(app.info.instruction_paths[-1]))
-    return "Super Agent\n" + " · ".join(parts)
+        rows.append("instructions: " + os.path.basename(app.info.instruction_paths[-1]))
+    return "\n".join(rows)
 
 
 def refreshSnapshot(app: App) -> None:

@@ -62,6 +62,7 @@ class StartupInfo:
     """
 
     model_name: str = ""
+    version: str = ""
     permission_mode: str = ""
     no_tools: bool = False
     cwd: str = ""

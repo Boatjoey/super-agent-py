@@ -15,10 +15,27 @@ Screen {
     border: none;
 }
 
-.transcript-welcome, .transcript-message, .transcript-stream {
+.transcript-message, .transcript-stream {
     width: 1fr;
     height: auto;
     margin-bottom: 1;
+}
+
+.transcript-welcome {
+    width: 54;
+    max-width: 100%;
+    height: auto;
+    margin-top: 1;
+    padding: 0 1;
+    border: round $border-blurred;
+}
+
+.welcome-tip {
+    width: 1fr;
+    height: auto;
+    margin: 1 1 2 1;
+    color: $text-muted;
+    text-style: dim;
 }
 
 #unread {
@@ -59,7 +76,8 @@ Screen {
     height: auto;
     min-height: 3;
     max-height: 8;
-    margin: 0 1;
+    margin: 0 2;
+    padding: 0 1;
     border: round $border-blurred;
 }
 

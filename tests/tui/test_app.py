@@ -550,15 +550,32 @@ async def test_resize_keeps_the_draft_and_the_layout() -> None:
 
 @pytest.mark.asyncio
 async def test_welcome_is_part_of_managed_transcript() -> None:
-    info = StartupInfo(model_name="test-model", cwd="/repo", instruction_paths=("/repo/AGENTS.md",))
+    info = StartupInfo(model_name="test-model", version="0.1.0", cwd="/repo", instruction_paths=("/repo/AGENTS.md",))
     program = Application(new_app(FakeConversation(), info))
 
     async with program.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
         shown = transcript_text(program)
 
-    assert "Super Agent" in shown
-    assert "test-model · /repo · AGENTS.md" in shown
+    assert ">_ Super Agent (v0.1.0)" in shown
+    assert "model:       test-model" in shown
+    assert "directory:   /repo" in shown
+    assert "instructions: AGENTS.md" in shown
+
+
+@pytest.mark.asyncio
+async def test_welcome_card_and_composer_match_the_terminal_layout() -> None:
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        welcome = program.query_one(".transcript-welcome", Static)
+        tip = program.query_one(".welcome-tip", Static)
+        composer = program.query_one("#composer", TextArea)
+
+        assert welcome.styles.border.top[0] == "round"
+        assert static_text(tip).startswith("Tip:")
+        assert composer.placeholder == "\u276f Ask Super Agent to do anything"
 
 
 # ---------------------------------------------------------------------------

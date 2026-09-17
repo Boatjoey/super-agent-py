@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from rich.text import Text
 from textual.binding import BindingType
 from textual.containers import VerticalScroll
 from textual.widgets import Static
@@ -27,6 +28,10 @@ class TranscriptScreen(VerticalScroll):
     def __init__(self, *, id: str | None = None) -> None:
         super().__init__(id=id)
         self._welcome = Static(classes="transcript-welcome", markup=False)
+        self._welcome_tip = Static(
+            Text("Tip: Type /help for commands and keyboard shortcuts."),
+            classes="welcome-tip",
+        )
         self._messages: list[Static] = []
         self._rendered: list[tuple[Message, bool, bool, int] | None] = []
         self._stream = Static(classes="transcript-stream", markup=False)
@@ -34,7 +39,7 @@ class TranscriptScreen(VerticalScroll):
         self._welcome_value = ""
 
     async def on_mount(self) -> None:
-        await self.mount(self._welcome, self._stream)
+        await self.mount(self._welcome, self._welcome_tip, self._stream)
 
     def _take_width(self, model: Model) -> None:
         """Tell the model the width it is rendered into.
