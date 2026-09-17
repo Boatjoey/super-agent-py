@@ -20,6 +20,8 @@ from super_agent.tui import runtime, statusline, theme
 from super_agent.tui.app import App as AppModel, Msg
 from super_agent.tui.approval import ApprovalDialog
 from super_agent.tui.composer import Composer
+from super_agent.tui.editor import edit_draft
+from super_agent.tui.pager import PagerScreen
 from super_agent.tui.transcript.screen import TranscriptScreen
 from super_agent.tui.update import update
 
@@ -35,13 +37,25 @@ _TRANSCRIPT_ACTIONS = frozenset({"page_up", "page_down"})
 #: binding is checked before the focused widget, so one that ran regardless would
 #: take the key from the overlay that is supposed to be answering it. Cancelling
 #: is deliberately absent: the escape hatch stays open under every overlay.
-_MODAL_ACTIONS = _COMPOSER_ACTIONS | _TRANSCRIPT_ACTIONS | {"model_key", "help", "help_or_type", "clear_status"}
+_MODAL_ACTIONS = (
+    _COMPOSER_ACTIONS
+    | _TRANSCRIPT_ACTIONS
+    | {
+        "model_key",
+        "help",
+        "help_or_type",
+        "clear_status",
+        "open_pager",
+        "edit_draft",
+    }
+)
 
 #: The help text, in one place: ``F1``, ``?``, and ``/help`` all land on it.
 _HELP_TEXT = (
     "Commands & shortcuts\n\n"
     "Enter  submit / steer\nTab  queue while running\nCtrl+J  newline\n"
     "PgUp/PgDn  scroll transcript\nCtrl+O  toggle tools\nCtrl+R  toggle reasoning\n"
+    "Ctrl+T  transcript pager\nCtrl+G  edit draft in $VISUAL/$EDITOR\n"
     "Ctrl+C  cancel / quit\nEsc  cancel / clear"
 )
 
@@ -135,6 +149,8 @@ class Application(TextualApp[None]):
         ("ctrl+y", "model_key('ctrl+y')", "Copy code"),
         ("ctrl+u", "model_key('ctrl+u')", "Clear input"),
         ("ctrl+l", "clear_status", "Clear status"),
+        ("ctrl+t", "open_pager", "Transcript pager"),
+        ("ctrl+g", "edit_draft", "Edit draft"),
         ("f1", "help", "Help"),
     ]
 
@@ -293,6 +309,31 @@ class Application(TextualApp[None]):
         self.model.showHelp = True
         self.model.status = ""
         await self._render_model()
+
+    async def action_open_pager(self) -> None:
+        """Hand the whole transcript to the pager.
+
+        The pager is given the composed text rather than the live viewport: it
+        reads a transcript while it is no longer being appended to, and reaching
+        into the transcript feature's widgets from here would make the two
+        features one.
+        """
+        self.push_screen(PagerScreen(self.model.transcript.view()))
+
+    async def action_edit_draft(self) -> None:
+        """Hand the draft to ``$VISUAL``/``$EDITOR`` and take back what it saves.
+
+        The draft reaches the editor and comes back through the same two syncs
+        every other key uses, so the composer's history, cursor, and selection
+        see one edit rather than a replacement.
+        """
+        self._sync_editor_to_model()
+        edited = await edit_draft(self, self.model.composer.value)
+        if edited is None:
+            return
+        self.model.composer.value = edited
+        self._sync_model_to_editor()
+        self.query_one("#composer", TextArea).focus()
 
     async def _model_key(self, key: str) -> None:
         self._sync_editor_to_model()

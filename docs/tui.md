@@ -120,8 +120,8 @@ Extensions:
 | `Alt+O` | Expand or collapse all tool-call groups |
 | `Ctrl+R` | Expand or collapse the latest reasoning block |
 | `Alt+R` | Expand or collapse all reasoning blocks |
-| `Ctrl+T` | Open the transcript pager |
-| `Ctrl+G` | Edit the composer draft in `$VISUAL` or `$EDITOR` |
+| `Ctrl+T` | Open the transcript pager: `/` searches, `n` and `N` step through matches and wrap, and `Esc` closes the search prompt before the pager |
+| `Ctrl+G` | Edit the composer draft in `$VISUAL` or `$EDITOR`, whichever is set first; the draft is left untouched when neither is set |
 | `?` | Open help while the composer is empty; otherwise insert the character |
 | `F1` | Open help |
 

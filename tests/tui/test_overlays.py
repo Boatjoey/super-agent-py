@@ -56,6 +56,7 @@ from super_agent.tui import (
 )
 from super_agent.tui.application import HelpOverlay, OutputScreen
 from super_agent.tui.approval import ApprovalDialog
+from super_agent.tui.pager import PagerScreen
 
 
 class FakeConversation:
@@ -582,3 +583,49 @@ async def test_queue_preview_shows_three_and_summarises_the_rest() -> None:
         assert program.query_one("#queue", Static).display is False, "a manual cancellation clears the queue"
 
     assert fake.queries == ["active"], "the cancelled turn is not followed by a queued one"
+
+
+@pytest.mark.asyncio
+async def test_ctrl_t_opens_the_pager_over_the_transcript() -> None:
+    """The pager reads the whole transcript, and leaves the composer holding the keyboard."""
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        await pilot.press("ctrl+t")
+        await pilot.pause()
+
+        screen = program.screen
+        assert isinstance(screen, PagerScreen), f"Ctrl+T raised {screen!r}"
+        assert screen.content.plain.strip(), "the pager was handed an empty transcript"
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(program.screen, PagerScreen), "escape closes the pager"
+        assert composer_has_focus(program), "the composer takes the keyboard back"
+
+
+@pytest.mark.asyncio
+async def test_ctrl_g_leaves_the_draft_alone_when_no_editor_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing editor is not an edit: the draft survives and the interface stays up.
+
+    Setting neither variable is the only branch of ``Ctrl+G`` a headless test can
+    reach -- every other one hands the terminal to a real program -- so this pins
+    the wiring rather than the editor: the key is bound, it runs, and a machine
+    with no editor configured is not stranded.
+    """
+    monkeypatch.delenv("VISUAL", raising=False)
+    monkeypatch.delenv("EDITOR", raising=False)
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        await pilot.press(*"draft")
+        await pilot.pause()
+        await pilot.press("ctrl+g")
+        await pilot.pause()
+
+        assert composer_text(program) == "draft", "an editor that never opened must not clear the draft"
+        assert composer_has_focus(program), "the composer keeps the keyboard"
