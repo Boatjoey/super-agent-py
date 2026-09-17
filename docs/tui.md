@@ -60,10 +60,10 @@ Both rules are enforced by `tests/architecture/test_dependencies.py`.
 
 ## Commands
 
-A command reports its whole effect at once: the error line, the status line, and any scrollback
-output. A command that succeeds clears a previous error, and one that fails leaves the status line
-untouched, because the error line takes precedence over it. Command output goes to terminal
-scrollback rather than the live view, so long listings stay scrollable.
+A command reports its whole effect at once: the error line, the status line, and any output block. A
+command that succeeds clears a previous error, and one that fails leaves the status line untouched,
+because the error line takes precedence over it. Command output opens in a TUI-owned viewer; it is
+never printed behind the alternate screen.
 
 Session and configuration:
 
@@ -110,19 +110,24 @@ Extensions:
 | `/` | Open the command palette; arrows select, `Tab` or `Enter` completes |
 | `Esc` | Clear input, or cancel a run |
 | `Ctrl+U` | Clear input |
-| `Ctrl+L` | Clear the visible main screen; terminal scrollback remains available |
+| `Ctrl+L` | Clear transient status and return the transcript to its latest content |
 | `Ctrl+C` | Cancel a run, or quit |
 | Arrows | Navigate multiline input, or recall a single-line prompt without losing the draft |
+| `PgUp`, `PgDn` | Move the transcript viewport by one page |
+| `Home`, `End` | Move the transcript viewport to its start or end when it owns focus |
 | `Ctrl+Y` | Copy the latest assistant code block |
 | `Ctrl+O` | Expand or collapse the latest tool-call group |
 | `Alt+O` | Expand or collapse all tool-call groups |
 | `Ctrl+T` | Expand or collapse the latest reasoning block |
 | `Alt+T` | Expand or collapse all reasoning blocks |
+| `?` | Open help while the composer is empty; otherwise insert the character |
+| `F1` | Open help |
 
 ## Mouse
 
-The program does not capture the mouse. Selection, copying, wheel scrolling, and scrollback belong to
-the terminal and use its normal bindings.
+The mouse wheel scrolls the transcript viewport. Terminal-native selection remains available through
+the terminal's modifier convention. Clipboard actions remain explicit TUI commands so they work in
+the alternate screen.
 
 Composer rules worth knowing:
 
@@ -139,32 +144,39 @@ Run rules:
 
 ## Layout
 
-The TUI uses the terminal's main screen. `view` owns the welcome block, conversation, live streaming
-content, approval and command menus, composer, and status line. This single managed transcript lets
-tool details expand in place without duplicating conversation history.
+The TUI uses the terminal's alternate screen and restores the previous terminal contents and modes on
+normal exit, cancellation, and failure. The transcript is a retained scrollable viewport; the
+composer and status line remain fixed below it. Approval, help, command choices, and long command
+output use overlays and restore focus to its previous owner when closed.
 
 - The compact welcome block contains the product name, model, working directory, and final loaded
   instruction-source filename.
-- User prompts are visually prominent. Assistant prose uses the available width without an extra
-  left indent.
+- User prompts are visually prominent. Assistant prose wraps to the available width without an extra
+  left indent. Code preserves indentation and remains accessible horizontally; content is never
+  silently truncated.
 - Reasoning defaults to a compact `Thinking...` line. The reasoning text expands in place for the
   latest or all model steps with the keys above.
-- Tool calls are printed as compact action summaries. Expanding or collapsing rebuilds the visible
-  transcript so inputs and affected paths stay directly below their owning tool-call summary.
-- The dynamic area is clamped to the terminal width and height and shows its tail when content exceeds
-  the available rows.
-- Reset, resume, compact, and undo rebuild the managed transcript from current conversation state.
+- Tool calls are compact action summaries. Expanding or collapsing one block updates that block in
+  place and keeps the viewport stable.
+- New output follows the bottom only while the viewport is already at the bottom. Scrolling upward
+  pins the viewport; later output increments an unread indicator until the user returns to the end.
+- Streaming mutates only the active assistant block and never resets the scroll offset.
+- Reset, resume, compact, and undo reconcile the retained transcript from current conversation state.
+- Resize preserves the draft, selection, transcript position, pending approval, and active stream.
 - Below 18 terminal rows, queue details and command choices use their compact forms.
 - The bottom status line contains permission mode, model, and whether tools are enabled.
 
 ## Approval UI
 
-Tool approval is a selectable menu rather than a bare prompt:
+Tool approval is a modal selectable menu rather than a bare prompt:
 
+- The prompt owns the keyboard while it is open: no key reaches the composer or the transcript, so a
+  shortcut or an answer is never typed into the draft behind it.
 - Arrows or `j`/`k` move the selection; `Enter` confirms.
 - `1`/`y`, `2`/`a`, and `3`/`n` remain direct shortcuts for approve-once, always-approve, and deny.
 - A submitted decision ignores repeated keys until the runtime advances, so a double keypress cannot
   answer the next prompt by accident.
+- The prompt stays open until the runtime moves on, and closing it returns focus to the composer.
 
 The engine reports live states while actions run, so the header follows `WaitingApproval` and
 `RunningTool` as they happen rather than only at snapshot boundaries.

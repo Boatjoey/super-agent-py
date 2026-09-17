@@ -5,7 +5,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 
 ## Essentials
 
-- Python project (3.12): agent runtime, LLM adapters, local tools, Rich TUI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
+- Python project (3.12): agent runtime, LLM adapters, local tools, Textual TUI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
 - Design pattern: hexagonal architecture with a functional core and imperative shell. `runtime/machine` is the pure domain core; engine, session, TUI, LLM, tools, and store are ports or adapters around it.
 - State-machine flow is `Event -> validated MachineSnapshot -> transition -> RuntimeDataChange + ActionPlan -> transactional RuntimeDataChangeApplier/Executor -> ActionResultResolver -> Event`; dependencies point toward the machine.
 - Keep `RunID` stale filtering in the engine. Keep state, call-id, queue guards, and invariants in `runtime/machine`.

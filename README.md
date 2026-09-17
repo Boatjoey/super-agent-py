@@ -1,6 +1,6 @@
 # Super Agent
 
-Python agent runtime with a state-machine core, LLM providers, local tools, and a Rich TUI.
+Python agent runtime with a state-machine core, LLM providers, local tools, and a Textual TUI.
 
 ![TUI screenshot](./static/ui.png)
 
@@ -46,5 +46,5 @@ verified against a fixed layout rather than a description of it.
 
 ## Status
 
-The Rich TUI is the only interaction surface; headless, server, and alternate UI entry points
+The Textual TUI is the only interaction surface; headless, server, and alternate UI entry points
 are out of scope.

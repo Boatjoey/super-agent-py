@@ -30,6 +30,9 @@ import pytest
 from rich.cells import cell_len
 from rich.console import Console
 from rich.protocol import is_renderable
+from textual.containers import VerticalScroll
+from textual.pilot import Pilot
+from textual.widgets import TextArea
 
 from super_agent.tui import (
     NOTIFICATION_KINDS,
@@ -38,6 +41,7 @@ from super_agent.tui import (
     AgentStatusChanged,
     AgentSummary,
     App,
+    Application,
     ApprovalDecision,
     AttachmentSummary,
     Cancellation,
@@ -70,6 +74,8 @@ from super_agent.tui import (
     view,
     with_output_printer,
 )
+from super_agent.tui.application import OutputScreen
+from super_agent.tui.approval import ApprovalDialog
 
 #: What an update hands back: the commands the runtime should start.
 type Commands = tuple[Command[Msg], ...]
@@ -1055,3 +1061,220 @@ async def test_mcp_commands_list_and_add_server() -> None:
     app, _ = await send(app, message)
     assert fake.mcp_added == ("local", "helper", ["--stdio"])
     assert "Added MCP server local" in render(view(app))
+
+
+@pytest.mark.asyncio
+async def test_textual_application_starts_with_composer_focus_and_submits() -> None:
+    fake = FakeConversation()
+    program = Application(new_app(fake))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        composer = program.query_one("#composer", TextArea)
+        assert composer.has_focus
+        await pilot.press("a", "n", "y", "1", "2", "3", "j", "k", "enter")
+        await pilot.pause()
+
+    assert fake.queries == ["any123jk"]
+
+
+@pytest.mark.asyncio
+async def test_textual_transcript_is_a_scrollable_viewport() -> None:
+    model = new_app(FakeConversation())
+    for index in range(40):
+        model.transcript.append(Message(role=ROLE_ASSISTANT, content=f"message {index}\n" * 2))
+    program = Application(model)
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", VerticalScroll)
+        await pilot.pause()
+        assert pane.max_scroll_y > 0
+        pane.scroll_end(animate=False)
+        await pilot.pause()
+        bottom = pane.scroll_y
+        await pilot.press("pageup")
+        await pilot.pause()
+        assert pane.scroll_y < bottom
+
+
+@pytest.mark.asyncio
+async def test_ctrl_u_clears_the_draft() -> None:
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.press("h", "e", "l", "l", "o")
+        await pilot.pause()
+        await pilot.press("ctrl+u")
+        await pilot.pause()
+        assert program.query_one("#composer", TextArea).text == ""
+
+    assert program.model.composer.draft() == ""
+
+
+@pytest.mark.asyncio
+async def test_ctrl_l_returns_to_the_latest_output() -> None:
+    model = new_app(FakeConversation())
+    for index in range(40):
+        model.transcript.append(Message(role=ROLE_ASSISTANT, content=f"message {index}\n" * 2))
+    model.status = "Compacting conversation…"
+    program = Application(model)
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", VerticalScroll)
+        await pilot.pause()
+        await pilot.press("pageup")
+        await pilot.pause()
+        assert not pane.is_vertical_scroll_end, "the viewport is pinned above the end"
+
+        await pilot.press("ctrl+l")
+        await pilot.pause()
+        assert pane.is_vertical_scroll_end, "the latest content comes back"
+
+    assert program.model.status == "", "the transient status line goes with it"
+
+
+@pytest.mark.asyncio
+async def test_question_mark_opens_help_only_without_a_draft() -> None:
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.press("?")
+        await pilot.pause()
+        assert isinstance(program.screen, OutputScreen), "an empty draft leaves ? for help"
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(program.screen, OutputScreen)
+
+        await pilot.press("w", "h", "y", "?")
+        await pilot.pause()
+        assert not isinstance(program.screen, OutputScreen), "a draft keeps ? for itself"
+        assert program.query_one("#composer", TextArea).text == "why?"
+
+
+@pytest.mark.asyncio
+async def test_alt_o_and_alt_t_toggle_every_group() -> None:
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.press("alt+o")
+        await pilot.press("alt+t")
+        await pilot.pause()
+
+    assert program.model.transcript.expandAllTools
+    assert program.model.transcript.expandAllThink
+
+
+class ApprovalConversation(FakeConversation):
+    """A turn that asks for approval and ends once a decision arrives."""
+
+    def __init__(self, *, clears: bool = True) -> None:
+        super().__init__()
+        self.decisions: list[ApprovalDecision] = []
+        self.clears = clears
+
+    async def run_turn(
+        self,
+        text: str,
+        notifications: Channel[ConversationNotification],
+        approvals: Channel[ApprovalDecision],
+        cancellation: Cancellation,
+    ) -> BaseException | None:
+        self.queries.append(text)
+        notifications.put(approval_request())
+        decision = await approvals.get()
+        if decision is not None:
+            self.decisions.append(decision)
+        if self.clears:
+            notifications.put(ToolApprovalCleared())
+            notifications.close()
+        return None
+
+
+async def open_approval_in(pilot: Pilot[None]) -> None:
+    """Submit a prompt whose turn asks for approval, and wait for the prompt.
+
+    ``Pilot`` is parameterised by the application's exit value, which this
+    application does not have.
+    """
+    await pilot.press("g", "o", "enter")
+    await pilot.pause()
+
+
+@pytest.mark.asyncio
+async def test_approval_opens_a_modal_that_owns_the_keyboard() -> None:
+    """The shortcut keys answer the prompt instead of reaching the composer.
+
+    The editor inserts a printable key before any application handler sees it, so
+    the answer keys must belong to a surface that already has focus.
+    """
+    fake = ApprovalConversation(clears=False)
+    program = Application(new_app(fake))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await open_approval_in(pilot)
+        prompt = program.screen
+        assert isinstance(prompt, ApprovalDialog), "the prompt is a modal screen"
+        assert "ACTION REQUIRED" in prompt.view().plain
+
+        await pilot.press("h", "e", "l", "l", "o")
+        await pilot.pause()
+        assert program.query_one("#composer", TextArea).text == "", "the modal swallows stray keys"
+
+        await pilot.press("y")
+        await pilot.pause()
+        assert program.query_one("#composer", TextArea).text == "", "a shortcut is not text"
+        assert isinstance(program.screen, ApprovalDialog), "the prompt stays up until the runtime moves on"
+
+    assert fake.decisions == [ApprovalDecision("once")]
+
+
+@pytest.mark.asyncio
+async def test_approval_selection_answers_the_highlighted_row() -> None:
+    fake = ApprovalConversation(clears=False)
+    program = Application(new_app(fake))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await open_approval_in(pilot)
+        await pilot.press("down", "down", "enter")
+        await pilot.pause()
+        assert fake.decisions == [ApprovalDecision("deny")]
+
+        # The latch holds: a key after the answer cannot answer the next request.
+        await pilot.press("y")
+        await pilot.pause()
+        assert fake.decisions == [ApprovalDecision("deny")]
+
+    assert "Decision submitted" in program.model.approval.view("/repo").plain
+
+
+@pytest.mark.asyncio
+async def test_escape_answers_the_prompt_by_cancelling_the_turn() -> None:
+    fake = ApprovalConversation(clears=False)
+    program = Application(new_app(fake))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await open_approval_in(pilot)
+        await pilot.press("escape")
+        await pilot.pause()
+
+    assert fake.decisions == [], "leaving the prompt is not an answer"
+    assert fake.cancels == 1, "the runtime is told to drop the pending request"
+
+
+@pytest.mark.asyncio
+async def test_closing_the_prompt_gives_the_keyboard_back() -> None:
+    fake = ApprovalConversation()
+    program = Application(new_app(fake))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await open_approval_in(pilot)
+        await pilot.press("y")
+        await pilot.pause()
+        assert not isinstance(program.screen, ApprovalDialog), "the runtime moved on"
+        assert program.query_one("#composer", TextArea).has_focus
+
+        await pilot.press("n", "e", "x", "t")
+        await pilot.pause()
+        assert program.query_one("#composer", TextArea).text == "next"
+
+    assert fake.decisions == [ApprovalDecision("once")]

@@ -36,7 +36,8 @@ the build on a violation.
 - `runtime/execution` implements outbound model, tool, and permission ports.
 - `runtime/session` exposes application use cases. It must not contain terminal behaviour, and it must
   not import `os` or `pathlib` — filesystem access goes through ports.
-- `tui` is an inbound adapter. It depends only on its `Conversation` port and display DTOs.
+- `tui` is a Textual inbound adapter. Textual and Rich remain inside this adapter; it depends on the
+  application only through its `Conversation` ports and display DTOs.
 - `app` is the composition root. It creates dependencies and converts runtime values to TUI values.
 - `llm`, `tools`, `store`, `project`, and `workspace` are top-level adapters. `llm` and `tools` may
   import `runtime/protocol` but not the root `runtime` facade; `store` and `workspace` may also import

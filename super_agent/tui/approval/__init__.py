@@ -6,6 +6,7 @@ The package surface, re-exported so callers keep writing
 
 from __future__ import annotations
 
+from super_agent.tui.approval.dialog import ApprovalDialog as ApprovalDialog
 from super_agent.tui.approval.model import (
     APPROVE_ALWAYS as APPROVE_ALWAYS,
     APPROVE_ONCE as APPROVE_ONCE,
@@ -15,4 +16,4 @@ from super_agent.tui.approval.model import (
     Request as Request,
 )
 
-__all__ = ["APPROVE_ALWAYS", "APPROVE_ONCE", "DENY", "Decision", "Model", "Request"]
+__all__ = ["APPROVE_ALWAYS", "APPROVE_ONCE", "DENY", "ApprovalDialog", "Decision", "Model", "Request"]
