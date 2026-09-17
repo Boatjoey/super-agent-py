@@ -31,6 +31,7 @@ from super_agent.tui.conversation import (
     StreamChunkReceived,
     ToolApprovalCleared,
     ToolApprovalRequested,
+    UsageReported,
 )
 from super_agent.tui.transcript import ROLE_ASSISTANT
 
@@ -221,6 +222,10 @@ def updateConversationNotification(
             app.err = str(notification.err)
     elif isinstance(notification, StreamChunkReceived):
         app.transcript.set_streaming(notification.message)
+    elif isinstance(notification, UsageReported):
+        # The status line draws the most recent call's cost, so a later report
+        # replaces an earlier one rather than accumulating.
+        app.contextUsage = notification.usage
     return app, (waitForNotification(app.notifications, app.turn),)
 
 

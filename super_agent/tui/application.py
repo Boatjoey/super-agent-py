@@ -16,7 +16,7 @@ from textual.message import Message as TextualMessage
 from textual.screen import ModalScreen
 from textual.widgets import Static, TextArea
 
-from super_agent.tui import runtime, theme
+from super_agent.tui import runtime, statusline, theme
 from super_agent.tui.app import App as AppModel, Msg
 from super_agent.tui.approval import ApprovalDialog
 from super_agent.tui.composer import Composer
@@ -270,18 +270,7 @@ class Application(TextualApp[None]):
         self._transcript_fingerprint = fingerprint
         await pane.sync(self.model.transcript)
         await self._sync_approval_dialog()
-        status = Text()
-        if self.model.err:
-            status.append("error: " + self.model.err, style=self.model.styles.error)
-        elif self.model.status:
-            status.append(self.model.status, style=self.model.styles.accent)
-        else:
-            tools = "tools off" if self.model.info.no_tools else "tools on"
-            status.append(
-                f"{self.model.info.permission_mode or 'ask'} · {self.model.info.model_name} · {tools}",
-                style=self.model.styles.secondary,
-            )
-        self.query_one("#status", Static).update(status)
+        self._render_status()
         self._sync_model_to_editor()
         self._render_suggestions()
         if was_following:
@@ -291,6 +280,25 @@ class Application(TextualApp[None]):
         elif transcript_changed:
             self._unread += 1
         self._render_unread()
+
+    def _render_status(self) -> None:
+        """The bottom row: the error, the transient status, or the configured items.
+
+        The three are exclusive and ordered by precedence, as ``docs/tui.md``
+        specifies: a command's error line takes the row, its status line takes it
+        next, and otherwise the row is whatever ``tui.status_line`` asks for. An
+        empty row is hidden rather than drawn blank, which is what lets ``null``
+        return its height to the transcript.
+        """
+        widget = self.query_one("#status", Static)
+        if self.model.err:
+            rendered = Text("error: " + self.model.err, style=self.model.styles.error)
+        elif self.model.status:
+            rendered = Text(self.model.status, style=self.model.styles.accent)
+        else:
+            rendered = statusline.compose(self.model)
+        widget.update(rendered)
+        widget.display = bool(rendered.plain)
 
     def _render_suggestions(self) -> None:
         widget = self.query_one("#suggestions", Static)

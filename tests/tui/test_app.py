@@ -30,9 +30,11 @@ import pytest
 from rich.cells import cell_len
 from rich.console import Console
 from rich.protocol import is_renderable
+from rich.style import Style
+from rich.text import Text
 from textual.containers import VerticalScroll
 from textual.pilot import Pilot
-from textual.widgets import TextArea
+from textual.widgets import Static, TextArea
 
 from super_agent.tui import (
     NOTIFICATION_KINDS,
@@ -1279,3 +1281,94 @@ async def test_closing_the_prompt_gives_the_keyboard_back() -> None:
         assert program.query_one("#composer", TextArea).text == "next"
 
     assert fake.decisions == [ApprovalDecision("once")]
+
+
+def status_row(program: Application) -> str:
+    """The plain text the status widget is showing."""
+    content = program.query_one("#status", Static).content
+    assert isinstance(content, Text), f"the status row is {content!r}"
+    return content.plain
+
+
+def status_style_at(program: Application, offset: int) -> Style | None:
+    """The style covering ``offset`` of the status row, if any span paints it."""
+    content = program.query_one("#status", Static).content
+    assert isinstance(content, Text), f"the status row is {content!r}"
+    for span in content.spans:
+        if span.start <= offset < span.end and isinstance(span.style, Style):
+            return span.style
+    return None
+
+
+@pytest.mark.asyncio
+async def test_status_row_is_the_configured_items() -> None:
+    """The row is ``tui.status_line`` composed, not a fixed trio."""
+    info = StartupInfo(model_name="test-model", permission_mode="ask", cwd="/repo", status_line=("cwd", "model"))
+    program = Application(new_app(FakeConversation(), info))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert status_row(program) == "/repo · test-model"
+
+
+@pytest.mark.asyncio
+async def test_status_row_is_hidden_when_the_setting_removes_it() -> None:
+    """``null`` returns the row's height to the transcript rather than drawing it blank."""
+    program = Application(new_app(FakeConversation(), StartupInfo(model_name="test-model", status_line=())))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert program.query_one("#status", Static).display is False
+
+
+@pytest.mark.asyncio
+async def test_an_item_without_data_is_left_out_of_the_row() -> None:
+    """A configured item the process never learned costs neither text nor a separator."""
+    info = StartupInfo(model_name="test-model", permission_mode="", status_line=("model", "approval"))
+    program = Application(new_app(FakeConversation(), info))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert status_row(program) == "test-model"
+
+
+@pytest.mark.asyncio
+async def test_the_error_line_takes_the_row_from_the_items() -> None:
+    """``docs/tui.md`` gives a command's error precedence over the status line."""
+    info = StartupInfo(model_name="test-model", status_line=("model",))
+    program = Application(new_app(FakeConversation(), info))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert "test-model" in status_row(program)
+
+        program.model.err = "boom"
+        await pilot.press("up")
+        await pilot.pause()
+
+        shown = status_row(program)
+        assert "boom" in shown
+        assert "test-model" not in shown, "the error replaces the row rather than joining it"
+
+
+@pytest.mark.asyncio
+async def test_the_spinner_item_follows_the_agent_state() -> None:
+    """The engine reports live states, so the row follows them as they happen."""
+    info = StartupInfo(status_line=("spinner",))
+    program = Application(new_app(FakeConversation(), info))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert status_row(program) == "Idle"
+        assert status_style_at(program, 0) == program.model.styles.secondary, "idle is not urgent"
+
+        program.model.agentStatus = AgentStatus(label="RunningTool", busy=True)
+        await pilot.press("up")
+        await pilot.pause()
+        assert status_row(program) == "RunningTool"
+        assert status_style_at(program, 0) == program.model.styles.accent, "work in progress takes the accent"
+
+        program.model.agentStatus = AgentStatus(label="WaitingApproval", awaiting_approval=True)
+        await pilot.press("up")
+        await pilot.pause()
+        assert status_style_at(program, 0) == program.model.styles.accent_bold, "nothing moves until they answer"

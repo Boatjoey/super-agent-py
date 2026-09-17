@@ -71,6 +71,9 @@ async def run(cfg: app.Config) -> int:
                     no_tools=cfg.no_tools,
                     cwd=cwd,
                     instruction_paths=tuple(cfg.instruction_sources),
+                    status_line=cfg.status_line,
+                    session_id=str(session.metaID()),
+                    sandbox=str(cfg.sandbox.mode),
                 ),
             )
         )
