@@ -29,11 +29,28 @@ Screen {
     text-align: right;
 }
 
-#suggestions {
+/* The queued-prompt preview: the composer area grows to show it, because it is
+   part of the composer rather than something floating over the transcript. */
+#queue {
     display: none;
     height: auto;
-    max-height: 8;
+    max-height: 6;
     padding: 0 2;
+}
+
+/* The command palette floats directly above the composer. `overlay: screen`
+   takes it out of the flow altogether, so opening it cannot take height from
+   the transcript, and the offset lifts it by its own height to sit on the
+   composer's top edge. The background keeps the transcript behind it legible. */
+#suggestions {
+    display: none;
+    overlay: screen;
+    offset-y: -100%;
+    height: auto;
+    max-height: 8;
+    margin: 0 1;
+    padding: 0 2;
+    background: $surface;
     color: $text-muted;
     text-style: dim;
 }

@@ -45,6 +45,25 @@ class ApprovalDialog(ModalScreen[None]):
     The dialog stays open once a decision is submitted: the model's latch is what
     keeps a repeated keypress from answering the next request, and the view has to
     stay put for that latch to be visible.
+
+    A centred card rather than a full-screen pane: the prompt is one decision, and
+    the transcript behind it stays readable. Textual sizes a bare container at
+    ``1fr x 1fr``, so the box states its own size — it hugs the request, wraps
+    within the screen, and is centred by alignment rather than by arithmetic.
+    """
+
+    DEFAULT_CSS = """
+    ApprovalDialog { align: center middle; background: $background 70%; }
+    ApprovalDialog > Vertical {
+        width: auto;
+        height: auto;
+        max-width: 90%;
+        max-height: 80%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    ApprovalDialog Static { width: 1fr; height: auto; }
     """
 
     class Answered(Message):

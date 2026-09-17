@@ -37,6 +37,18 @@ _TRANSCRIPT_ACTIONS = frozenset({"page_up", "page_down"})
 #: is deliberately absent: the escape hatch stays open under every overlay.
 _MODAL_ACTIONS = _COMPOSER_ACTIONS | _TRANSCRIPT_ACTIONS | {"model_key", "help", "help_or_type", "clear_status"}
 
+#: The help text, in one place: ``F1``, ``?``, and ``/help`` all land on it.
+_HELP_TEXT = (
+    "Commands & shortcuts\n\n"
+    "Enter  submit / steer\nTab  queue while running\nCtrl+J  newline\n"
+    "PgUp/PgDn  scroll transcript\nCtrl+O  toggle tools\nCtrl+R  toggle reasoning\n"
+    "Ctrl+C  cancel / quit\nEsc  cancel / clear"
+)
+
+#: The keys that close help: the viewer's own pair, and the two that open it.
+#: ``update.updateKey`` gives ``?`` and ``esc`` the same meaning.
+_HELP_CLOSE_KEYS = frozenset({"escape", "q", "f1", "question_mark"})
+
 
 class _ModelMessage(TextualMessage):
     """A result produced by one legacy feature command."""
@@ -68,6 +80,33 @@ class OutputScreen(ModalScreen[None]):
 
     def action_close(self) -> None:
         self.dismiss(None)
+
+
+class HelpOverlay(OutputScreen):
+    """The help text, in the same frame as any other long output.
+
+    It differs from the viewer in one way: closing it reports to the root instead
+    of dismissing itself. The model's ``showHelp`` flag is what owns whether this
+    surface exists, so the two can never disagree — the root pushes it when the
+    flag turns true and dismisses it when the flag turns false.
+    """
+
+    class Dismissed(TextualMessage):
+        """The user asked for help to close."""
+
+    def __init__(self) -> None:
+        super().__init__(_HELP_TEXT)
+
+    async def on_key(self, event: events.Key) -> None:
+        """Own the keyboard: close on help's keys, and swallow everything else."""
+        event.prevent_default()
+        event.stop()
+        if event.key in _HELP_CLOSE_KEYS:
+            self.action_close()
+
+    def action_close(self) -> None:
+        """Report the close rather than dismissing: the flag owns the surface."""
+        self.post_message(self.Dismissed())
 
 
 class Application(TextualApp[None]):
@@ -110,11 +149,16 @@ class Application(TextualApp[None]):
         self._unread = 0
         self._transcript_fingerprint: object = None
         self._approval_dialog: ApprovalDialog | None = None
+        self._help_overlay: HelpOverlay | None = None
         self.model.printOutput = self._output_printer
 
     def compose(self) -> ComposeResult:
+        # ``#suggestions`` sits before the composer and floats out of the flow,
+        # so the palette lands on the composer's top edge without borrowing the
+        # transcript's height; ``#queue`` is the composer area's own rows.
         yield TranscriptScreen(id="transcript")
         yield Static(id="unread")
+        yield Static(id="queue", markup=False)
         yield Static(id="suggestions", markup=False)
         yield Composer(placeholder="Ask anything…", id="composer", soft_wrap=True, show_line_numbers=False)
         yield Static(id="status", markup=False)
@@ -181,6 +225,10 @@ class Application(TextualApp[None]):
     async def on_approval_dialog_cancelled(self, _message: ApprovalDialog.Cancelled) -> None:
         await self._model_key("esc")
 
+    async def on_help_overlay_dismissed(self, _message: HelpOverlay.Dismissed) -> None:
+        """Closing help is the model's key for it, so flag and screen clear together."""
+        await self._model_key("esc")
+
     async def action_submit(self) -> None:
         if self.query_one("#composer", TextArea).has_focus:
             await self._model_key("enter")
@@ -218,9 +266,9 @@ class Application(TextualApp[None]):
     async def action_model_key(self, key: str) -> None:
         await self._model_key(key)
 
-    def action_help_or_type(self) -> None:
+    async def action_help_or_type(self) -> None:
         """``?`` opens help; ``check_action`` sends it to the editor otherwise."""
-        self.action_help()
+        await self.action_help()
 
     async def action_clear_status(self) -> None:
         """Drop the transient status line and go back to the latest content."""
@@ -228,15 +276,17 @@ class Application(TextualApp[None]):
         self._unread = 0
         await self._dispatch(runtime.ClearScreenMsg())
 
-    def action_help(self) -> None:
-        self.push_screen(
-            OutputScreen(
-                "Commands & shortcuts\n\n"
-                "Enter  submit / steer\nTab  queue while running\nCtrl+J  newline\n"
-                "PgUp/PgDn  scroll transcript\nCtrl+O  toggle tools\nCtrl+T  toggle reasoning\n"
-                "Ctrl+C  cancel / quit\nEsc  cancel / clear"
-            )
-        )
+    async def action_help(self) -> None:
+        """Raise help.
+
+        The flag is set here rather than by dispatching ``?``: ``F1`` opens help
+        whatever the draft holds, and the character would type itself into a
+        non-empty one. ``?`` reaches this action only when the draft is empty,
+        because ``check_action`` leaves the character to the editor otherwise.
+        """
+        self.model.showHelp = True
+        self.model.status = ""
+        await self._render_model()
 
     async def _model_key(self, key: str) -> None:
         self._sync_editor_to_model()
@@ -270,8 +320,10 @@ class Application(TextualApp[None]):
         self._transcript_fingerprint = fingerprint
         await pane.sync(self.model.transcript)
         await self._sync_approval_dialog()
+        await self._sync_help_overlay()
         self._render_status()
         self._sync_model_to_editor()
+        self._render_queue()
         self._render_suggestions()
         if was_following:
             self._following = True
@@ -300,6 +352,17 @@ class Application(TextualApp[None]):
         widget.update(rendered)
         widget.display = bool(rendered.plain)
 
+    def _render_queue(self) -> None:
+        """The composer area's queued follow-ups, above the editor.
+
+        The preview is the composer model's: it holds the queue, and it is the
+        feature that knows how many rows a preview is worth.
+        """
+        widget = self.query_one("#queue", Static)
+        rendered = self.model.composer.queueView()
+        widget.update(rendered)
+        widget.display = bool(rendered.plain)
+
     def _render_suggestions(self) -> None:
         widget = self.query_one("#suggestions", Static)
         rendered = self.model.composer.paletteView()
@@ -314,6 +377,21 @@ class Application(TextualApp[None]):
         elif not self.model.approval.active() and self._approval_dialog is not None:
             dialog, self._approval_dialog = self._approval_dialog, None
             await dialog.dismiss(None)
+
+    async def _sync_help_overlay(self) -> None:
+        """Help follows the model's flag, the way the approval menu does.
+
+        The flag is the only owner of this surface: ``/help`` raises it without
+        touching a widget, and the overlay's own dismissal clears it through the
+        model, which is what lets the next keystroke reach the composer again.
+        """
+        if self.model.showHelp and self._help_overlay is None:
+            overlay = HelpOverlay()
+            self._help_overlay = overlay
+            await self.push_screen(overlay)
+        elif not self.model.showHelp and self._help_overlay is not None:
+            overlay, self._help_overlay = self._help_overlay, None
+            await overlay.dismiss(None)
 
     def _render_unread(self) -> None:
         widget = self.query_one("#unread", Static)
