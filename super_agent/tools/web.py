@@ -1,7 +1,8 @@
 """Network tools: a web search and a page fetch.
 
 Both are risky tools under the common permission flow, and the fetch accepts only
-public HTTP(S) targets, caps redirects, response size, and total time, and
+public HTTP(S) targets: it resolves each host itself and connects to an address
+that resolution vouched for, caps redirects, response size, and total time, and
 extracts page text without executing scripts.
 
 The ``transport`` field on each tool exists so tests can supply an
@@ -14,7 +15,9 @@ import asyncio
 import dataclasses
 import ipaddress
 import json
+import socket
 import urllib.parse
+from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
 import httpx
@@ -33,6 +36,10 @@ _text_limit: Final[int] = 100_000
 
 _blocked: Final[str] = "browser blocked a private or local address"
 _not_public: Final[str] = "browser URL must be public HTTP(S)"
+_unresolved: Final[str] = "browser could not resolve host"
+
+#: A DNS lookup: every address a host answers with, in the resolver's own order.
+Lookup = Callable[[str, int], Awaitable[list[str]]]
 
 #: lxml ships no type information here, so the DOM walk goes through ``Any``.
 _html: Any = lxml.html
@@ -103,13 +110,9 @@ async def fetch_public(
 ) -> tuple[bytes, str]:
     """Fetch ``raw_url``, or refuse before any connection is attempted."""
     url = validate_public_url(raw_url)
-    # The URL is validated and then handed to httpx, which resolves the name when
-    # it connects. That leaves a DNS-rebinding window: a name that validated can
-    # resolve to a private address before the connection is made. Resolving the
-    # host here instead would close that window but needs a custom dialer.
     async with asyncio.timeout(_total_timeout):
         async with httpx.AsyncClient(
-            transport=transport,
+            transport=PinnedTransport() if transport is None else transport,
             timeout=httpx.Timeout(_total_timeout),
             follow_redirects=False,
             headers={"User-Agent": _user_agent},
@@ -133,6 +136,81 @@ async def fetch_public(
                             raise RuntimeError("browser response exceeds 2 MiB")
                     return bytes(content), str(response.url)
     raise RuntimeError("too many redirects")  # pragma: no cover - the loop returns or raises
+
+
+async def lookup_host(host: str, port: int) -> list[str]:
+    """Every address ``host`` answers with, in the resolver's own order."""
+    answers = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return [str(answer[4][0]) for answer in answers]
+
+
+async def resolve_public_address(
+    host: str,
+    port: int,
+    lookup: Lookup = lookup_host,
+) -> str:
+    """The one address to dial for ``host``, or a refusal.
+
+    Every answer must be public. A name that answers with a public address and a
+    private one is refused rather than half-used, because the private answer is
+    the one a rebinding attempt is after.
+    """
+    try:
+        addresses = await lookup(host, port)
+    except OSError:
+        raise RuntimeError(_unresolved) from None
+    if not addresses:
+        raise RuntimeError(_unresolved)
+    if not all(public_ip(address) for address in addresses):
+        raise ValueError(_blocked)
+    return addresses[0]
+
+
+def _port(url: httpx.URL) -> int:
+    """The port to dial: a URL omits it when the scheme already fixes it."""
+    if url.port is not None:
+        return url.port
+    return 443 if url.scheme == "https" else 80
+
+
+class PinnedTransport(httpx.AsyncBaseTransport):
+    """A transport that dials only an address resolution vouched for.
+
+    The name is resolved here and the request is sent to the address that was
+    checked, so nothing resolves a second time between the check and the
+    connection. The name still travels as the ``Host`` header and as the TLS
+    server name, so a certificate is verified against the name that was asked
+    for: no idle connection is reused, because the pool keys one by the address
+    it dialled and its TLS session belongs to a single name.
+
+    ``lookup`` and ``inner`` are the seams a test substitutes; a production
+    registry takes the defaults.
+    """
+
+    def __init__(
+        self,
+        lookup: Lookup = lookup_host,
+        inner: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._lookup = lookup
+        self._inner: httpx.AsyncBaseTransport = (
+            httpx.AsyncHTTPTransport(limits=httpx.Limits(max_keepalive_connections=0)) if inner is None else inner
+        )
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        url = request.url
+        address = await resolve_public_address(url.host, _port(url), self._lookup)
+        pinned = httpx.Request(
+            request.method,
+            url.copy_with(host=address),
+            headers=request.headers,
+            stream=request.stream,
+            extensions={**request.extensions, "sni_hostname": url.host},
+        )
+        return await self._inner.handle_async_request(pinned)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 def validate_public_url(raw_url: str) -> str:
