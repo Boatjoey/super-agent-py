@@ -1,17 +1,16 @@
 """The Textual inbound adapter: the only interaction surface.
 
-This package keeps its surface in six root modules, one per concern, and this
-module stands in for the package namespace so callers keep writing ``tui.new``
-and ``tui.Message``.
+This package keeps its surface in root modules, one per concern, and this module
+stands in for the package namespace so callers keep writing ``tui.new`` and
+``tui.Message``.
 
-Four things live here because they read the whole model rather than one feature:
+Three things live here because they read the whole model rather than one feature:
 
 * :func:`new` wires the features to the conversation port, including the one
   translation the root owns — the command palette's entry type into the
   composer's.
-* :func:`infoBar`, :func:`welcomeString`, and :func:`footerView` compose
-  cross-feature state (permission mode, attachments, approval, composer) into the
-  lines around the transcript.
+* :func:`welcomeString` composes the cross-feature welcome block: the model, the
+  working directory, and the final instruction source.
 * :func:`applyOutcome` is the routing table: a command reports its whole effect,
   and the root applies the parts it owns and hands the cross-feature parts to the
   feature that owns them.
@@ -25,8 +24,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-
-from rich.text import Text
 
 from super_agent.tui import approval as approval_feature, attachments, commands, composer, runtime, transcript
 from super_agent.tui.actions import (
@@ -43,11 +40,9 @@ from super_agent.tui.app import (
     OutputPrinter as OutputPrinter,
     StartupInfo as StartupInfo,
     SubmitDone as SubmitDone,
-    compactStatus as compactStatus,
     composerCommands as composerCommands,
     displayCWD as displayCWD,
     printCommand as printCommand,
-    scrollbackPrinter as scrollbackPrinter,
     with_clipboard_writer as with_clipboard_writer,
     with_output_printer as with_output_printer,
 )
@@ -94,12 +89,9 @@ from super_agent.tui.runtime import (
     QUIT as QUIT,
     ClearScreenMsg as ClearScreenMsg,
     Command as Command,
-    KeyDecoder as KeyDecoder,
     KeyMsg as KeyMsg,
     Listener as Listener,
-    Program as Program,
     QuitMsg as QuitMsg,
-    Scrollback as Scrollback,
     WindowSizeMsg as WindowSizeMsg,
     batch as batch,
 )
@@ -121,12 +113,6 @@ from super_agent.tui.update import (
     updateConversationNotification as updateConversationNotification,
     updateKey as updateKey,
     waitForNotification as waitForNotification,
-)
-from super_agent.tui.view import (
-    clampLines as clampLines,
-    fitDynamicArea as fitDynamicArea,
-    helpView as helpView,
-    view as view,
 )
 
 __all__ = [
@@ -156,7 +142,6 @@ __all__ = [
     "ConversationNotification",
     "ConversationNotificationMsg",
     "ConversationView",
-    "KeyDecoder",
     "KeyMsg",
     "Listener",
     "MCPServerSummary",
@@ -168,10 +153,8 @@ __all__ = [
     "Option",
     "OutputPrinter",
     "PermissionRequest",
-    "Program",
     "QuitMsg",
     "Role",
-    "Scrollback",
     "SessionSummary",
     "SnapshotPort",
     "StartupInfo",
@@ -188,32 +171,24 @@ __all__ = [
     "WindowSizeMsg",
     "applyOutcome",
     "batch",
-    "clampLines",
-    "compactStatus",
     "composerCommands",
     "default_styles",
     "displayCWD",
     "extract_code_blocks",
     "finishCopy",
     "finishSubmit",
-    "fitDynamicArea",
-    "footerView",
-    "helpView",
-    "infoBar",
     "new",
     "pendingAttachments",
     "printCommand",
     "queueInput",
     "refreshSnapshot",
     "resize",
-    "scrollbackPrinter",
     "steerInput",
     "submitPrompt",
     "submitText",
     "update",
     "updateConversationNotification",
     "updateKey",
-    "view",
     "waitForNotification",
     "welcomeString",
     "with_clipboard_writer",
@@ -280,18 +255,6 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
     return app
 
 
-def infoBar(app: App) -> Text:
-    """The bottom status line: permission mode, model, and whether tools are on."""
-    tools = "tools off" if app.info.no_tools else "tools on"
-    parts = [app.info.permission_mode or "ask", app.info.model_name, tools]
-    rendered = Text()
-    for index, part in enumerate(parts):
-        if index:
-            rendered.append(" · ", style=app.styles.secondary)
-        rendered.append(part, style=app.styles.secondary)
-    return clampLines(app.width, rendered)
-
-
 def welcomeString(app: App) -> str:
     """The compact welcome block: product, model, working directory, instructions."""
     parts = [app.info.model_name]
@@ -300,24 +263,6 @@ def welcomeString(app: App) -> str:
     if app.info.instruction_paths:
         parts.append(os.path.basename(app.info.instruction_paths[-1]))
     return "Super Agent\n" + " · ".join(parts)
-
-
-def footerView(app: App) -> Text:
-    """The error or status line, then the attachment, approval, and input rows."""
-    rendered = Text()
-    if app.err:
-        rendered.append(" !! error: " + app.err, style=app.styles.error)
-    elif app.status:
-        rendered.append(" " + compactStatus(app.status, 3), style=app.styles.accent)
-    for part in (app.attachments.view(), app.approval.view(app.info.cwd)):
-        if part.plain:
-            rendered.append("\n")
-            rendered.append_text(part)
-    rendered.append("\n")
-    rendered.append_text(app.composer.view())
-    rendered.append("\n")
-    rendered.append_text(infoBar(app))
-    return clampLines(app.width, rendered)
 
 
 def refreshSnapshot(app: App) -> None:

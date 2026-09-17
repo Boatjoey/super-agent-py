@@ -55,8 +55,9 @@ the welcome block, terminal dimensions, and layout composition. A feature reques
 another feature — a prompt, an attachment, a snapshot refresh — travels as an explicit field of the
 requesting feature's outcome, and the root performs the wiring.
 
-`tui` may not import `runtime`, and a feature may not import a sibling feature or the root package.
-Both rules are enforced by `tests/architecture/test_dependencies.py`.
+`tui` may not import `runtime`, and a feature may not import a sibling feature, the root package, or
+the composition root `app`. `app` depends on `tui`, never the other way round. All of these rules are
+enforced by `tests/architecture/test_dependencies.py`.
 
 ## Commands
 
