@@ -77,8 +77,8 @@ def to_json_value(value: Any) -> Any:
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return _dataclass_to_json(value)
     if isinstance(value, datetime):
-        # Datetimes are stored as RFC3339Nano, the format the on-disk artefacts
-        # use.
+        # Datetimes are stored as RFC 3339: whole seconds, plus a fractional part
+        # when it is non-zero, with the trailing zeros trimmed.
         return format_rfc3339_nano(value)
     if isinstance(value, Enum):
         return value.value
