@@ -214,6 +214,12 @@ Because colour is delegated to the terminal, a screenshot of this interface is n
 reference. Syntax highlighting inside fenced code is the one exception: it is selected by name from
 `tui.syntax_theme` and is not defined by the TUI.
 
+`NO_COLOR` removes colour entirely: every role is drawn in the terminal's default foreground and
+background, so the interface stays legible on any colour scheme. A terminal that cannot show ANSI
+colour is treated the same way. Degrading to monochrome is not the same as degrading to greyscale —
+a role resolved to a grey is still a colour the terminal did not choose, and a role resolved to black
+is invisible on a dark background.
+
 Message markers, in the roles above:
 
 - A user prompt is marked `❯` in cyan.

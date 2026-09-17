@@ -139,7 +139,13 @@ class Application(TextualApp[None]):
     ]
 
     def __init__(self, model: AppModel) -> None:
-        super().__init__()
+        # ``ansi_color`` is stated before the theme below can state it. The
+        # framework chooses its ``NO_COLOR`` filter in this call, reading
+        # ``native_ansi_color`` from the theme that is active *then* -- still the
+        # default one. Left to infer it, the app is handed the monochrome filter,
+        # whose black-and-white pass cannot resolve an ANSI colour *name* and so
+        # paints every role, default text included, pure black.
+        super().__init__(ansi_color=True)
         self.register_theme(theme.THEME)
         self.theme = theme.NAME
         self.model = model

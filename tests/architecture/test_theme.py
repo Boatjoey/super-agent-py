@@ -30,6 +30,7 @@ import ast
 import dataclasses
 import re
 from pathlib import Path
+from typing import Never, cast
 
 import pytest
 from rich.color import ANSI_COLOR_NAMES, Color as RichColor, ColorType
@@ -38,7 +39,9 @@ from textual.color import Color as TextualColor
 from textual.containers import VerticalScroll
 from textual.widgets import Static
 
-from super_agent.tui import theme
+from super_agent.tui import StartupInfo, new, theme
+from super_agent.tui.application import Application
+from super_agent.tui.conversation import Conversation
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TUI_DIRECTORY = REPO_ROOT / "super_agent" / "tui"
@@ -621,3 +624,35 @@ async def test_rendered_segments_stay_on_the_palette() -> None:
         # Magenta is the agent's identity marker, and this probe draws no marker:
         # Textual's magenta border or cursor leaking through would show up here.
         assert "magenta" not in drawn and "bright_magenta" not in drawn
+
+
+def _application() -> Application:
+    """The real application, over a conversation port that is never called."""
+
+    class _UnusedPort:
+        def custom_commands(self) -> list[str]:
+            return []
+
+        def __getattr__(self, name: str) -> Never:
+            raise AssertionError("building the application must not call " + name)
+
+    return Application(new(cast("Conversation", _UnusedPort()), StartupInfo(model_name="m", permission_mode="ask")))
+
+
+def test_no_color_strips_colour_instead_of_painting_it_black(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``NO_COLOR`` must remove colour, not resolve every role to black.
+
+    The framework picks its filter inside ``App.__init__``, reading the theme
+    that is active *then* -- which, because the project's theme is registered
+    just afterwards, is still the default one. Left to infer it, the app is
+    handed the monochrome filter, whose black-and-white pass cannot resolve an
+    ANSI colour *name*: cyan, magenta, green, red and the terminal's own default
+    foreground all become ``#000000``, and the whole interface is drawn
+    invisibly on its own background. Measured against a live terminal: 92
+    truecolor sequences, every one of them black.
+    """
+    monkeypatch.setenv("NO_COLOR", "1")
+    active = sorted(type(line_filter).__name__ for line_filter in _application().get_line_filters())
+
+    assert "NoColor" in active, f"NO_COLOR did not reach the filter that strips colour: {active}"
+    assert "Monochrome" not in active, f"NO_COLOR would be resolved to black instead: {active}"
