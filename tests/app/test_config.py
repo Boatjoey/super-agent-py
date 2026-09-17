@@ -138,7 +138,7 @@ def test_load_config_combines_skills_commands_and_plugins(monkeypatch: pytest.Mo
     (project / "skill" / "SKILL.md").write_text("Use focused tests.", encoding="utf-8")
     (project / "plugin").mkdir()
     (project / "plugin" / "plugin.json").write_text(
-        '{"commands":{"audit":"Audit $ARGUMENTS"},"hooks":{"after_turn":["go test ./..."]}}',
+        '{"commands":{"audit":"Audit $ARGUMENTS"},"hooks":{"after_turn":["uv run pytest -q"]}}',
         encoding="utf-8",
     )
     monkeypatch.chdir(project)

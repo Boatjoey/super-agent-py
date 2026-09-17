@@ -10,14 +10,14 @@ applied and how the loop keeps going.
 ## The Runtime Cycle
 
 ```text
-QueuedAction { RunID, ActionID, ScheduledAction }
-  -> ScheduledActionRunner.Run -> ActionCompletion
+QueuedAction { run_id, action_id, action }
+  -> ScheduledActionRunner.run -> ActionCompletion
   -> stale RunID check
-  -> ActionResultResolver.Resolve -> transition Event
-  -> SnapshotFrom(RuntimeData) -> validated MachineSnapshot
-  -> Transition(snapshot, event)
-  -> TransitionResult { NextState, RuntimeDataChanges, ActionPlan }
-  -> RuntimeDataChangeApplier.ApplyRuntimeDataChanges on cloned RuntimeData -> ValidateRuntimeData
+  -> ActionResultResolver.resolve -> transition Event
+  -> snapshot_from(runtime_data) -> validated MachineSnapshot
+  -> transition(snapshot, event)
+  -> TransitionResult { next_state, runtime_data_changes, action_plan }
+  -> RuntimeDataChangeApplier.apply_runtime_data_changes on cloned RuntimeData -> validate_runtime_data
   -> atomic RuntimeData + ActionPlan commit
   -> ScheduledAction executed
 ```
@@ -45,14 +45,15 @@ action queue until the queue is empty, and the run ends only when the queue is e
 is `Idle`:
 
 ```python
+run_id = self._runs.current_run_id()
 while True:
     async with self.lock:
-        action = self._action_queue.Pop()
+        action = self._action_queue.pop()
         if action is None:
-            if self._runtime_data.State == StateIdle:
-                self._runs.FinishRun(run_id)
+            if self._runtime_data.state == STATE_IDLE:
+                self._runs.finish_run(run_id)
                 return
-            state = self._runtime_data.State
+            state: State = self._runtime_data.state
             raise InvariantViolationError(f"action queue is empty in state {state}")
     # execute, resolve, transition, commit, repeat
 ```

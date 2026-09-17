@@ -43,7 +43,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Documentation is the specification for the code, not a description of it. Change the relevant `docs/` file first, then the code, and ship both in the same change.
 - A behaviour change that `docs/` does not reflect is incomplete, even when the code works.
 - When code and a document disagree, the code is wrong until the document is deliberately amended.
-- Every normative fact has exactly one home in `docs/`; link to it rather than restating it. Duplicated facts drift, and prior duplicates in this repository had already diverged.
+- Every normative fact has exactly one home in `docs/`; link to it rather than restating it. Duplicated facts drift.
 - `docs/README.md` indexes the document set; `docs/contributing.md` covers the workflow, tests, and git conventions.
 - `tests/architecture/test_spec.py` enforces `docs/machine.md` against the real transition graph; `tests/architecture/test_dependencies.py` enforces the dependency rule.
 - Keep `AGENTS.md` to development rules. Usage, command reference, keybindings, and behaviour specs belong in `docs/`, not here.
@@ -67,7 +67,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Reset tests should prove system messages are preserved.
 - Tests that parse documents or source must fail loudly when the format changes rather than silently matching nothing.
 - GitHub Actions runs `./scripts/verify.sh` for pushes and pull requests.
-- Python has no race detector: `python -X dev`, `PYTHONASYNCIODEBUG=1`, strict `pytest-asyncio`, and a deliberate-yield stress loop approximate one. `docs/contributing.md` records the residual gap.
+- Python's single-threaded event loop rules out unsynchronised access to shared memory, but not state that is safe only while nothing yields; the concurrency checks run under `./scripts/verify.sh`, and `docs/contributing.md` records the residual gap.
 
 ## Security
 

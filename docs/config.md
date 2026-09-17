@@ -4,7 +4,7 @@
 
 | Source | Provides |
 |---|---|
-| `.env` (via `godotenv`) | Runtime switches such as `NO_TOOLS` and `YOLO` |
+| `.env` (via `python-dotenv`) | Runtime switches such as `NO_TOOLS` and `YOLO` |
 | `~/.superagent/settings.json` | Providers, permissions, sandbox, servers, agents, extensions, telemetry |
 | Command-line flags | `--yolo`, `--no-tools`, `--approval-mode` |
 | `~/.superagent/AGENTS.md` and project `AGENTS.md` | Layered instructions — see `session.md` |
@@ -116,7 +116,7 @@ Both are described in `tools.md`.
 {
   "extensions": {
     "commands": { "explain": "Explain $ARGUMENTS" },
-    "hooks": { "after_turn": ["go test ./..."] },
+    "hooks": { "after_turn": ["uv run pytest -q"] },
     "skills": [".superagent/skills/reviewer"],
     "plugins": [".superagent/plugins/team"]
   }

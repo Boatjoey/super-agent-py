@@ -35,7 +35,7 @@ the build on a violation.
   scheduled-action draining, and run identity. See `runtime.md`.
 - `runtime/execution` implements outbound model, tool, and permission ports.
 - `runtime/session` exposes application use cases. It must not contain terminal behaviour, and it must
-  not import `os` or `path/filepath` — filesystem access goes through ports.
+  not import `os` or `pathlib` — filesystem access goes through ports.
 - `tui` is an inbound adapter. It depends only on its `Conversation` port and display DTOs.
 - `app` is the composition root. It creates dependencies and converts runtime values to TUI values.
 - `llm`, `tools`, `store`, `project`, and `workspace` are top-level adapters. `llm` and `tools` may
@@ -51,9 +51,9 @@ The root `runtime` package is a compatibility facade organized by `api_model.py`
 metadata without importing concrete adapters. Internal packages must depend on the narrow package
 that owns a type, not on this facade.
 
-The pre-facade names `ToolCallsReceived`, `ToolCallAvailable`, `EventClassifier`, and `ResultResolver`
-were intentionally retired in favour of `ToolBatchReceived`, `ToolCallNeedsApproval`, and
-`ActionResultResolver`. They are not re-exported; do not reintroduce them.
+`ToolBatchReceived`, `ToolCallNeedsApproval`, and `ActionResultResolver` are the canonical names for
+tool-batch intake, approval requests, and result mapping; the runtime re-exports no second name for any
+of them.
 
 The TUI is the only interaction surface. Headless CLI, HTTP server, WebSocket, and alternate UI
 adapters are out of scope.

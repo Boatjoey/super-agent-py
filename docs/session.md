@@ -9,7 +9,7 @@ This file covers what the agent "remembers": how context is assembled, persisted
 ## What Context Is
 
 There is no vector database and no cross-session long-term memory. Everything the agent can recall is
-the `[]Message` handed to the model, held in `runtime/machine.RuntimeData.messages`.
+the `list[Message]` handed to the model, held in `runtime/machine.RuntimeData.messages`.
 
 `Message` (`runtime/protocol/types.py`) has four roles:
 
@@ -113,7 +113,7 @@ twice.
                  # checkpoints, context replacement
 ```
 
-The event log holds more than the model context. On replay, `store.messagesFromRecords` converts only
+The event log holds more than the model context. On replay, `store.messages_from_records` converts only
 five record types into `messages`: appended messages, tool results, reset, compaction, and context
 replacement. Approvals, errors, and cancels exist for audit and never enter the context.
 
@@ -191,8 +191,8 @@ instructions survive it.
 
 ## Undo: `/undo`
 
-`/undo` is not "delete the last message". Before a trackable write (`write_file`, `apply_patch`,
-`format`), the session captures file snapshots through `Workspace` and stores a checkpoint.
+`/undo` is not "delete the last message". Before a trackable write (`write_file`, `apply_patch`), the
+session captures file snapshots through `Workspace` and stores a checkpoint.
 
 Undo then:
 

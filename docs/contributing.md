@@ -102,7 +102,7 @@ The style is deliberate and consistent across the codebase:
 - **Naming follows PEP 8.** Modules, functions, and methods are `snake_case`; classes are
   `PascalCase`; module constants and enum members are `UPPER_SNAKE`; dataclass fields are
   `snake_case`. So `STATE_IDLE`, `AppendUserMessage`, `run_turn`, and `apply_runtime_data_changes`
-  all read as Python, not as a foreign spelling.
+  all follow it.
 - **Module names are snake_case**: `runtime/machine/transition.py`.
 - **A package re-exports its surface from `__init__.py`**, so `machine.STATE_IDLE` and
   `machine.transition` resolve from the package namespace.
@@ -152,8 +152,7 @@ nothing to keep in sync.
 - Update `AGENTS.md` when project rules, architecture, commands, tests, or security guidance change.
 - Update the owning document under `docs/` when behaviour changes — before the code, per the workflow
   above.
-- When a fact moves, delete the old copy. Two copies of a fact is the failure mode this documentation
-  set was consolidated to eliminate.
+- When a fact moves, delete the old copy. Two copies of a fact drift.
 
 ## Project Layout at a Glance
 

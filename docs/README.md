@@ -14,8 +14,7 @@ A behaviour change that `docs/` does not reflect is incomplete, even when the co
 ## One Home Per Fact
 
 Every normative fact has exactly one authoritative home. Other documents link to it and never restate
-it. Five copies of the transition table is five things that can drift — and this documentation set
-previously had five, which is why it was consolidated.
+it. Five copies of the transition table is five things that can drift.
 
 When you are tempted to restate something, link to it instead.
 
