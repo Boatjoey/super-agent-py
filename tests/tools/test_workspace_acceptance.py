@@ -21,10 +21,7 @@ from super_agent.runtime.protocol.types import ToolCall
 from super_agent.tools import Registry, default_registry
 from tests.tools.test_workspace import ACCESS_READ, ACCESS_READ_WRITE, Root, new_context, workspace_for
 
-needs_git_and_gofmt = pytest.mark.skipif(
-    shutil.which("git") is None or shutil.which("gofmt") is None,
-    reason="git and gofmt are required",
-)
+needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
 
 
 def must_write(root: Path, relative: str, content: str) -> None:
@@ -98,12 +95,11 @@ async def test_additional_read_only_root_black_box_acceptance(tmp_path: Path) ->
     await must_tool_fail(registry, "apply_patch", {"path": str(shared), "old_text": "shared", "new_text": "changed"})
 
 
-@needs_git_and_gofmt
+@needs_git
 @pytest.mark.asyncio
 async def test_command_tools_use_the_workspace_cwd_not_the_process_cwd(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
-    must_write(project, "main.go", 'package main\nfunc main(){println("x")}\n')
     subprocess.run(["git", "init"], cwd=project, check=True, capture_output=True)
     workspace = workspace_for(project)
     registry = default_registry(workspace)
@@ -112,8 +108,8 @@ async def test_command_tools_use_the_workspace_cwd_not_the_process_cwd(tmp_path:
         result = await must_tool_succeed(registry, name, {"command": "pwd"})
         assert result.strip() == workspace.get_cwd()
 
+    await must_tool_succeed(registry, "run_command", {"command": "touch written.txt"})
+    assert (project / "written.txt").exists()
+
     status = await must_tool_succeed(registry, "git_status", {})
     assert "No commits yet" in status or "Initial commit" in status
-
-    await must_tool_succeed(registry, "format", {"files": ["main.go"]})
-    assert "func main() {" in (project / "main.go").read_text(encoding="utf-8")

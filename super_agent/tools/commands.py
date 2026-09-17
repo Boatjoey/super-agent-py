@@ -25,7 +25,7 @@ from super_agent.tools.env import child_env
 from super_agent.tools.files import decode_args, decode_json_object, object_schema
 from super_agent.tools.output import capped_buffer
 from super_agent.tools.sandbox import command_runner, runner_or_default
-from super_agent.tools.workspace import WorkspaceContext, resolve_readable, resolve_writable
+from super_agent.tools.workspace import WorkspaceContext, resolve_readable
 
 if sys.platform == "win32":
     from super_agent.tools.proc_other import (
@@ -78,17 +78,6 @@ class _RunCommandArgs:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class _GoTestArgs:
-    packages: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="packages"))
-    cwd: str = dataclasses.field(default="", metadata=json_field(name="cwd"))
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _FormatArgs:
-    files: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="files"))
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
 class _GitDiffArgs:
     paths: list[str] = dataclasses.field(default_factory=list[str], metadata=json_field(name="paths"))
 
@@ -135,93 +124,6 @@ class RunCommandTool:
         if error is not None and not args.continue_on_error:
             raise error
         return output
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class GoTestTool:
-    """Run ``go test`` for workspace packages."""
-
-    runner: command_runner | None = None
-    workspace: WorkspaceContext | None = None
-
-    def specs(self) -> list[ToolSpec]:
-        return [
-            ToolSpec(
-                name="go_test",
-                description="Run go test for workspace packages.",
-                risky=True,
-                parameters=object_schema(
-                    {
-                        "packages": {"type": "array", "items": {"type": "string"}},
-                        "cwd": {"type": "string"},
-                    },
-                    [],
-                ),
-            )
-        ]
-
-    async def run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = _GoTestArgs() if call.input == "" else decode_args(call.input, _GoTestArgs)
-        packages = args.packages or ["./..."]
-        cwd = command_cwd(self.workspace, args.cwd)
-        for package in packages:
-            if package.startswith("-"):
-                raise RuntimeError("package paths must not start with '-': " + package)
-        output, error = await run_exec(
-            runner_or_default(self.runner),
-            ctx,
-            cwd,
-            default_command_timeout,
-            default_output_bytes,
-            "go",
-            "test",
-            *packages,
-        )
-        if error is not None:
-            raise error
-        return output
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class FormatTool:
-    """Run ``gofmt -w`` on workspace Go files."""
-
-    runner: command_runner | None = None
-    workspace: WorkspaceContext | None = None
-
-    def specs(self) -> list[ToolSpec]:
-        return [
-            ToolSpec(
-                name="format",
-                description="Run gofmt -w on workspace Go files.",
-                risky=True,
-                parameters=object_schema(
-                    {"files": {"type": "array", "items": {"type": "string"}}},
-                    ["files"],
-                ),
-            )
-        ]
-
-    async def run(self, ctx: RunContext, call: ToolCall) -> str:
-        args = decode_args(call.input, _FormatArgs)
-        if not args.files:
-            raise RuntimeError("files is required")
-        files = [resolve_writable(self.workspace, name)[0] for name in args.files]
-        cwd = command_cwd(self.workspace, "")
-        _, error = await run_exec(
-            runner_or_default(self.runner),
-            ctx,
-            cwd,
-            default_command_timeout,
-            default_output_bytes,
-            "gofmt",
-            "-w",
-            *files,
-        )
-        if error is not None:
-            raise error
-        count = len(files)
-        return "formatted " + str(count) + plural(count, " file", " files")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -330,11 +232,6 @@ def output_limit(max_bytes: int) -> int:
     if max_bytes > max_output_bytes:
         return max_output_bytes
     return max_bytes
-
-
-def plural(count: int, singular: str, plural_form: str) -> str:
-    """``singular`` for exactly one, ``plural_form`` otherwise."""
-    return singular if count == 1 else plural_form
 
 
 async def run_shell(

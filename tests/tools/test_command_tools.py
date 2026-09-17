@@ -1,8 +1,7 @@
 """The command-backed tools.
 
-These call the real ``go``, ``gofmt``, and ``git`` binaries and skip when a
-binary is not installed, so the suite stays green on a machine without a
-toolchain.
+These call the real ``git`` binary and skip when it is not installed, so the
+suite stays green on a machine without git.
 """
 
 from __future__ import annotations
@@ -22,8 +21,6 @@ from super_agent.tools import Registry, default_registry
 from super_agent.tools.workspace import WorkspaceContext
 from tests.tools.test_workspace import workspace_for
 
-needs_go = pytest.mark.skipif(shutil.which("go") is None, reason="the go toolchain is not installed")
-needs_gofmt = pytest.mark.skipif(shutil.which("gofmt") is None, reason="gofmt is not installed")
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
 
@@ -44,7 +41,7 @@ def run_git(cwd: Path, *args: str) -> None:
 def test_default_registry_exposes_the_second_priority_tools(tmp_path: Path) -> None:
     names = {spec.name for spec in default_registry(workspace_for(tmp_path)).specs()}
 
-    for name in ("run_command", "go_test", "format", "git_status", "git_diff"):
+    for name in ("run_command", "git_status", "git_diff"):
         assert name in names
 
 
@@ -85,30 +82,6 @@ async def test_run_command_defaults_to_the_injected_workspace_cwd(tmp_path: Path
 
     assert got.strip() == os.path.realpath(injected)
     assert got.strip() == workspace.get_cwd()
-
-
-@needs_go
-@pytest.mark.asyncio
-async def test_go_test_runs_packages(tmp_path: Path) -> None:
-    must_write(tmp_path, "go.mod", "module example.com/x\n\ngo 1.21\n")
-    must_write(tmp_path, "main.go", "package main\n")
-    registry = default_registry(workspace_for(tmp_path))
-
-    got = await run(registry, "go_test", {"packages": ["./..."]})
-
-    assert "no test files" in got
-
-
-@needs_gofmt
-@pytest.mark.asyncio
-async def test_format_runs_gofmt_on_workspace_files(tmp_path: Path) -> None:
-    must_write(tmp_path, "main.go", 'package main\nfunc main(){println("hi")}\n')
-    registry = default_registry(workspace_for(tmp_path))
-
-    got = await run(registry, "format", {"files": ["main.go"]})
-
-    assert got == "formatted 1 file"
-    assert "func main() {" in (tmp_path / "main.go").read_text(encoding="utf-8")
 
 
 @needs_git

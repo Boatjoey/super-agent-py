@@ -71,9 +71,6 @@ class bubblewrap_sandbox:
             "--setenv",
             "XDG_CACHE_HOME",
             "/tmp/super-agent-cache",
-            "--setenv",
-            "GOCACHE",
-            "/tmp/super-agent-cache/go-build",
             "--chdir",
             abs_cwd,
         ]

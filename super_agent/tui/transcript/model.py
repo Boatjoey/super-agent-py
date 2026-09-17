@@ -381,9 +381,6 @@ def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
             return "Read", "files", item(value("path"), call.name)
         case "write_file" | "apply_patch":
             return "Edited", "files", item(value("path"), call.name)
-        case "go_test":
-            packages = _stringSlice(args.get("packages")) or ["./..."]
-            return "Ran", "commands", ["go test " + " ".join(packages)]
         case "run_command" | "bash":
             return "Ran", "commands", item(value("command"), call.name)
         case "search" | "web_search":
@@ -392,9 +389,6 @@ def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
             return "Fetched", "pages", item(value("url"), call.name)
         case "list_files":
             return "Listed", "paths", item(value("path"), ".")
-        case "format":
-            files = _stringSlice(args.get("files")) or [call.name]
-            return "Formatted", "files", files
         case "git_status":
             return "Ran", "commands", ["git status --short"]
         case "git_diff":
@@ -416,14 +410,6 @@ def _parseArgs(input_text: str) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         return {}
     return cast("dict[str, Any]", parsed)
-
-
-def _stringSlice(value: object) -> list[str]:
-    """Every string in a JSON array, ignoring anything else."""
-    if not isinstance(value, list):
-        return []
-    items = cast("Sequence[Any]", value)
-    return [item for item in items if isinstance(item, str)]
 
 
 def _indent(text: Text, indent: int) -> Text:

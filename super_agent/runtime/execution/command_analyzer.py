@@ -32,7 +32,7 @@ _NETWORK_PACKAGE_MANAGERS = ("pip", "npm", "go", "git")
 
 _DESTRUCTIVE_TOKENS = ("rm", "rmdir", "shred", "mkfs", "dd", "chmod", "chown", "sudo")
 
-_WRITE_TOKENS = ("touch", "mkdir", "mv", "cp", "sed", "perl", "gofmt", "git")
+_WRITE_TOKENS = ("touch", "mkdir", "mv", "cp", "sed", "perl", "git")
 
 _READ_ONLY_GIT_PREFIXES = ("git status", "git diff", "git show", "git log", "git branch")
 

@@ -11,10 +11,8 @@ from __future__ import annotations
 
 from super_agent.tools.bash import BashTool as BashTool
 from super_agent.tools.commands import (
-    FormatTool as FormatTool,
     GitDiffTool as GitDiffTool,
     GitStatusTool as GitStatusTool,
-    GoTestTool as GoTestTool,
     RunCommandTool as RunCommandTool,
 )
 from super_agent.tools.files import (

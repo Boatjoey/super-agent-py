@@ -194,14 +194,6 @@ class DefaultPolicy:
                 cwd = firstNonEmpty(jsonStringField(call.input, "cwd"), request.cwd)
                 return analyzeCommandRequest(replace(request, command=command, cwd=cwd))
             return analyzeCommandRequest(replace(request, command=command))
-        if call.name == "go_test":
-            return replace(
-                request,
-                command="go test",
-                cwd=firstNonEmpty(jsonStringField(call.input, "cwd"), request.cwd),
-                command_class=COMMAND_CLASS_READ_ONLY,
-                reason="go test is read-only",
-            )
         if call.name in ("git_status", "git_diff", "read_file", "list_files", "search"):
             return replace(
                 request,
@@ -209,7 +201,7 @@ class DefaultPolicy:
                 touched_paths=toolPaths(call),
                 reason="read-only tool",
             )
-        if call.name in ("write_file", "apply_patch", "format"):
+        if call.name in ("write_file", "apply_patch"):
             return replace(
                 request,
                 command_class=COMMAND_CLASS_WRITE,
@@ -224,7 +216,7 @@ class DefaultPolicy:
         return isRiskyTool(call.name, specs)
 
     def isWriteTool(self, name: str) -> bool:
-        return name in ("write_file", "apply_patch", "format")
+        return name in ("write_file", "apply_patch")
 
     def networkDenied(self, request: PermissionRequest) -> bool:
         return self._rules.network != "allow" and request.command_class == COMMAND_CLASS_NETWORK

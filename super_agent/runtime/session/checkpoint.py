@@ -39,20 +39,14 @@ class CheckpointMixin:
 def checkpointPaths(call: ToolCall) -> list[str]:
     """Which files a tool call will touch, from its own argument shape.
 
-    ``write_file`` and ``apply_patch`` name one ``path``; ``format`` names a
-    ``files`` list. Anything else leaves nothing to restore.
+    ``write_file`` and ``apply_patch`` name one ``path``. Anything else leaves
+    nothing to restore.
     """
     if call.name in ("write_file", "apply_patch"):
         args = _parse(call.input)
         path = args.get("path") if args is not None else None
         if isinstance(path, str) and path != "":
             return [path]
-        return []
-    if call.name == "format":
-        args = _parse(call.input)
-        files = args.get("files") if args is not None else None
-        if isinstance(files, list):
-            return [item for item in cast("list[Any]", files) if isinstance(item, str)]
     return []
 
 
