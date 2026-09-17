@@ -1031,6 +1031,21 @@ async def test_mcp_commands_list_and_add_server() -> None:
 
 
 @pytest.mark.asyncio
+async def test_terminal_run_leaves_full_screen_selection_to_the_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    program = Application(new_app(FakeConversation()))
+    options: dict[str, bool] = {}
+
+    async def run_async(**kwargs: bool) -> None:
+        options.update(kwargs)
+
+    monkeypatch.setattr(program, "run_async", run_async)
+
+    await program.run_terminal()
+
+    assert options == {"mouse": False}
+
+
+@pytest.mark.asyncio
 async def test_textual_application_starts_with_composer_focus_and_submits() -> None:
     fake = FakeConversation()
     program = Application(new_app(fake))

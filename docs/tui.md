@@ -147,9 +147,10 @@ only the genuinely global keys.
 
 ## Mouse
 
-The mouse wheel scrolls the transcript viewport. Terminal-native selection remains available through
-the terminal's modifier convention. Clipboard actions remain explicit TUI commands so they work in
-the alternate screen.
+The application does not request terminal mouse reporting. Dragging therefore uses the terminal's
+native selection across the full rendered screen, including the composer, transcript, overlays, and
+status rows; copying uses the terminal's own shortcut. Transcript navigation uses `PgUp` and `PgDn`.
+Explicit TUI clipboard commands still work in the alternate screen.
 
 Composer rules worth knowing:
 

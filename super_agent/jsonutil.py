@@ -127,10 +127,18 @@ def _decode(value: Any, annotation: Any) -> Any:
     """Build a value of ``annotation`` from decoded JSON data."""
     if annotation is Any or annotation is None:
         return value
-    if value is None:
-        return None
 
     origin = get_origin(annotation)
+    if value is None:
+        if (origin is Union or origin is types.UnionType) and type(None) in get_args(annotation):
+            return None
+        if origin is list:
+            return []
+        if origin is tuple:
+            return ()
+        if origin in (dict, Mapping):
+            return {}
+        raise TypeError(f"expected {annotation}, got null")
     if origin is Union or origin is types.UnionType:
         members = [arg for arg in get_args(annotation) if arg is not type(None)]
         return _decode(value, members[0]) if members else None

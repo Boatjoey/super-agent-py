@@ -72,6 +72,31 @@ def test_load_config_combines_flags_env_and_settings(monkeypatch: pytest.MonkeyP
     assert list(cfg.permission_rules.allow_prefixes) == ["git status"]
 
 
+def test_load_config_treats_legacy_null_permission_lists_as_empty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    writeSettings(
+        home,
+        '{"provider":"openai","providers":{"openai":{"api_key":"key","model":"model"}},'
+        '"permissions":{"allow_tools":null,"deny_tools":null,"allow_command_prefixes":null,'
+        '"deny_command_prefixes":null,"allow_paths":null,"deny_paths":null,"allow_env":null,'
+        '"deny_env":null}}',
+    )
+
+    cfg = load_config(Flags(), None)
+
+    assert cfg.permission_rules.allow_tools == ()
+    assert cfg.permission_rules.deny_tools == ()
+    assert cfg.permission_rules.allow_prefixes == ()
+    assert cfg.permission_rules.deny_prefixes == ()
+    assert cfg.permission_rules.allow_paths == ()
+    assert cfg.permission_rules.deny_paths == ()
+    assert cfg.permission_rules.allow_env == ()
+    assert cfg.permission_rules.deny_env == ()
+
+
 def test_load_config_reads_custom_agent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))

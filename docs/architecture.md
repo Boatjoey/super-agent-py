@@ -43,6 +43,10 @@ the build on a violation.
   import `runtime/protocol` but not the root `runtime` facade; `store` and `workspace` may also import
   `runtime/session`, which is where their ports are declared.
 
+Importing `llm` or constructing a built-in model must not import a provider SDK. The selected
+provider adapter and its SDK are loaded on the first model request, so unrelated providers do not
+delay terminal startup.
+
 `tui` must never import `runtime`, and the runtime must never import `tui`. Runtime states become
 presentation-only `tui.AgentStatus` values at the app boundary, in `app/tui_adapter.py`; the TUI owns
 no runtime state enum.

@@ -190,6 +190,10 @@ class Application(TextualApp[None]):
         )
         yield Static(id="status", markup=False)
 
+    async def run_terminal(self) -> None:
+        """Run without mouse reporting so the terminal owns one full-screen selection."""
+        await self.run_async(mouse=False)
+
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Which application bindings may claim a key right now.
 
@@ -227,14 +231,6 @@ class Application(TextualApp[None]):
             return
         self._sync_editor_to_model()
         self._render_suggestions()
-
-    def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
-        if self._event_is_in_transcript(event):
-            self._following = False
-
-    def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
-        if self._event_is_in_transcript(event):
-            self.call_after_refresh(self._update_following)
 
     async def on__model_message(self, message: _ModelMessage) -> None:
         await self._dispatch(message.value)
@@ -456,11 +452,6 @@ class Application(TextualApp[None]):
         if self._following:
             self._unread = 0
             self._render_unread()
-
-    def _event_is_in_transcript(self, event: events.MouseEvent) -> bool:
-        pane = self.query_one("#transcript", TranscriptScreen)
-        widget = event.widget
-        return widget is not None and pane in widget.ancestors_with_self
 
     def _sync_editor_to_model(self) -> None:
         editor = self.query_one("#composer", TextArea)

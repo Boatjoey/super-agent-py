@@ -11,6 +11,8 @@
 
 If `settings.json` is missing, the app creates a template on startup. Invalid values — an unknown
 permission mode, for instance — fail config load rather than falling back silently.
+For compatibility with older generated files, `null` on a collection field means an empty
+collection; optional scalar fields retain their documented `null` meaning.
 
 ## Providers
 

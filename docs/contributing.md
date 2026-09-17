@@ -69,9 +69,9 @@ scrolling, modal approval, and terminal-width layout. The smoke test only proves
 reachable and non-destructive through the real interface.
 
 What remains genuinely manual, and why: colour and layout legibility; Linux terminal, tmux, and SSH
-behaviour; bracketed paste; Unicode and wide glyphs; mouse-wheel scrolling; terminal-dependent key
-sequences (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`); and clipboard fallback. A visible TUI change must
-record the tested terminals in its pull request.
+behaviour; bracketed paste; Unicode and wide glyphs; terminal-native full-screen selection and copy;
+terminal-dependent key sequences (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`); and clipboard fallback. A
+visible TUI change must record the tested terminals in its pull request.
 
 ## Concurrency
 

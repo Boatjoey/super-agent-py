@@ -79,7 +79,7 @@ async def run(cfg: app.Config) -> int:
                 ),
             )
         )
-        await program.run_async()
+        await program.run_terminal()
     except Exception as error:
         print(error, file=sys.stderr)
         return 1
