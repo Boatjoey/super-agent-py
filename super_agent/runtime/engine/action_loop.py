@@ -81,7 +81,7 @@ def estimateTokens(value: str) -> int:
 
 
 def estimateMessageTokens(messages: tuple[Message, ...] | list[Message]) -> int:
-    return sum(estimateTokens(message.content + message.reasoning_content) for message in messages)
+    return sum((len(message.content) + len(message.reasoning_content) + 3) // 4 for message in messages)
 
 
 def cloneToolBatch(batch: ToolCallBatch | None) -> ToolCallBatch | None:

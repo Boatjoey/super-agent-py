@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import time
 from collections.abc import Sequence
 from typing import ClassVar, cast
 
@@ -33,6 +34,9 @@ _COMPOSER_ACTIONS = frozenset({"submit", "newline", "complete_or_queue", "vertic
 #: The keys the transcript viewport owns.
 _TRANSCRIPT_ACTIONS = frozenset({"page_up", "page_down"})
 
+#: Two empty-draft presses inside this window are a deliberate quit gesture.
+_DOUBLE_CTRL_C_SECONDS = 1.0
+
 #: The actions that stand aside while a modal owns the keyboard. An application
 #: binding is checked before the focused widget, so one that ran regardless would
 #: take the key from the overlay that is supposed to be answering it. Cancelling
@@ -56,7 +60,7 @@ _HELP_TEXT = (
     "Enter  submit / steer\nTab  queue while running\nCtrl+J  newline\n"
     "PgUp/PgDn  scroll transcript\nCtrl+O  toggle tools\nCtrl+R  toggle reasoning\n"
     "Ctrl+T  transcript pager\nCtrl+G  edit draft in $VISUAL/$EDITOR\n"
-    "Ctrl+C  cancel / quit\nEsc  cancel / clear"
+    "Ctrl+C  clear / cancel / double quit\nEsc  cancel / clear"
 )
 
 #: The keys that close help: the viewer's own pair, and the two that open it.
@@ -172,6 +176,7 @@ class Application(TextualApp[None]):
         self._transcript_fingerprint: object = None
         self._approval_dialog: ApprovalDialog | None = None
         self._help_overlay: HelpOverlay | None = None
+        self._quit_armed_until = 0.0
         self.model.printOutput = self._output_printer
 
     def compose(self) -> ComposeResult:
@@ -191,7 +196,7 @@ class Application(TextualApp[None]):
         yield Static(id="status", markup=False)
 
     async def run_terminal(self) -> None:
-        """Run without mouse reporting so the terminal owns one full-screen selection."""
+        """Run without mouse reporting so the terminal owns the mouse."""
         await self.run_async(mouse=False)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
@@ -236,7 +241,24 @@ class Application(TextualApp[None]):
         await self._dispatch(message.value)
 
     async def action_cancel_or_quit(self) -> None:
-        await self._model_key("ctrl+c")
+        self._sync_editor_to_model()
+        if self.model.composer.draft() != "":
+            self._quit_armed_until = 0.0
+            await self._model_key("ctrl+u")
+            return
+        if self.model.approval.active() or self.model.cancellation is not None:
+            self._quit_armed_until = 0.0
+            await self._model_key("ctrl+c")
+            return
+        now = time.monotonic()
+        if now <= self._quit_armed_until:
+            self._quit_armed_until = 0.0
+            await self._model_key("ctrl+c")
+            return
+        self._quit_armed_until = now + _DOUBLE_CTRL_C_SECONDS
+        self.model.err = ""
+        self.model.status = "Press Ctrl+C again to quit"
+        await self._render_model()
 
     async def action_cancel_or_clear(self) -> None:
         await self._model_key("esc")

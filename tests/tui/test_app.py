@@ -503,6 +503,36 @@ async def test_escape_clears_input_without_quitting() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ctrl_c_clears_input_without_quitting() -> None:
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.press(*"draft", "ctrl+c")
+        await pilot.pause()
+
+        assert program.query_one("#composer", TextArea).text == ""
+        assert "Input cleared" in status_row(program)
+        assert program.is_running
+
+
+@pytest.mark.asyncio
+async def test_empty_ctrl_c_requires_a_double_press_to_quit() -> None:
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(80, 24)) as pilot:
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+
+        assert program.is_running
+        assert "Press Ctrl+C again to quit" in status_row(program)
+
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+
+        assert not program.is_running
+
+
+@pytest.mark.asyncio
 async def test_tab_queues_prompt_while_turn_runs() -> None:
     fake = FakeConversation(hold=True)
     program = Application(new_app(fake))
@@ -1031,7 +1061,7 @@ async def test_mcp_commands_list_and_add_server() -> None:
 
 
 @pytest.mark.asyncio
-async def test_terminal_run_leaves_full_screen_selection_to_the_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_terminal_run_leaves_mouse_handling_to_the_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
     program = Application(new_app(FakeConversation()))
     options: dict[str, bool] = {}
 

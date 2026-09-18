@@ -112,7 +112,7 @@ Extensions:
 | `Esc` | Clear input, or cancel a run |
 | `Ctrl+U` | Clear input |
 | `Ctrl+L` | Clear transient status and return the transcript to its latest content |
-| `Ctrl+C` | Cancel a run, or quit |
+| `Ctrl+C` | Clear a non-empty draft; otherwise cancel a run, or press twice to quit while idle |
 | Arrows | Navigate multiline input, or recall a single-line prompt without losing the draft |
 | `PgUp`, `PgDn` | Move the transcript viewport by one page |
 | `Home`, `End` | Move the transcript viewport to its start or end when it owns focus |
@@ -147,10 +147,10 @@ only the genuinely global keys.
 
 ## Mouse
 
-The application does not request terminal mouse reporting. Dragging therefore uses the terminal's
-native selection across the full rendered screen, including the composer, transcript, overlays, and
-status rows; copying uses the terminal's own shortcut. Transcript navigation uses `PgUp` and `PgDn`.
-Explicit TUI clipboard commands still work in the alternate screen.
+The application does not request mouse reporting. The terminal owns the mouse wheel, full-screen
+selection, and its copy shortcut; the TUI does not reinterpret them. Application-level transcript
+navigation uses `PgUp` and `PgDn`. Explicit TUI clipboard commands still work in the alternate
+screen.
 
 Composer rules worth knowing:
 
