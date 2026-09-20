@@ -9,8 +9,8 @@ field so neither becomes an alias of the other.
 from __future__ import annotations
 
 import sys
-from datetime import UTC, datetime
 
+from super_agent import timeutil
 from super_agent.runtime.session import (
     ROLE_TOOL,
     ApprovalDecision,
@@ -60,7 +60,7 @@ class Repository:
 
     def assign_new_turn_id(self, session_id: SessionID) -> None:
         try:
-            self.store.set_current_turn(StoreSessionID(session_id), new_turn_id(datetime.now(UTC)))
+            self.store.set_current_turn(StoreSessionID(session_id), new_turn_id(timeutil.now()))
         except Exception as error:
             logPersistenceFailure("start turn", session_id, error)
             raise
@@ -134,7 +134,7 @@ class Repository:
         if not files:
             return
         checkpoint = Checkpoint(
-            id=str(new_turn_id(datetime.now(UTC))),
+            id=str(new_turn_id(timeutil.now())),
             files=tuple(
                 StoreFileSnapshot(path=file.path, exists=file.exists, content=file.content, mode=file.mode)
                 for file in files

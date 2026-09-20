@@ -19,7 +19,7 @@ import pytest
 from super_agent.runtime import machine
 from super_agent.runtime.engine import new_engine
 from super_agent.runtime.protocol.run_context import live_context
-from super_agent.runtime.protocol.types import ModelResponse, StreamChunk, ToolCall, ToolSpec
+from super_agent.runtime.protocol.types import ModelResponse, StreamChunk, ToolCall, ToolSpec, Usage
 from super_agent.runtime.session import (
     NOTIFICATIONS_CLOSED,
     ApprovalDecision,
@@ -28,6 +28,7 @@ from super_agent.runtime.session import (
     SessionNotification,
     StateChanged,
     StreamChunkReceived,
+    UsageReported,
     new_session,
 )
 
@@ -178,6 +179,82 @@ async def test_session_emits_tool_approval_cleared_after_approval() -> None:
     assert "ToolApprovalCleared" in kinds
     assert kinds.index("ToolApprovalRequested") < kinds.index("ToolApprovalCleared")
     assert tools.ran == ["bash"]
+
+
+@pytest.mark.asyncio
+async def test_turn_reports_provider_usage() -> None:
+    """The provider's own counts reach the interface, before the message they paid for.
+
+    A consumer that renders as it reads shows the cost against the call that
+    incurred it, so the report must arrive before the assistant message the
+    call produced is announced.
+    """
+    model = ScriptedModel(
+        [ModelResponse(content="hello", usage=Usage(input_tokens=11, output_tokens=7, total_tokens=18))]
+    )
+    engine = await ready_engine(model)
+    session = new_session(engine)  # type: ignore[arg-type]
+    queue = notifications()
+
+    await session.run_turn(live_context(), "hi", queue, approvals())
+
+    seen = await drain(queue)
+    reported = [item.usage for item in seen if isinstance(item, UsageReported)]
+    assert len(reported) == 1
+    assert reported[0].input_tokens == 11
+    assert reported[0].output_tokens == 7
+    assert reported[0].total_tokens == 18
+    usage_index = next(index for index, item in enumerate(seen) if isinstance(item, UsageReported))
+    assistant_index = next(
+        index
+        for index, item in enumerate(seen)
+        if isinstance(item, MessageAppended) and item.message.role == machine.ROLE_ASSISTANT
+    )
+    assert usage_index < assistant_index
+
+
+@pytest.mark.asyncio
+async def test_turn_reports_usage_for_each_model_call() -> None:
+    """A tool round trip makes two model calls, and each reports its own counts.
+
+    The reports arrive in call order, so a consumer that keeps the newest one
+    describes the context as it stands now rather than as it started.
+    """
+    model = ScriptedModel(
+        [
+            ModelResponse(
+                tool_calls=(ToolCall(id="call-1", name="bash", input='{"command":"pwd"}'),),
+                usage=Usage(input_tokens=5, output_tokens=2, total_tokens=7),
+            ),
+            ModelResponse(content="done", usage=Usage(input_tokens=20, output_tokens=3, total_tokens=23)),
+        ]
+    )
+    engine = await ready_engine(model, FakeToolRunner({"bash": "ok"}))
+    session = new_session(engine)  # type: ignore[arg-type]
+    queue = notifications()
+
+    await session.run_turn(live_context(), "run it", queue, approvals(machine.APPROVE_ONCE))
+
+    reported = [item.usage for item in await drain(queue) if isinstance(item, UsageReported)]
+    assert [usage.total_tokens for usage in reported] == [7, 23]
+
+
+@pytest.mark.asyncio
+async def test_turn_reports_no_usage_when_the_provider_measured_nothing() -> None:
+    """An unmeasured response reports nothing rather than zeroes.
+
+    A provider that cannot report usage must leave the interface without a
+    figure to show, not with a false one.
+    """
+    model = ScriptedModel([ModelResponse(content="hello")])
+    engine = await ready_engine(model)
+    session = new_session(engine)  # type: ignore[arg-type]
+    queue = notifications()
+
+    await session.run_turn(live_context(), "hi", queue, approvals())
+
+    reported = [item for item in await drain(queue) if isinstance(item, UsageReported)]
+    assert reported == []
 
 
 @pytest.mark.asyncio

@@ -69,7 +69,20 @@ class DefaultRuntimeDataChangeApplier:
         self, runtime_data: RuntimeData, result: TransitionResult
     ) -> RuntimeDataChangeResult:
         """Clone ``runtime_data``, apply the transition's changes, and validate."""
-        next_data = clone_runtime_data(runtime_data)
+        changes_messages = any(
+            isinstance(
+                change,
+                (
+                    AppendUserMessage,
+                    AppendAssistantMessage,
+                    AppendToolResult,
+                    FlushStreamingAssistant,
+                    ResetConversation,
+                ),
+            )
+            for change in result.runtime_data_changes
+        )
+        next_data = clone_runtime_data(runtime_data, clone_messages=changes_messages)
         next_data.state = result.next_state
         for change in result.runtime_data_changes:
             _apply_runtime_data_change(next_data, change)
@@ -142,11 +155,11 @@ def _apply_runtime_data_change(data: RuntimeData, change: RuntimeDataChange) -> 
         raise InvariantViolationError(f"unknown runtime data change {type(change).__name__}")
 
 
-def clone_runtime_data(runtime_data: RuntimeData) -> RuntimeData:
-    """Copy the parts of ``runtime_data`` a change is allowed to touch."""
+def clone_runtime_data(runtime_data: RuntimeData, *, clone_messages: bool = True) -> RuntimeData:
+    """Copy the parts a change may touch, sharing immutable message history when safe."""
     return RuntimeData(
         state=runtime_data.state,
-        messages=list(runtime_data.messages),
+        messages=list(runtime_data.messages) if clone_messages else runtime_data.messages,
         pending_tool=clone_tool_call(runtime_data.pending_tool),
         pending_permission=clone_permission_request(runtime_data.pending_permission),
         current_tool=clone_tool_call(runtime_data.current_tool),

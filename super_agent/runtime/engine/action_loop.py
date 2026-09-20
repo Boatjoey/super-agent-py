@@ -81,7 +81,7 @@ def estimateTokens(value: str) -> int:
 
 
 def estimateMessageTokens(messages: tuple[Message, ...] | list[Message]) -> int:
-    return sum(estimateTokens(message.content + message.reasoning_content) for message in messages)
+    return sum((len(message.content) + len(message.reasoning_content) + 3) // 4 for message in messages)
 
 
 def cloneToolBatch(batch: ToolCallBatch | None) -> ToolCallBatch | None:
@@ -126,6 +126,7 @@ class ActionLoopMixin:
 
         def messages(self) -> list[Message]: ...
         async def _notify_state_observer(self) -> None: ...
+        def _notify_model_usage_observer(self, usage: Usage | None) -> None: ...
 
     async def dispatch_event(
         self,
@@ -352,6 +353,11 @@ class ActionLoopMixin:
             # A stale completion is discarded, not applied. This is the whole
             # mechanism that keeps a cancelled turn out of the next one.
             return
+
+        if isinstance(completion.result, ModelReplied):
+            # The interface hears what a model call cost only while that call
+            # still belongs to the conversation.
+            self._notify_model_usage_observer(completion.result.response.usage)
 
         # Specs are fetched outside the engine lock on purpose: a registry change
         # (an MCP reconnect, say) can block Specs for seconds, and the lock must

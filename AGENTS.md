@@ -5,7 +5,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 
 ## Essentials
 
-- Python project (3.12): agent runtime, LLM adapters, local tools, Rich TUI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
+- Python project (3.12): agent runtime, LLM adapters, local tools, Textual TUI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
 - Design pattern: hexagonal architecture with a functional core and imperative shell. `runtime/machine` is the pure domain core; engine, session, TUI, LLM, tools, and store are ports or adapters around it.
 - State-machine flow is `Event -> validated MachineSnapshot -> transition -> RuntimeDataChange + ActionPlan -> transactional RuntimeDataChangeApplier/Executor -> ActionResultResolver -> Event`; dependencies point toward the machine.
 - Keep `RunID` stale filtering in the engine. Keep state, call-id, queue guards, and invariants in `runtime/machine`.
@@ -23,6 +23,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Keep turn I/O wiring in `runtime/session/turn.py` and history use cases in `runtime/session/history.py`.
 - Keep storage and filesystem access behind `runtime/session.Repository` and `runtime/session.Workspace`.
 - Follow the feature-oriented TUI boundaries in `docs/tui.md`; keep views pure and ports feature-local.
+- Keep the TUI on the terminal's ANSI palette and default foreground. Never construct a colour from an RGB triple, a hexadecimal literal, or an indexed palette entry, and never use ANSI blue or yellow as a foreground; syntax highlighting is the one exception. `tests/architecture/test_theme.py` enforces this.
 - Map runtime states to presentation-only `tui.AgentStatus` values in `app/tui_adapter.py`; TUI must not define runtime state enums.
 - Keep durable session storage in `store/` and filesystem checkpoint access in `workspace/`.
 - Load layered instructions with `app/instructions`: user-level spec, root-to-leaf `AGENTS.md`, fallback `CLAUDE.md`.
@@ -43,7 +44,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Documentation is the specification for the code, not a description of it. Change the relevant `docs/` file first, then the code, and ship both in the same change.
 - A behaviour change that `docs/` does not reflect is incomplete, even when the code works.
 - When code and a document disagree, the code is wrong until the document is deliberately amended.
-- Every normative fact has exactly one home in `docs/`; link to it rather than restating it. Duplicated facts drift, and prior duplicates in this repository had already diverged.
+- Every normative fact has exactly one home in `docs/`; link to it rather than restating it. Duplicated facts drift.
 - `docs/README.md` indexes the document set; `docs/contributing.md` covers the workflow, tests, and git conventions.
 - `tests/architecture/test_spec.py` enforces `docs/machine.md` against the real transition graph; `tests/architecture/test_dependencies.py` enforces the dependency rule.
 - Keep `AGENTS.md` to development rules. Usage, command reference, keybindings, and behaviour specs belong in `docs/`, not here.
@@ -67,7 +68,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Reset tests should prove system messages are preserved.
 - Tests that parse documents or source must fail loudly when the format changes rather than silently matching nothing.
 - GitHub Actions runs `./scripts/verify.sh` for pushes and pull requests.
-- Python has no race detector: `python -X dev`, `PYTHONASYNCIODEBUG=1`, strict `pytest-asyncio`, and a deliberate-yield stress loop approximate one. `docs/contributing.md` records the residual gap.
+- Python's single-threaded event loop rules out unsynchronised access to shared memory, but not state that is safe only while nothing yields; the concurrency checks run under `./scripts/verify.sh`, and `docs/contributing.md` records the residual gap.
 
 ## Security
 

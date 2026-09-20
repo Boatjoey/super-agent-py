@@ -31,6 +31,7 @@ from super_agent.tui.conversation import (
     StreamChunkReceived,
     ToolApprovalCleared,
     ToolApprovalRequested,
+    UsageReported,
 )
 from super_agent.tui.transcript import ROLE_ASSISTANT
 
@@ -87,7 +88,9 @@ def resize(app: App, message: runtime.WindowSizeMsg) -> tuple[App, tuple[runtime
     app.ready = True
     app.composer.set_width(app.width)
     app.composer.set_compact_palette(app.height < 18)
-    app.transcript.set_width(app.width)
+    # The transcript is not told the terminal width here: it measures itself
+    # against the width its pane actually has, which is what its content is
+    # wrapped for. See ``TranscriptScreen._take_width``.
     return app, ()
 
 
@@ -219,6 +222,10 @@ def updateConversationNotification(
             app.err = str(notification.err)
     elif isinstance(notification, StreamChunkReceived):
         app.transcript.set_streaming(notification.message)
+    elif isinstance(notification, UsageReported):
+        # The status line draws the most recent call's cost, so a later report
+        # replaces an earlier one rather than accumulating.
+        app.contextUsage = notification.usage
     return app, (waitForNotification(app.notifications, app.turn),)
 
 

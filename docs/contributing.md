@@ -63,14 +63,15 @@ network: only the model provider is faked. It checks, in order:
 Two properties the smoke test deliberately does not assert, and where the assertion lives instead:
 **transcript surgery** (`/compact` keeping the newest turns and widening a leading tool result,
 `/undo` restoring files before truncating history, a reset keeping `system` messages) is pinned by
-the session tests, which can inspect the result precisely; and **rendering** is pinned by the TUI
-tests, which assert the width invariant on a full render. The smoke test only proves those paths are
+the session tests, which can inspect the result precisely; and **interaction and rendering** are
+pinned by Textual pilot tests at fixed terminal sizes. They cover focus, submission, viewport
+scrolling, modal approval, and terminal-width layout. The smoke test only proves those paths are
 reachable and non-destructive through the real interface.
 
-What remains genuinely manual, and why: colour and layout legibility, key sequences that depend on
-the terminal (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`), and clipboard behaviour. There is no automatic
-check for the visual result, so a rendering change needs a human to look at it. The automated width
-invariant is the part that must not regress.
+What remains genuinely manual, and why: colour and layout legibility; Linux terminal, tmux, and SSH
+behaviour; bracketed paste; Unicode and wide glyphs; terminal-native full-screen selection and copy;
+terminal-dependent key sequences (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`); and clipboard fallback. A
+visible TUI change must record the tested terminals in its pull request.
 
 ## Concurrency
 
@@ -102,7 +103,7 @@ The style is deliberate and consistent across the codebase:
 - **Naming follows PEP 8.** Modules, functions, and methods are `snake_case`; classes are
   `PascalCase`; module constants and enum members are `UPPER_SNAKE`; dataclass fields are
   `snake_case`. So `STATE_IDLE`, `AppendUserMessage`, `run_turn`, and `apply_runtime_data_changes`
-  all read as Python, not as a foreign spelling.
+  all follow it.
 - **Module names are snake_case**: `runtime/machine/transition.py`.
 - **A package re-exports its surface from `__init__.py`**, so `machine.STATE_IDLE` and
   `machine.transition` resolve from the package namespace.
@@ -152,8 +153,7 @@ nothing to keep in sync.
 - Update `AGENTS.md` when project rules, architecture, commands, tests, or security guidance change.
 - Update the owning document under `docs/` when behaviour changes — before the code, per the workflow
   above.
-- When a fact moves, delete the old copy. Two copies of a fact is the failure mode this documentation
-  set was consolidated to eliminate.
+- When a fact moves, delete the old copy. Two copies of a fact drift.
 
 ## Project Layout at a Glance
 
@@ -168,7 +168,7 @@ runtime/session/             application use cases and ports
 runtime/protocol/            adapter contracts
 runtime/permission/          permission vocabulary
 runtime/telemetry/           JSONL telemetry
-tui/                         Rich inbound adapter (Elm-style runtime)
+tui/                         Textual inbound adapter and feature-owned widgets
 llm/                         provider adapters
 tools/                       file, command, git, web, MCP, and LSP tools
 store/                       durable session storage

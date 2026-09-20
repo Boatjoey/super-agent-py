@@ -24,6 +24,7 @@ from super_agent.runtime.engine.commands import (
 )
 from super_agent.runtime.engine.engine import (
     Engine as Engine,
+    ModelUsageObserver as ModelUsageObserver,
     StateObserver as StateObserver,
     new_engine as new_engine,
     new_engine_with_components as new_engine_with_components,
@@ -48,6 +49,7 @@ __all__ = [
     "CommandsMixin",
     "Engine",
     "EngineView",
+    "ModelUsageObserver",
     "PolicySetter",
     "PolicySnapshot",
     "PolicyStore",

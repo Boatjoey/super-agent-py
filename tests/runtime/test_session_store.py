@@ -23,11 +23,12 @@ import shutil
 import stat
 import sys
 import threading
+import time
 from pathlib import Path
 
 import pytest
 
-from super_agent import store, workspace
+from super_agent import store, timeutil, workspace
 from super_agent.runtime import machine
 from super_agent.runtime.engine import Engine, new_engine, new_engine_with_executor
 from super_agent.runtime.protocol.run_context import live_context
@@ -709,14 +710,31 @@ def test_store_rejects_an_event_line_over_the_read_cap(tmp_path: Path) -> None:
 
 
 def test_new_id_and_new_turn_id_carry_nine_fractional_digits() -> None:
-    fixed = dt.datetime(2026, 9, 16, 12, 0, 0, 123456, tzinfo=dt.UTC)
-    assert store.new_id(fixed) == "20260916T120000123456000"
-    assert store.new_turn_id(fixed) == "20260916T120000.123456000"
+    moment = dt.datetime(2026, 9, 16, 12, 0, 0, 123456, tzinfo=dt.UTC)
+    fixed = timeutil.Timestamp.from_moment(moment, 123_456_789)
+    assert store.new_id(fixed) == "20260916T120000123456789"
+    assert store.new_turn_id(fixed) == "20260916T120000.123456789"
+
+    # The stamp is UTC, so an instant handed in at another offset names the same
+    # moment.
+    shifted = moment.astimezone(dt.timezone(dt.timedelta(hours=2)))
+    assert store.new_id(timeutil.Timestamp.from_moment(shifted, 123_456_789)) == "20260916T120000123456789"
 
     # The whole point of the hand-rolled fraction: strftime("%f") stops at six
     # digits, so the live identifiers are checked against a nine-digit pattern.
-    assert re.fullmatch(r"\d{8}T\d{6}\d{9}", store.new_id(dt.datetime.now(dt.UTC)))
-    assert re.fullmatch(r"\d{8}T\d{6}\.\d{9}", store.new_turn_id(dt.datetime.now(dt.UTC)))
+    assert re.fullmatch(r"\d{8}T\d{6}\d{9}", store.new_id(timeutil.now()))
+    assert re.fullmatch(r"\d{8}T\d{6}\.\d{9}", store.new_turn_id(timeutil.now()))
+
+
+def test_create_stamps_id_and_metadata_with_the_clock_instant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(time, "time_ns", lambda: 1_789_560_000_123_456_789)
+    st = store.new(str(tmp_path / "store"))
+
+    meta = st.create(store.Metadata(), [])
+
+    assert str(meta.id) == "20260916T120000123456789"
+    assert timeutil.format_rfc3339_nano(meta.created_at) == "2026-09-16T12:00:00.123456789Z"
+    assert timeutil.format_rfc3339_nano(meta.updated_at) == "2026-09-16T12:00:00.123456789Z"
 
 
 def test_validate_id_accepts_its_own_basename_and_rejects_everything_else() -> None:
@@ -781,7 +799,7 @@ def test_store_replays_a_checked_in_session_store(tmp_path: Path) -> None:
 
     # 1. appended messages, including a tool-call message and reasoning content.
     appended = [record for record in records if record.type == store.EVENT_MESSAGE_APPENDED]
-    assert store.messagesFromRecords(appended) == [
+    assert store.messages_from_records(appended) == [
         Message(role=ROLE_SYSTEM, content="system prompt"),
         Message(role=ROLE_USER, content="hello"),
         Message(role=ROLE_ASSISTANT, content="hi there", reasoning_content="thinking"),
@@ -793,15 +811,15 @@ def test_store_replays_a_checked_in_session_store(tmp_path: Path) -> None:
     ]
     # 2. tool results become ordinary tool messages.
     tool_results = [record for record in records if record.type == store.EVENT_TOOL_RESULT]
-    assert store.messagesFromRecords(tool_results) == [
+    assert store.messages_from_records(tool_results) == [
         Message(role=ROLE_TOOL, tool_call_id="call-1", tool_name="bash", content="/tmp/workspace")
     ]
     # 3. compaction replaces the transcript with its own kept_messages.
     compact = next(record for record in records if record.type == store.EVENT_COMPACT)
     assert compact.compact is not None
-    assert store.messagesFromRecords([compact]) == list(compact.compact.kept_messages)
+    assert store.messages_from_records([compact]) == list(compact.compact.kept_messages)
     # 4. reset keeps only the system messages that survived compaction.
-    assert store.messagesFromRecords(records[:13]) == list(compact.compact.kept_messages)
+    assert store.messages_from_records(records[:13]) == list(compact.compact.kept_messages)
     # 5. context replacement is authoritative; the final replay is exactly it.
     assert st.messages(session_id) == [Message(role=ROLE_SYSTEM, content="replaced")]
 
@@ -843,7 +861,7 @@ def test_store_replays_a_checked_in_session_store(tmp_path: Path) -> None:
 
     files, undo_messages, index = repository.load_undo_point(session_key)
     assert index == 8
-    assert undo_messages == store.messagesFromRecords(records[:8])
+    assert undo_messages == store.messages_from_records(records[:8])
     assert len(undo_messages) == 5
     assert len(files) == 1
     assert files[0].path == "a.txt"

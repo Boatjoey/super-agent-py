@@ -17,14 +17,30 @@ from typing import Protocol
 from rich.style import Style
 from rich.text import Text
 
-__all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "Outcome", "Port", "new"]
-
-#: A feature may not reach for the root's styles (R6), so the summary keeps its
-#: own.
-_ACCENT = Style(color="color(6)", italic=True)
+__all__ = ["AttachCommand", "Attached", "Item", "Loaded", "Model", "Outcome", "Port", "Styles", "new"]
 
 type AttachCommand = Callable[[], Coroutine[object, object, "Loaded | Attached | None"]]
 """A command this feature hands the runtime: an awaitable producing a message."""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class Styles:
+    """The role the attachment summary renders with.
+
+    The shape is the feature's; the value is the root's palette, handed over at
+    construction, because a feature may not reach for the root's styles (R6).
+    """
+
+    accent: Style
+
+
+def default_styles() -> Styles:
+    """The summary's own default, used when a model is built bare.
+
+    No colour: the root builds the real style from the palette and passes it to
+    :func:`new`.
+    """
+    return Styles(accent=Style())
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -72,6 +88,7 @@ class Model:
 
     port: Port
     items: list[Item] = dataclasses.field(default_factory=list[Item])
+    styles: Styles = dataclasses.field(default_factory=default_styles)
 
     def init(self) -> AttachCommand:
         """Ask the session for the attachments it already has."""
@@ -116,9 +133,9 @@ class Model:
         if not self.items:
             return Text()
         names = ", ".join(item.name for item in self.items)
-        return Text(f" Attachments: {names}", style=_ACCENT)
+        return Text(f" Attachments: {names}", style=self.styles.accent)
 
 
-def new(port: Port) -> Model:
-    """Build the model around its port."""
-    return Model(port=port)
+def new(port: Port, *, styles: Styles | None = None) -> Model:
+    """Build the model around its port and the root's styles."""
+    return Model(port=port, styles=styles if styles is not None else default_styles())

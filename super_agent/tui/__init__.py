@@ -1,17 +1,16 @@
-"""The Rich inbound adapter: the only interaction surface.
+"""The Textual inbound adapter: the only interaction surface.
 
-This package keeps its surface in six root modules, one per concern, and this
-module stands in for the package namespace so callers keep writing ``tui.new``
-and ``tui.Message``.
+This package keeps its surface in root modules, one per concern, and this module
+stands in for the package namespace so callers keep writing ``tui.new`` and
+``tui.Message``.
 
-Four things live here because they read the whole model rather than one feature:
+Three things live here because they read the whole model rather than one feature:
 
 * :func:`new` wires the features to the conversation port, including the one
   translation the root owns — the command palette's entry type into the
   composer's.
-* :func:`infoBar`, :func:`welcomeString`, and :func:`footerView` compose
-  cross-feature state (permission mode, attachments, approval, composer) into the
-  lines around the transcript.
+* :func:`welcomeString` composes the cross-feature welcome block: the model, the
+  working directory, and the final instruction source.
 * :func:`applyOutcome` is the routing table: a command reports its whole effect,
   and the root applies the parts it owns and hands the cross-feature parts to the
   feature that owns them.
@@ -25,8 +24,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-
-from rich.text import Text
 
 from super_agent.tui import approval as approval_feature, attachments, commands, composer, runtime, transcript
 from super_agent.tui.actions import (
@@ -43,14 +40,13 @@ from super_agent.tui.app import (
     OutputPrinter as OutputPrinter,
     StartupInfo as StartupInfo,
     SubmitDone as SubmitDone,
-    compactStatus as compactStatus,
     composerCommands as composerCommands,
     displayCWD as displayCWD,
     printCommand as printCommand,
-    scrollbackPrinter as scrollbackPrinter,
     with_clipboard_writer as with_clipboard_writer,
     with_output_printer as with_output_printer,
 )
+from super_agent.tui.application import Application as Application
 from super_agent.tui.approval import (
     APPROVE_ALWAYS as APPROVE_ALWAYS,
     APPROVE_ONCE as APPROVE_ONCE,
@@ -70,6 +66,7 @@ from super_agent.tui.conversation import (
     AttachmentSummary as AttachmentSummary,
     Cancellation as Cancellation,
     Channel as Channel,
+    ContextUsage as ContextUsage,
     Conversation as Conversation,
     ConversationError as ConversationError,
     ConversationNotification as ConversationNotification,
@@ -85,18 +82,16 @@ from super_agent.tui.conversation import (
     ToolApprovalRequested as ToolApprovalRequested,
     ToolCall as ToolCall,
     TurnPort as TurnPort,
+    UsageReported as UsageReported,
 )
 from super_agent.tui.runtime import (
     CLEAR_SCREEN as CLEAR_SCREEN,
     QUIT as QUIT,
     ClearScreenMsg as ClearScreenMsg,
     Command as Command,
-    KeyDecoder as KeyDecoder,
     KeyMsg as KeyMsg,
     Listener as Listener,
-    Program as Program,
     QuitMsg as QuitMsg,
-    Scrollback as Scrollback,
     WindowSizeMsg as WindowSizeMsg,
     batch as batch,
 )
@@ -119,12 +114,6 @@ from super_agent.tui.update import (
     updateKey as updateKey,
     waitForNotification as waitForNotification,
 )
-from super_agent.tui.view import (
-    clampLines as clampLines,
-    fitDynamicArea as fitDynamicArea,
-    helpView as helpView,
-    view as view,
-)
 
 __all__ = [
     "APPROVE_ALWAYS",
@@ -138,6 +127,7 @@ __all__ = [
     "AgentStatusChanged",
     "AgentSummary",
     "App",
+    "Application",
     "ApprovalDecision",
     "AttachmentSummary",
     "Cancellation",
@@ -146,12 +136,12 @@ __all__ = [
     "ClipboardDone",
     "ClipboardWriter",
     "Command",
+    "ContextUsage",
     "Conversation",
     "ConversationError",
     "ConversationNotification",
     "ConversationNotificationMsg",
     "ConversationView",
-    "KeyDecoder",
     "KeyMsg",
     "Listener",
     "MCPServerSummary",
@@ -163,10 +153,8 @@ __all__ = [
     "Option",
     "OutputPrinter",
     "PermissionRequest",
-    "Program",
     "QuitMsg",
     "Role",
-    "Scrollback",
     "SessionSummary",
     "SnapshotPort",
     "StartupInfo",
@@ -179,35 +167,28 @@ __all__ = [
     "TranscriptMarkdownRenderer",
     "TranscriptStyles",
     "TurnPort",
+    "UsageReported",
     "WindowSizeMsg",
     "applyOutcome",
     "batch",
-    "clampLines",
-    "compactStatus",
     "composerCommands",
     "default_styles",
     "displayCWD",
     "extract_code_blocks",
     "finishCopy",
     "finishSubmit",
-    "fitDynamicArea",
-    "footerView",
-    "helpView",
-    "infoBar",
     "new",
     "pendingAttachments",
     "printCommand",
     "queueInput",
     "refreshSnapshot",
     "resize",
-    "scrollbackPrinter",
     "steerInput",
     "submitPrompt",
     "submitText",
     "update",
     "updateConversationNotification",
     "updateKey",
-    "view",
     "waitForNotification",
     "welcomeString",
     "with_clipboard_writer",
@@ -234,9 +215,24 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
         snapshot=session,
         turnPort=session,
         commands=command_model,
-        composer=composer.new(composerCommands(command_model.palette())),
-        approval=approval_feature.Model(),
-        attachments=attachments.new(session),
+        composer=composer.new(
+            composerCommands(command_model.palette()),
+            styles=composer.Styles(
+                prompt=styles.accent_bold,
+                accent=styles.accent,
+                selected=styles.accent_bold,
+                dim=styles.secondary,
+            ),
+        ),
+        approval=approval_feature.Model(
+            styles=approval_feature.Styles(
+                banner=styles.banner,
+                dim=styles.secondary,
+                selected=styles.accent_bold,
+                accent=styles.accent,
+            )
+        ),
+        attachments=attachments.new(session, styles=attachments.Styles(accent=styles.accent)),
         transcript=transcript.Model(welcome=""),
         styles=styles,
         info=info,
@@ -244,11 +240,13 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
     app.transcript = transcript.new(
         welcomeString(app),
         TranscriptStyles(
-            status=styles.status,
-            user_label=styles.user_label,
-            tool_label=styles.tool_label,
-            thinking=styles.thinking,
-            footer=styles.footer,
+            default=styles.default,
+            secondary=styles.secondary,
+            accent=styles.accent,
+            accent_bold=styles.accent_bold,
+            identity=styles.identity,
+            success=styles.success,
+            error=styles.error,
             markdown_renderer=styles.markdown_renderer,
         ),
     )
@@ -257,44 +255,19 @@ def new(session: Conversation, info: StartupInfo, *options: Option) -> App:
     return app
 
 
-def infoBar(app: App) -> Text:
-    """The bottom status line: permission mode, model, and whether tools are on."""
-    tools = "tools off" if app.info.no_tools else "tools on"
-    parts = [app.info.permission_mode or "ask", app.info.model_name, tools]
-    rendered = Text()
-    for index, part in enumerate(parts):
-        if index:
-            rendered.append(" · ", style=app.styles.footer)
-        rendered.append(part, style=app.styles.footer)
-    return clampLines(app.width, rendered)
-
-
 def welcomeString(app: App) -> str:
-    """The compact welcome block: product, model, working directory, instructions."""
-    parts = [app.info.model_name]
+    """The compact welcome card: product, version, model, directory, instructions."""
+    title = ">_ Super Agent"
+    if app.info.version:
+        title += f" (v{app.info.version})"
+    rows = [title, ""]
+    if app.info.model_name:
+        rows.append("model:       " + app.info.model_name)
     if location := displayCWD(app.info.cwd):
-        parts.append(location)
+        rows.append("directory:   " + location)
     if app.info.instruction_paths:
-        parts.append(os.path.basename(app.info.instruction_paths[-1]))
-    return "Super Agent\n" + " · ".join(parts)
-
-
-def footerView(app: App) -> Text:
-    """The error or status line, then the attachment, approval, and input rows."""
-    rendered = Text()
-    if app.err:
-        rendered.append(" !! error: " + app.err, style=app.styles.error)
-    elif app.status:
-        rendered.append(" " + compactStatus(app.status, 3), style=app.styles.status)
-    for part in (app.attachments.view(), app.approval.view(app.info.cwd)):
-        if part.plain:
-            rendered.append("\n")
-            rendered.append_text(part)
-    rendered.append("\n")
-    rendered.append_text(app.composer.view())
-    rendered.append("\n")
-    rendered.append_text(infoBar(app))
-    return clampLines(app.width, rendered)
+        rows.append("instructions: " + os.path.basename(app.info.instruction_paths[-1]))
+    return "\n".join(rows)
 
 
 def refreshSnapshot(app: App) -> None:

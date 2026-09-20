@@ -220,6 +220,25 @@ def test_flush_streaming_assistant_appends_only_when_there_is_content() -> None:
     assert empty.messages == []
 
 
+def test_streaming_change_reuses_unchanged_message_history() -> None:
+    """A stream chunk must not copy a long transcript it cannot mutate."""
+    data = machine.RuntimeData(
+        state=machine.STATE_WAITING_LLM,
+        messages=[machine.Message(role=machine.ROLE_USER, content="history")],
+    )
+
+    changed = machine.DefaultRuntimeDataChangeApplier().apply_runtime_data_changes(
+        data,
+        machine.TransitionResult(
+            next_state=machine.STATE_WAITING_LLM,
+            runtime_data_changes=(machine.AppendStreamingAssistant(chunk=machine.StreamChunk(content_delta="piece")),),
+        ),
+    )
+
+    assert changed.runtime_data.messages is data.messages
+    assert changed.runtime_data.streaming_content == "piece"
+
+
 def test_streaming_chunks_accumulate_and_snapshots_reject_streaming_outside_waiting_llm() -> None:
     applier = machine.DefaultRuntimeDataChangeApplier()
     data = machine.RuntimeData(state=machine.STATE_WAITING_LLM)

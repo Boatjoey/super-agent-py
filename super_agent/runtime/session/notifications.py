@@ -1,7 +1,7 @@
 """What the session tells the outside world while a turn runs.
 
-Six notification kinds carry information. :class:`NotificationsClosed` is the
-seventh member and carries none: an :class:`asyncio.Queue` has no close, so the
+Seven notification kinds carry information. :class:`NotificationsClosed` is the
+eighth member and carries none: an :class:`asyncio.Queue` has no close, so the
 end of a turn is delivered as a value the consumer stops on.
 """
 
@@ -17,6 +17,7 @@ from super_agent.runtime.machine import (
     StreamChunk,
     ToolCall,
 )
+from super_agent.runtime.protocol.types import Usage
 
 
 class SessionNotification:
@@ -70,6 +71,19 @@ class MessageAppended(SessionNotification):
     kind: ClassVar[str] = "MessageAppended"
 
     message: Message = dataclasses.field(default_factory=Message)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class UsageReported(SessionNotification):
+    """The provider reported what the latest model call cost in tokens.
+
+    Only the provider's own counts travel here: the runtime carries no
+    context-window size, so a fraction of the context cannot be derived.
+    """
+
+    kind: ClassVar[str] = "UsageReported"
+
+    usage: Usage = dataclasses.field(default_factory=Usage)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

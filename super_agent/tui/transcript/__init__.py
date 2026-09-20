@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from super_agent.tui.transcript.model import (
     ROLE_ASSISTANT as ROLE_ASSISTANT,
+    ROLE_TOOL as ROLE_TOOL,
     ROLE_USER as ROLE_USER,
     Attachment as Attachment,
     Intent as Intent,
@@ -27,6 +28,7 @@ from super_agent.tui.transcript.model import (
 
 __all__ = [
     "ROLE_ASSISTANT",
+    "ROLE_TOOL",
     "ROLE_USER",
     "Attachment",
     "Intent",

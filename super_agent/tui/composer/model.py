@@ -19,14 +19,8 @@ from rich.text import Text
 _PROMPT_GLYPH, _SELECTED_MARKER = "\u276f", "\u203a"
 #: The cursor is a reversed cell, which keeps every line the same width.
 _CURSOR = Style(reverse=True)
-#: A feature may not reach for the root's styles (R6), so the composer keeps its
-#: own palette.
-_ACCENT = Style(color="color(6)", italic=True)
-_ACCENT_SELECTED = Style(color="color(6)", bold=True)
-_DIM = Style(color="color(8)", italic=True)
-_PROMPT = Style(color="color(6)", bold=True)
 
-__all__ = ["Command", "Intent", "IntentKind", "Model", "new", "normalize_commands"]
+__all__ = ["Command", "Intent", "IntentKind", "Model", "Styles", "default_styles", "new", "normalize_commands"]
 
 #: How many lines of a long prompt stay visible, matching the textarea's height.
 _MAX_VISIBLE_LINES = 5
@@ -66,6 +60,29 @@ class Intent:
     text: str = ""
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class Styles:
+    """The roles the composer renders with.
+
+    The shape is the feature's; the values are the root's palette, handed over
+    at construction, because a feature may not reach for the root's styles (R6).
+    """
+
+    prompt: Style
+    accent: Style
+    selected: Style
+    dim: Style
+
+
+def default_styles() -> Styles:
+    """The composer's own defaults, used when a model is built bare.
+
+    No colour: the root builds the real styles from the palette and passes them
+    to :func:`new`.
+    """
+    return Styles(prompt=Style(), accent=Style(), selected=Style(), dim=Style())
+
+
 @dataclasses.dataclass(slots=True)
 class Model:
     """The composer's state: the draft, its history, and the queued follow-ups."""
@@ -81,6 +98,7 @@ class Model:
     turnRunning: bool = False
     compactPalette: bool = False
     width: int = 76
+    styles: Styles = dataclasses.field(default_factory=default_styles)
 
     def init(self) -> None:
         """Nothing to start: Rich does not blink the cursor."""
@@ -212,7 +230,7 @@ class Model:
         rendered = Text(rule)
         for index, line in enumerate(self._visibleLines()):
             rendered.append("\n")
-            rendered.append(f" {_PROMPT_GLYPH} " if index == 0 else "   ", style=_PROMPT)
+            rendered.append(f" {_PROMPT_GLYPH} " if index == 0 else "   ", style=self.styles.prompt)
             rendered.append_text(line)
         rendered.append("\n")
         rendered.append(rule)
@@ -223,16 +241,16 @@ class Model:
         if not self.queued:
             return Text()
         limit = 0 if self.compactPalette else min(_QUEUE_PREVIEW, len(self.queued))
-        rendered = Text(f" Queued ({len(self.queued)})", style=_ACCENT)
+        rendered = Text(f" Queued ({len(self.queued)})", style=self.styles.accent)
         for index in range(limit):
             preview = " ".join(self.queued[index].split())
             if len(preview) > _PREVIEW_LIMIT:
                 preview = preview[:_PREVIEW_LIMIT] + "…"
             rendered.append("\n")
-            rendered.append(f" {index + 1}. {preview}", style=_DIM)
+            rendered.append(f" {index + 1}. {preview}", style=self.styles.dim)
         if remaining := len(self.queued) - limit:
             rendered.append("\n")
-            rendered.append(f" … {remaining} more", style=_DIM)
+            rendered.append(f" … {remaining} more", style=self.styles.dim)
         return rendered
 
     def paletteView(self) -> Text:
@@ -247,9 +265,9 @@ class Model:
         end = min(start + visible, len(matches))
         rendered = Text()
         for index in range(start, end):
-            prefix, style = "  ", _DIM
+            prefix, style = "  ", self.styles.dim
             if index == self.selection:
-                prefix, style = _SELECTED_MARKER + " ", _ACCENT_SELECTED
+                prefix, style = _SELECTED_MARKER + " ", self.styles.selected
             label = matches[index].name
             if not self.compactPalette:
                 label = f"{label:<{_DESCRIPTION_COLUMN}} {matches[index].description}"
@@ -327,7 +345,7 @@ class Model:
     def _visibleLines(self) -> list[Text]:
         """The draft, at most :data:`_MAX_VISIBLE_LINES` lines, cursor included."""
         if self.value == "":
-            return [Text("Ask me anything... (try /help)", style=_DIM)]
+            return [Text("Ask me anything... (try /help)", style=self.styles.dim)]
         before = self.value[: self.cursor]
         row = before.count("\n")
         column = len(before) - (before.rfind("\n") + 1)
@@ -347,9 +365,9 @@ def normalize_commands(commands: tuple[Command, ...] | list[Command]) -> tuple[C
     return tuple(commands)
 
 
-def new(commands: tuple[Command, ...] | list[Command]) -> Model:
-    """Build the model with a normalised palette."""
-    return Model(commands=normalize_commands(commands))
+def new(commands: tuple[Command, ...] | list[Command], *, styles: Styles | None = None) -> Model:
+    """Build the model with a normalised palette and the root's styles."""
+    return Model(commands=normalize_commands(commands), styles=styles if styles is not None else default_styles())
 
 
 def _join(sections: list[Text]) -> Text:

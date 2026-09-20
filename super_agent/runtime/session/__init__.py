@@ -66,6 +66,7 @@ from super_agent.runtime.session.notifications import (
     StreamChunkReceived as StreamChunkReceived,
     ToolApprovalCleared as ToolApprovalCleared,
     ToolApprovalRequested as ToolApprovalRequested,
+    UsageReported as UsageReported,
 )
 from super_agent.runtime.session.persistence import (
     PersistenceMixin as PersistenceMixin,
@@ -155,6 +156,7 @@ __all__ = [
     "ToolApprovalRequested",
     "ToolCall",
     "TurnMixin",
+    "UsageReported",
     "UserMessageSubmitted",
     "Workspace",
     "WorkspaceAccessMode",

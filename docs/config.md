@@ -4,13 +4,15 @@
 
 | Source | Provides |
 |---|---|
-| `.env` (via `godotenv`) | Runtime switches such as `NO_TOOLS` and `YOLO` |
+| `.env` (via `python-dotenv`) | Runtime switches such as `NO_TOOLS` and `YOLO` |
 | `~/.superagent/settings.json` | Providers, permissions, sandbox, servers, agents, extensions, telemetry |
 | Command-line flags | `--yolo`, `--no-tools`, `--approval-mode` |
 | `~/.superagent/AGENTS.md` and project `AGENTS.md` | Layered instructions — see `session.md` |
 
 If `settings.json` is missing, the app creates a template on startup. Invalid values — an unknown
 permission mode, for instance — fail config load rather than falling back silently.
+For compatibility with older generated files, `null` on a collection field means an empty
+collection; optional scalar fields retain their documented `null` meaning.
 
 ## Providers
 
@@ -116,7 +118,7 @@ Both are described in `tools.md`.
 {
   "extensions": {
     "commands": { "explain": "Explain $ARGUMENTS" },
-    "hooks": { "after_turn": ["go test ./..."] },
+    "hooks": { "after_turn": ["uv run pytest -q"] },
     "skills": [".superagent/skills/reviewer"],
     "plugins": [".superagent/plugins/team"]
   }
@@ -137,6 +139,32 @@ Commands, skills, and plugins are also discovered under user and project `.super
 ```
 
 Defaults to `~/.superagent/telemetry.jsonl`. Records and their fields are described in `runtime.md`.
+
+## TUI
+
+```json
+{
+  "tui": {
+    "status_line": ["model", "approval", "context_usage"],
+    "syntax_theme": "ansi_dark"
+  }
+}
+```
+
+`status_line` is an ordered list, drawn left to right. The available items are `model`, `approval`,
+`context_usage`, `session_id`, `sandbox`, `cwd`, and `spinner`. An item whose data is unavailable is
+omitted rather than shown empty, and an unknown item fails config load. Setting the key to `null`
+removes the row entirely and returns its terminal height to the transcript. The default is
+`["model", "approval", "context_usage"]`.
+
+`context_usage` shows the token counts the provider reported for the most recent model call. The
+runtime carries no context-window size, so the item shows absolute counts rather than a percentage,
+and it is omitted until a provider reports usage.
+
+`syntax_theme` names the theme used to highlight fenced code blocks. `ansi_dark` and `ansi_light`
+draw from the terminal's own palette, like the rest of the interface; the other named themes carry
+their own colours. It affects code blocks only — the interface colours are specified in
+`tui.md#appearance` and are not configurable.
 
 ## Flags and Environment
 

@@ -41,10 +41,10 @@ def child_env() -> dict[str, str]:
     """The environment for tool subprocesses: credentials removed.
 
     A denylist rather than an allowlist on purpose. Tool subprocesses
-    legitimately need a wide range of variables (PATH, HOME, proxy settings, Go
-    and git configuration), and an allowlist narrow enough to be safe would
-    break builds. The names that must never leak are a much smaller and more
-    stable set.
+    legitimately need a wide range of variables (PATH, HOME, proxy settings,
+    and toolchain configuration), and an allowlist narrow enough to be safe
+    would break builds. The names that must never leak are a much smaller and
+    more stable set.
     """
     return {name: value for name, value in os.environ.items() if not is_secret_env_name(name)}
 

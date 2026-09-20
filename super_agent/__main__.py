@@ -18,11 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import importlib.metadata
 import os
 import sys
 
 from dotenv import load_dotenv
-from rich.console import Console
 
 from super_agent import app, cli, llm, tui
 
@@ -63,22 +63,23 @@ async def run(cfg: app.Config) -> int:
         profile = agentController.active_profile()
         workspace = cfg.workspace
         cwd = cfg.project.root if workspace is None else workspace.get_cwd()
-        program = tui.Program(
-            model=tui.new(
+        program = tui.Application(
+            tui.new(
                 app.new_tui_conversation(session, mcpController, agentController),
                 tui.StartupInfo(
                     model_name=llm.model_display_name(profile.provider, llm.ProviderConfig(model=profile.model)),
+                    version=importlib.metadata.version("super-agent-py"),
                     permission_mode=str(profile.permission_mode),
                     no_tools=cfg.no_tools,
                     cwd=cwd,
                     instruction_paths=tuple(cfg.instruction_sources),
+                    status_line=cfg.status_line,
+                    session_id=str(session.metaID()),
+                    sandbox=str(cfg.sandbox.mode),
                 ),
-            ),
-            update=tui.update,
-            view=tui.view,
-            console=Console(),
+            )
         )
-        await program.run()
+        await program.run_terminal()
     except Exception as error:
         print(error, file=sys.stderr)
         return 1

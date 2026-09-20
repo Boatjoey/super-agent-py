@@ -33,6 +33,7 @@ __all__ = [
     "new_tui_conversation",
     "to_conversation_notification",
     "to_conversation_view",
+    "to_tui_context_usage",
     "to_tui_message",
     "to_tui_message_ptr",
     "to_tui_permission",
@@ -404,6 +405,8 @@ def to_conversation_notification(
             return tui.StreamChunkReceived(message=to_tui_message_ptr(notification.message))
         case runtime.MessageAppended():
             return tui.MessageAppended(message=to_tui_message(notification.message))
+        case runtime.UsageReported():
+            return tui.UsageReported(usage=to_tui_context_usage(notification.usage))
         case runtime.SessionError():
             return tui.ConversationError(err=notification.err)
         case _:
@@ -426,6 +429,15 @@ def to_conversation_view(view: runtime.EngineView) -> tui.ConversationView:
     if view.pending_permission is not None:
         result = dataclasses.replace(result, pending_permission=to_tui_permission(view.pending_permission))
     return result
+
+
+def to_tui_context_usage(usage: runtime.Usage) -> tui.ContextUsage:
+    """One provider report, unchanged: the counts already mean the same thing."""
+    return tui.ContextUsage(
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        total_tokens=usage.total_tokens,
+    )
 
 
 def to_tui_status(state: runtime.State) -> tui.AgentStatus:

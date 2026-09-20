@@ -1,7 +1,9 @@
 """Dependency-rule enforcement.
 
 This module parses each package's imports and fails when the dependency rule in
-``docs/architecture.md`` is broken.
+``docs/architecture.md`` is broken. It also scans the TUI package's identifiers
+for the renderer that was deleted with the Textual migration, so the removed
+surface cannot come back unannounced.
 
 Rules. ``super_agent`` is the import root, so ``super-agent/tui`` becomes
 ``super_agent.tui``.
@@ -15,6 +17,7 @@ R5  ``runtime/session/**``           must not import store, tui, ``os``, ``pathl
 R6  ``tui/<feature>/**``             must not import a sibling feature
 R7  ``runtime/machine/**`` (new)     must not import I/O modules or anything outside the pure core
 R8  ``tui/<feature>/**`` (new)       must not import the root ``super_agent.tui`` package
+R9  ``tui/<feature>/**`` (new)       must not import the composition root ``super_agent.app``
 
 Two Python-shaped adjustments, both narrowing a hole rather than widening a
 permission:
@@ -36,6 +39,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_NAME = "super_agent"
@@ -273,6 +277,11 @@ def _rule_violations(
     if feature is not None and name == "super_agent.tui":
         found.append(("R8", "TUI features must not import the root tui package"))
 
+    # R9: the composition root wires the TUI, so a feature never reaches back for
+    # it. ``app`` imports ``tui``, never the other way round.
+    if feature is not None and _within(name, "super_agent.app"):
+        found.append(("R9", "TUI features must not import the composition root"))
+
     return found
 
 
@@ -346,7 +355,7 @@ _RULE_ABIDING_TREE = {
 }
 
 _VIOLATION_CASES: dict[str, tuple[str, str]] = {
-    "R1": ("super_agent/tui/view.py", "from super_agent.runtime.machine import state"),
+    "R1": ("super_agent/tui/layout.py", "from super_agent.runtime.machine import state"),
     "R2": ("super_agent/llm/factory.py", "from super_agent.runtime.engine import engine"),
     "R3": ("super_agent/store/store.py", "from super_agent.runtime.engine import engine"),
     "R4": ("super_agent/runtime/api_engine.py", "from super_agent.store import store"),
@@ -356,6 +365,7 @@ _VIOLATION_CASES: dict[str, tuple[str, str]] = {
     "R7-io": ("super_agent/runtime/machine/transition.py", "import asyncio"),
     "R7-core": ("super_agent/runtime/machine/transition.py", "from super_agent.tools import registry"),
     "R8": ("super_agent/tui/commands/model.py", "from super_agent import tui"),
+    "R9": ("super_agent/tui/commands/model.py", "from super_agent.app import tui_adapter"),
 }
 
 
@@ -383,7 +393,7 @@ def test_rules_reject_synthetic_violations(tmp_path: Path) -> None:
 def test_rules_accept_the_corrective_alternative(tmp_path: Path) -> None:
     """Each rejected import has an accepted near-miss, so the rules are not blanket bans."""
     corrections = {
-        "R1": ("super_agent/tui/view.py", "from super_agent.tui.conversation import ConversationPort"),
+        "R1": ("super_agent/tui/layout.py", "from super_agent.tui.conversation import ConversationPort"),
         "R2": ("super_agent/llm/factory.py", "from super_agent.runtime.protocol.types import Message"),
         "R3": ("super_agent/store/store.py", "from super_agent.runtime.protocol.types import Message"),
         "R4": ("super_agent/runtime/api_engine.py", "from super_agent.runtime.engine import engine"),
@@ -391,6 +401,7 @@ def test_rules_accept_the_corrective_alternative(tmp_path: Path) -> None:
         "R6": ("super_agent/tui/commands/model.py", "from super_agent.tui.commands import ports"),
         "R7": ("super_agent/runtime/machine/transition.py", "from super_agent.runtime.permission import types"),
         "R8": ("super_agent/tui/commands/model.py", "from super_agent.tui.commands import catalog"),
+        "R9": ("super_agent/tui/commands/model.py", "from super_agent.tui.commands import ports"),
     }
     for label, (relative, body) in corrections.items():
         case_root = tmp_path / f"ok-{label}"
@@ -404,3 +415,122 @@ def test_rules_accept_the_corrective_alternative(tmp_path: Path) -> None:
 
         violations, _ = check_dependencies(case_root)
         assert not violations, f"{label}: the corrected import was rejected: {_format(violations)}"
+
+
+# ---------------------------------------------------------------------------
+# The deleted legacy renderer
+# ---------------------------------------------------------------------------
+
+#: The vocabulary the deleted Rich/MVU renderer owned. It was replaced by the
+#: Textual application: the shell owns the loop, Textual owns key decoding and
+#: the screen, and command output opens in the shell's own viewer. Finding any of
+#: these back in the TUI package is a re-introduction, not a coincidence.
+LEGACY_TUI_SYMBOLS: Final[frozenset[str]] = frozenset(
+    {
+        "KeyDecoder",
+        "Live",
+        "Program",
+        "Scrollback",
+        "_active_console",
+        "_raw_mode",
+        "_sigwinch",
+        "clampLines",
+        "fitDynamicArea",
+        "read_keys",
+    }
+)
+
+
+@dataclass(frozen=True)
+class LegacyUse:
+    """One reference to a symbol the deleted legacy renderer owned."""
+
+    file: str
+    line: int
+    symbol: str
+
+    def __str__(self) -> str:
+        return f"{self.file}:{self.line}: uses the removed symbol {self.symbol}"
+
+
+def _identifiers(tree: ast.AST) -> list[tuple[str, int]]:
+    """Every identifier a parsed module imports, declares, or references.
+
+    Docstrings and comments are deliberately not searched: prose may name the
+    renderer it replaced, code may not use it.
+    """
+    found: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.extend((alias.name.rsplit(".", 1)[-1], node.lineno) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            found.extend((alias.name, node.lineno) for alias in node.names)
+        elif isinstance(node, ast.Attribute):
+            found.append((node.attr, node.lineno))
+        elif isinstance(node, ast.Name):
+            found.append((node.id, node.lineno))
+        elif isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            found.append((node.name, node.lineno))
+    return found
+
+
+def check_legacy_renderer(repo_root: Path) -> tuple[list[LegacyUse], int]:
+    """Return every use of the deleted renderer's vocabulary, and the files visited.
+
+    The visited count is returned for the same reason ``check_dependencies``
+    returns one: a scan that silently sees nothing is indistinguishable from a
+    clean tree.
+    """
+    uses: list[LegacyUse] = []
+    visited = 0
+
+    for path in sorted((repo_root / PACKAGE_NAME / "tui").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        visited += 1
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        relative = path.relative_to(repo_root).as_posix()
+        for symbol, line in _identifiers(tree):
+            if symbol in LEGACY_TUI_SYMBOLS:
+                uses.append(LegacyUse(file=relative, line=line, symbol=symbol))
+
+    return uses, visited
+
+
+def test_legacy_renderer_vocabulary_is_gone() -> None:
+    uses, visited = check_legacy_renderer(REPO_ROOT)
+    assert visited > 0, "no TUI sources were visited; the scan is broken"
+    assert not uses, "the deleted legacy renderer is back:\n" + "\n".join(str(use) for use in uses)
+
+
+def test_legacy_renderer_scan_rejects_each_removed_symbol(tmp_path: Path) -> None:
+    """Every removed symbol must bite: one that never fires is indistinguishable from none."""
+    shapes = {
+        "use": "{symbol} = None\n",
+        "define": "def {symbol}() -> None:\n    return None\n",
+        "import": "from rich.live import {symbol}\n",
+    }
+    for symbol in sorted(LEGACY_TUI_SYMBOLS):
+        for shape, body in shapes.items():
+            case_root = tmp_path / f"{symbol}-{shape}"
+            _write_tree(case_root, {"super_agent/tui/legacy.py": body.format(symbol=symbol)})
+
+            uses, visited = check_legacy_renderer(case_root)
+            assert visited == 1, f"{symbol} ({shape}): the scan visited {visited} files"
+            assert [use.symbol for use in uses] == [symbol], f"{symbol} ({shape}): {uses!r}"
+
+
+def test_legacy_renderer_scan_accepts_the_live_vocabulary(tmp_path: Path) -> None:
+    """The near-miss: the vocabulary the shell still runs is not a violation."""
+    _write_tree(
+        tmp_path,
+        {
+            "super_agent/tui/runtime.py": (
+                "Listener = None\nWindowSizeMsg = None\nKeyMsg = None\nbatch = None\nclass Command:\n    pass\n"
+            )
+        },
+    )
+
+    uses, visited = check_legacy_renderer(tmp_path)
+    assert visited == 1
+    assert not uses, f"the live vocabulary was reported as removed: {uses!r}"

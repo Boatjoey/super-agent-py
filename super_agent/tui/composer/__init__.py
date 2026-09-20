@@ -11,9 +11,11 @@ from super_agent.tui.composer.model import (
     Intent as Intent,
     IntentKind as IntentKind,
     Model as Model,
+    Styles as Styles,
     new as new,
     normalize_commands as normalize_commands,
 )
+from super_agent.tui.composer.widget import Composer as Composer
 
 #: The package-level intent constants.
 NO_INTENT = IntentKind.NO_INTENT
@@ -29,9 +31,11 @@ __all__ = [
     "STEER",
     "SUBMIT",
     "Command",
+    "Composer",
     "Intent",
     "IntentKind",
     "Model",
+    "Styles",
     "new",
     "normalize_commands",
 ]

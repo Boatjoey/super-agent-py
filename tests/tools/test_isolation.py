@@ -21,7 +21,7 @@ import pytest
 from super_agent.runtime.protocol.run_context import live_context
 from super_agent.runtime.protocol.types import ToolCall
 from super_agent.tools import default_registry, default_sandbox_config, sandboxed_registry
-from super_agent.tools.commands import max_output_bytes
+from super_agent.tools.commands import command_exit_error, max_output_bytes
 from tests.helpers import spawn_tree
 from tests.tools.test_workspace import workspace_for
 
@@ -217,7 +217,10 @@ async def test_strict_sandbox_restricts_filesystem_network_and_resources(tmp_pat
 
     inside = workspace / "inside"
     command = f"touch {inside}; touch {outside / 'planted'}"
-    with pytest.raises(RuntimeError):
+    # The blocked write is what the sandbox is being asked to produce, so the
+    # type is the tool's own: a non-zero exit is a result the model reads, not
+    # the ``RuntimeError`` that means the sandbox itself could not run.
+    with pytest.raises(command_exit_error):
         await registry.run(
             live_context(),
             ToolCall(name="run_command", input=json.dumps({"command": command})),

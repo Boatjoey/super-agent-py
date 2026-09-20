@@ -13,7 +13,7 @@ from typing import Protocol
 from super_agent.runtime.protocol.run_context import RunContext
 from super_agent.runtime.protocol.types import ToolCall, ToolSpec
 from super_agent.tools.bash import BashTool
-from super_agent.tools.commands import FormatTool, GitDiffTool, GitStatusTool, GoTestTool, RunCommandTool
+from super_agent.tools.commands import GitDiffTool, GitStatusTool, RunCommandTool
 from super_agent.tools.files import ApplyPatchTool, ListFilesTool, ReadFileTool, SearchTool, WriteFileTool
 from super_agent.tools.sandbox import SandboxConfig, command_runner, new_command_runner
 from super_agent.tools.web import BrowserFetchTool, WebSearchTool
@@ -198,8 +198,6 @@ def registry_with_runner(runner: command_runner | None, workspace: WorkspaceCont
         ApplyPatchTool(workspace=workspace),
         WriteFileTool(workspace=workspace),
         RunCommandTool(runner=runner, workspace=workspace),
-        GoTestTool(runner=runner, workspace=workspace),
-        FormatTool(runner=runner, workspace=workspace),
         GitStatusTool(runner=runner, workspace=workspace),
         GitDiffTool(runner=runner, workspace=workspace),
         BashTool(runner=runner, workspace=workspace),

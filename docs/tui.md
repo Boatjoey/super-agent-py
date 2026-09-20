@@ -55,15 +55,16 @@ the welcome block, terminal dimensions, and layout composition. A feature reques
 another feature — a prompt, an attachment, a snapshot refresh — travels as an explicit field of the
 requesting feature's outcome, and the root performs the wiring.
 
-`tui` may not import `runtime`, and a feature may not import a sibling feature or the root package.
-Both rules are enforced by `tests/architecture/test_dependencies.py`.
+`tui` may not import `runtime`, and a feature may not import a sibling feature, the root package, or
+the composition root `app`. `app` depends on `tui`, never the other way round. All of these rules are
+enforced by `tests/architecture/test_dependencies.py`.
 
 ## Commands
 
-A command reports its whole effect at once: the error line, the status line, and any scrollback
-output. A command that succeeds clears a previous error, and one that fails leaves the status line
-untouched, because the error line takes precedence over it. Command output goes to terminal
-scrollback rather than the live view, so long listings stay scrollable.
+A command reports its whole effect at once: the error line, the status line, and any output block. A
+command that succeeds clears a previous error, and one that fails leaves the status line untouched,
+because the error line takes precedence over it. Command output opens in a TUI-owned viewer; it is
+never printed behind the alternate screen.
 
 Session and configuration:
 
@@ -110,19 +111,46 @@ Extensions:
 | `/` | Open the command palette; arrows select, `Tab` or `Enter` completes |
 | `Esc` | Clear input, or cancel a run |
 | `Ctrl+U` | Clear input |
-| `Ctrl+L` | Clear the visible main screen; terminal scrollback remains available |
-| `Ctrl+C` | Cancel a run, or quit |
+| `Ctrl+L` | Clear transient status and return the transcript to its latest content |
+| `Ctrl+C` | Clear a non-empty draft; otherwise cancel a run, or press twice to quit while idle |
 | Arrows | Navigate multiline input, or recall a single-line prompt without losing the draft |
+| `PgUp`, `PgDn` | Move the transcript viewport by one page |
+| `Home`, `End` | Move the transcript viewport to its start or end when it owns focus |
 | `Ctrl+Y` | Copy the latest assistant code block |
 | `Ctrl+O` | Expand or collapse the latest tool-call group |
 | `Alt+O` | Expand or collapse all tool-call groups |
-| `Ctrl+T` | Expand or collapse the latest reasoning block |
-| `Alt+T` | Expand or collapse all reasoning blocks |
+| `Ctrl+R` | Expand or collapse the latest reasoning block |
+| `Alt+R` | Expand or collapse all reasoning blocks |
+| `Ctrl+T` | Open the transcript pager: `/` searches, `n` and `N` step through matches and wrap, and `Esc` closes the search prompt before the pager |
+| `Ctrl+G` | Edit the composer draft in `$VISUAL` or `$EDITOR`, whichever is set first; the draft is left untouched when neither is set |
+| `?` | Open help while the composer is empty; otherwise insert the character |
+| `F1` | Open help |
+
+### Key contexts
+
+Keys belong to a named context, and exactly one context owns input at a time. A context is entered
+by taking its focus and left by returning focus to the composer, so a shortcut is never ambiguous
+between two visible surfaces.
+
+| Context | Owner | Answers |
+|---|---|---|
+| `global` | The root app | Quit, help, terminal resize, and focus recovery |
+| `chat` | `tui/transcript` | Viewport navigation and block expansion |
+| `composer` | `tui/composer` | Editing, submission, history, and the command palette |
+| `editor` | The external editor | Everything, while `$VISUAL` or `$EDITOR` owns the terminal |
+| `pager` | The transcript pager | Scrolling and searching the transcript |
+| `list` | `tui/commands` | Navigating a command or choice list |
+| `approval` | `tui/approval` | Answering a pending tool approval |
+
+This is the focus rule above, named: input belongs to the feature that owns focus. The root keeps
+only the genuinely global keys.
 
 ## Mouse
 
-The program does not capture the mouse. Selection, copying, wheel scrolling, and scrollback belong to
-the terminal and use its normal bindings.
+The application does not request mouse reporting. The terminal owns the mouse wheel, full-screen
+selection, and its copy shortcut; the TUI does not reinterpret them. Application-level transcript
+navigation uses `PgUp` and `PgDn`. Explicit TUI clipboard commands still work in the alternate
+screen.
 
 Composer rules worth knowing:
 
@@ -133,38 +161,88 @@ Composer rules worth knowing:
 
 Run rules:
 
-- Queued prompts run in order. The footer previews the first three and summarises the remainder.
+- Queued prompts run in order. The composer area previews the first three and summarises the
+  remainder.
 - Manual cancellation with `Esc` or `Ctrl+C` clears queued prompts. Steering cancellation preserves
   them, because the user is mid-thought rather than abandoning the work.
 
 ## Layout
 
-The TUI uses the terminal's main screen. `view` owns the welcome block, conversation, live streaming
-content, approval and command menus, composer, and status line. This single managed transcript lets
-tool details expand in place without duplicating conversation history.
+The TUI uses the terminal's alternate screen and restores the previous terminal contents and modes on
+normal exit, cancellation, and failure. The transcript is a retained scrollable viewport; the
+composer and status line remain fixed below it. Approval, help, command choices, and long command
+output use overlays and restore focus to its previous owner when closed.
 
-- The compact welcome block contains the product name, model, working directory, and final loaded
-  instruction-source filename.
-- User prompts are visually prominent. Assistant prose uses the available width without an extra
-  left indent.
+- The compact bordered welcome card contains the product name and version, model, working directory,
+  and final loaded instruction-source filename. A short `/help` tip sits directly below it.
+- The composer is a rounded bordered prompt with `Ask Super Agent to do anything` as its empty-state
+  hint. The status line remains directly below it.
+- User prompts are visually prominent. Assistant prose wraps to the available width without an extra
+  left indent. Code preserves indentation and remains accessible horizontally; content is never
+  silently truncated.
 - Reasoning defaults to a compact `Thinking...` line. The reasoning text expands in place for the
   latest or all model steps with the keys above.
-- Tool calls are printed as compact action summaries. Expanding or collapsing rebuilds the visible
-  transcript so inputs and affected paths stay directly below their owning tool-call summary.
-- The dynamic area is clamped to the terminal width and height and shows its tail when content exceeds
-  the available rows.
-- Reset, resume, compact, and undo rebuild the managed transcript from current conversation state.
+- Tool calls are compact action summaries. Expanding or collapsing one block updates that block in
+  place and keeps the viewport stable.
+- New output follows the bottom only while the viewport is already at the bottom. Scrolling upward
+  pins the viewport; later output increments an unread indicator until the user returns to the end.
+- Streaming mutates only the active assistant block and never resets the scroll offset.
+- Reset, resume, compact, and undo reconcile the retained transcript from current conversation state.
+- Resize preserves the draft, selection, transcript position, pending approval, and active stream.
 - Below 18 terminal rows, queue details and command choices use their compact forms.
-- The bottom status line contains permission mode, model, and whether tools are enabled.
+- The status line is an ordered row of items selected by `tui.status_line` in settings — see
+  `config.md`. An item whose data is unavailable is omitted rather than shown empty, and setting the
+  key to `null` removes the row and returns its height to the transcript.
+
+## Appearance
+
+Colour carries meaning and is never decoration. The TUI draws from the terminal's own ANSI palette
+and its default foreground and background, so the interface follows whatever colour scheme the
+terminal is configured with — dark or light — without a theme to pick.
+
+| Role | Colour |
+|---|---|
+| Default text, assistant prose, tool output | The terminal's default foreground |
+| Secondary text: reasoning, metadata, hints, tree guides | Default foreground, dimmed |
+| User input, selection, status indicators | ANSI cyan |
+| Success and added lines | ANSI green |
+| Errors, failures, and removed lines | ANSI red |
+| The agent's identity marker | ANSI magenta |
+
+Those six roles are the whole vocabulary. The TUI never uses ANSI blue or yellow as a foreground,
+never uses ANSI black or white as a foreground, and never constructs a colour from an RGB triple, a
+hexadecimal literal, or an indexed palette entry. `tests/architecture/test_theme.py` enforces this
+by parsing the TUI's own colour construction sites.
+
+Because colour is delegated to the terminal, a screenshot of this interface is not a colour
+reference. Syntax highlighting inside fenced code is the one exception: it is selected by name from
+`tui.syntax_theme` and is not defined by the TUI.
+
+`NO_COLOR` removes colour entirely: every role is drawn in the terminal's default foreground and
+background, so the interface stays legible on any colour scheme. A terminal that cannot show ANSI
+colour is treated the same way. Degrading to monochrome is not the same as degrading to greyscale —
+a role resolved to a grey is still a colour the terminal did not choose, and a role resolved to black
+is invisible on a dark background.
+
+Message markers, in the roles above:
+
+- A user prompt is marked `❯` in cyan.
+- The agent's reply is marked `●` in magenta.
+- A tool call is a compact action summary in cyan; expanding it reveals detail beneath a tree guide
+  in dimmed default text.
+- Reasoning is a single dimmed line until expanded.
 
 ## Approval UI
 
-Tool approval is a selectable menu rather than a bare prompt:
+Tool approval is a modal selectable menu rather than a bare prompt:
 
+- The prompt owns the keyboard while it is open: no key reaches the composer or the transcript, so a
+  shortcut or an answer is never typed into the draft behind it.
 - Arrows or `j`/`k` move the selection; `Enter` confirms.
 - `1`/`y`, `2`/`a`, and `3`/`n` remain direct shortcuts for approve-once, always-approve, and deny.
 - A submitted decision ignores repeated keys until the runtime advances, so a double keypress cannot
   answer the next prompt by accident.
+- The prompt stays open until the runtime moves on, and closing it returns focus to the composer.
 
-The engine reports live states while actions run, so the header follows `WaitingApproval` and
+The engine reports live states while actions run, so the status line follows `WaitingApproval` and
 `RunningTool` as they happen rather than only at snapshot boundaries.

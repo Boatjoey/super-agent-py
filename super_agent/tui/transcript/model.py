@@ -22,6 +22,7 @@ from rich.text import Text
 
 __all__ = [
     "ROLE_ASSISTANT",
+    "ROLE_TOOL",
     "Attachment",
     "Intent",
     "MarkdownRenderer",
@@ -51,25 +52,46 @@ class MarkdownRenderer(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Styles:
-    """The styles the transcript renders with."""
+    """The styles the transcript renders with.
 
-    status: Style
-    user_label: Style
-    tool_label: Style
-    thinking: Style
-    footer: Style
+    The shape is the feature's; the values are the root's palette, handed over
+    at construction, because a feature may not reach for the root's styles (R6).
+    The names are the roles of ``docs/tui.md#appearance``, so a reader can tell
+    which colour a fragment draws without following the injection.
+    """
+
+    #: Default text: assistant prose and tool output.
+    default: Style
+    #: Secondary text: reasoning, metadata, and tree guides.
+    secondary: Style
+    #: The accent: status indicators and a compact tool summary.
+    accent: Style
+    #: The accent where the eye should catch it: the user's prompt marker.
+    accent_bold: Style
+    #: The agent's identity marker.
+    identity: Style
+    #: Success and added lines.
+    success: Style
+    #: Errors, failures, and removed lines.
+    error: Style
     markdown_renderer: MarkdownRenderer
 
 
 def default_styles() -> Styles:
-    """The transcript's own defaults, used when a model is built bare."""
-    secondary, accent = "color(8)", "color(6)"
+    """The transcript's own defaults, used when a model is built bare.
+
+    No colour: the palette belongs to the root, which builds the real styles and
+    passes them to :func:`new`. A bare model still renders, in the terminal's
+    default foreground.
+    """
     return Styles(
-        status=Style(color=accent, italic=True),
-        user_label=Style(color="color(2)", bold=True),
-        tool_label=Style(color=accent, bold=True),
-        thinking=Style(color=secondary, italic=True),
-        footer=Style(color=secondary, italic=True),
+        default=Style(),
+        secondary=Style(),
+        accent=Style(),
+        accent_bold=Style(),
+        identity=Style(),
+        success=Style(),
+        error=Style(),
         markdown_renderer=_PlainMarkdownRenderer(),
     )
 
@@ -83,8 +105,20 @@ class _PlainMarkdownRenderer:
         return Text(content)
 
 
-#: The user prompt glyph, U+276F.
+#: The markers the transcript draws. The roles, not these glyphs, are what
+#: ``docs/tui.md#appearance`` fixes; the glyphs are escaped so an assertion about
+#: them does not read as ambiguous text.
+#:
+#: The user prompt, U+276F; the agent's reply and a tool call, U+25CF; a tool
+#: result, U+21B3.
 _PROMPT_GLYPH = "\u276f"
+_BULLET_GLYPH = "\u25cf"
+_RESULT_GLYPH = "\u21b3"
+
+#: The label a running or reasoning turn shows, and the notice an interrupted one
+#: shows. Both are secondary text; neither is a marker.
+_THINKING_LABEL = "Thinking..."
+_INTERRUPTED_LABEL = "Interrupted"
 
 
 class Role(str):
@@ -98,6 +132,7 @@ class Role(str):
 
 ROLE_USER: Final[Role] = Role("user")
 ROLE_ASSISTANT: Final[Role] = Role("assistant")
+ROLE_TOOL: Final[Role] = Role("tool")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -193,11 +228,11 @@ class Model:
                 self.expandAllTools = not self.expandAllTools
                 self.expandLatestTools = False
                 return self, None, True
-            case "ctrl+t":
+            case "ctrl+r":
                 self.expandLatestThink = not self.expandLatestThink
                 self.expandAllThink = False
                 return self, None, True
-            case "alt+t":
+            case "alt+r":
                 self.expandAllThink = not self.expandAllThink
                 self.expandLatestThink = False
                 return self, None, True
@@ -236,52 +271,41 @@ class Model:
 
     def streamingView(self) -> Text:
         """The live message, or the compact busy placeholder."""
-        styles = self._styles()
         if self.streaming is None:
-            if self.busy:
-                return Text("Thinking...", style=styles.thinking)
-            return Text()
-        if self.streaming.content == "" and self.streaming.reasoning_content != "":
-            return Text("Thinking...", style=styles.thinking)
+            return self._thinkingLine() if self.busy else Text()
+        if not self.streaming.content and self.streaming.reasoning_content.strip():
+            return self._thinkingLine()
         return self.renderMessage(self.streaming, False)
 
     def renderCommitted(self, message: Message, toolsExpanded: bool, thinkingExpanded: bool) -> Text:
-        """One committed message, with its reasoning line and expanded body."""
-        content = self.renderMessage(message, toolsExpanded)
-        if message.role != ROLE_ASSISTANT:
-            return content
-        styles = self._styles()
-        thinking = Text("Thinking...", style=styles.thinking)
-        if thinkingExpanded and message.reasoning_content.strip():
-            for index, line in enumerate(message.reasoning_content.strip().split("\n")):
-                prefix = "    " if index else "  └ "
-                thinking.append("\n")
-                thinking.append(prefix + line, style=styles.thinking)
-        if not content.plain.strip():
-            return thinking
-        thinking.append("\n")
-        thinking.append_text(content)
-        return thinking
+        """One committed message: its reasoning line, then its body."""
+        return _join(self.blocks(message, toolsExpanded, thinkingExpanded), "\n")
+
+    def blocks(self, message: Message, toolsExpanded: bool, thinkingExpanded: bool) -> tuple[Text, ...]:
+        """The fragments one message contributes, in order.
+
+        Splitting the fragments out lets a caller drop the empty ones without
+        dropping a message that carries a body and no reasoning, or the other way
+        round.
+        """
+        rendered: list[Text] = []
+        if message.role == ROLE_ASSISTANT and (reasoning := self._reasoningBlock(message, thinkingExpanded)):
+            rendered.append(reasoning)
+        if (body := self.renderMessage(message, toolsExpanded)) and body.plain.strip():
+            rendered.append(body)
+        if message.interrupted:
+            # The notice follows whatever the turn managed to say: being
+            # interrupted is what ended it.
+            rendered.append(self._interruptionLine())
+        return tuple(rendered)
 
     def renderMessage(self, message: Message, toolsExpanded: bool) -> Text:
-        """One message body: prose, tool summaries, and attachment lines."""
-        styles = self._styles()
+        """One message body, in the shape its role gives it."""
         if message.role == ROLE_USER:
-            rendered = Text(_PROMPT_GLYPH + " ")
-            rendered.stylize(styles.user_label)
-            rendered.append(message.content)
-            return _indent(rendered, 1)
-        rendered = Text()
-        if message.role == ROLE_ASSISTANT and message.content != "":
-            rendered.append_text(self._renderMarkdown(message.content))
-        if message.tool_calls:
-            if rendered.plain:
-                rendered.append("\n")
-            rendered.append_text(self.renderToolCalls(message.tool_calls, toolsExpanded))
-        for attachment in message.attachments:
-            rendered.append("\n")
-            rendered.append(f"  attachment: {attachment.name} ({attachment.mime})", style=styles.status)
-        return rendered
+            return self._userBlock(message)
+        if message.role == ROLE_TOOL:
+            return self._resultBlock(message, toolsExpanded)
+        return self._assistantBlock(message, toolsExpanded)
 
     def renderToolCalls(self, calls: Sequence[ToolCall], expanded: bool) -> Text:
         """One summary line per tool group, with its items nested below."""
@@ -293,13 +317,101 @@ class Model:
                 summary = f"{group.verb} {len(group.items)} {group.kind}"
             if index:
                 rendered.append("\n")
-            rendered.append("● " + summary, style=styles.tool_label)
+            rendered.append(_BULLET_GLYPH + " " + summary, style=styles.accent_bold)
             if expanded:
                 for item_index, item in enumerate(group.items):
                     branch = "└" if item_index == len(group.items) - 1 else "├"
                     rendered.append("\n")
-                    rendered.append(f"  {branch} {item}", style=styles.footer)
+                    rendered.append(f"  {branch} {item}", style=styles.secondary)
         return rendered
+
+    def _userBlock(self, message: Message) -> Text:
+        """The user's prompt: marked, and prominent against the prose below.
+
+        The marker is appended with its own style rather than set as the
+        container's: a base style merges into every fragment appended after it,
+        which would paint the prompt itself in the marker's colour.
+        """
+        styles = self._styles()
+        rendered = Text()
+        rendered.append(_PROMPT_GLYPH + " ", style=styles.accent_bold)
+        rendered.append(message.content, style=styles.default)
+        return _indent(rendered, 1)
+
+    def _assistantBlock(self, message: Message, toolsExpanded: bool) -> Text:
+        """The agent's prose, its tool calls, and any attachment lines.
+
+        Only the first line carries the identity marker: the prose below wraps to
+        the full width rather than inheriting an indent.
+        """
+        styles = self._styles()
+        parts: list[Text] = []
+        if message.content:
+            parts.append(self._renderMarkdown(message.content))
+        if message.tool_calls:
+            parts.append(self.renderToolCalls(message.tool_calls, toolsExpanded))
+        body = _join(parts, "\n")
+        for attachment in message.attachments:
+            body.append("\n")
+            body.append(f"  attachment: {attachment.name} ({attachment.mime})", style=styles.accent)
+        return _markFirstLine(body, _BULLET_GLYPH, styles.identity)
+
+    def _resultBlock(self, message: Message, expanded: bool) -> Text:
+        """A tool result: one folded line, or the whole body when expanded.
+
+        A result is the largest thing a tool produces, so the folded form keeps
+        the first line and counts the rest rather than truncating silently.
+        """
+        styles = self._styles()
+        lines = message.content.strip().split("\n")
+        if not lines or not lines[0]:
+            return Text()
+        shown = lines if expanded else lines[:1]
+        rendered = Text()
+        rendered.append(_RESULT_GLYPH + " ", style=styles.secondary)
+        rendered.append(shown[0], style=self._resultStyle(shown[0]) if expanded else styles.secondary)
+        for line in shown[1:]:
+            rendered.append("\n")
+            rendered.append("  " + line, style=self._resultStyle(line))
+        if hidden := len(lines) - len(shown):
+            rendered.append(f"  … {hidden} more line{'' if hidden == 1 else 's'}", style=styles.secondary)
+        return rendered
+
+    def _resultStyle(self, line: str) -> Style:
+        """A result line's colour: additions and removals are called out."""
+        styles = self._styles()
+        if line.startswith("+"):
+            return styles.success
+        if line.startswith("-"):
+            return styles.error
+        return styles.default
+
+    def _reasoningBlock(self, message: Message, expanded: bool) -> Text:
+        """The compact reasoning line, expanded in place when asked.
+
+        Built as fragments rather than as one styled value: a base style on the
+        container would colour the model's own prose with it.
+        """
+        if not message.reasoning_content.strip():
+            return Text()
+        styles = self._styles()
+        parts = [Text(_THINKING_LABEL, style=styles.secondary)]
+        if expanded:
+            for index, line in enumerate(message.reasoning_content.strip().split("\n")):
+                parts.append(Text(f"  {'└ ' if index == 0 else '  '}{line}", style=styles.secondary))
+        return _join(parts, "\n")
+
+    def _thinkingLine(self) -> Text:
+        """The placeholder shown while a turn runs with nothing to display yet."""
+        return Text(_THINKING_LABEL, style=self._styles().secondary)
+
+    def _interruptionLine(self) -> Text:
+        """The notice that a turn stopped before the message finished.
+
+        An interrupted message with no body would otherwise render as nothing at
+        all, which reads as a turn that never happened.
+        """
+        return Text(_INTERRUPTED_LABEL, style=self._styles().secondary)
 
     def _renderMarkdown(self, content: str) -> Text:
         """Assistant prose through the configured markdown renderer."""
@@ -381,9 +493,6 @@ def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
             return "Read", "files", item(value("path"), call.name)
         case "write_file" | "apply_patch":
             return "Edited", "files", item(value("path"), call.name)
-        case "go_test":
-            packages = _stringSlice(args.get("packages")) or ["./..."]
-            return "Ran", "commands", ["go test " + " ".join(packages)]
         case "run_command" | "bash":
             return "Ran", "commands", item(value("command"), call.name)
         case "search" | "web_search":
@@ -392,9 +501,6 @@ def toolDisplay(call: ToolCall) -> tuple[str, str, list[str]]:
             return "Fetched", "pages", item(value("url"), call.name)
         case "list_files":
             return "Listed", "paths", item(value("path"), ".")
-        case "format":
-            files = _stringSlice(args.get("files")) or [call.name]
-            return "Formatted", "files", files
         case "git_status":
             return "Ran", "commands", ["git status --short"]
         case "git_diff":
@@ -418,12 +524,22 @@ def _parseArgs(input_text: str) -> dict[str, Any]:
     return cast("dict[str, Any]", parsed)
 
 
-def _stringSlice(value: object) -> list[str]:
-    """Every string in a JSON array, ignoring anything else."""
-    if not isinstance(value, list):
-        return []
-    items = cast("Sequence[Any]", value)
-    return [item for item in items if isinstance(item, str)]
+def _markFirstLine(text: Text, glyph: str, style: Style) -> Text:
+    """Prefix the first line with a marker, leaving the rest unindented.
+
+    Indenting the whole block would push wrapped prose out of the width the
+    viewport gave it; marking only the first line keeps the wrap intact.
+    """
+    if not text.plain:
+        return text
+    lines = text.split("\n", allow_blank=True)
+    rendered = Text()
+    rendered.append(glyph + " ", style=style)
+    rendered.append_text(lines[0])
+    for line in lines[1:]:
+        rendered.append("\n")
+        rendered.append_text(line)
+    return rendered
 
 
 def _indent(text: Text, indent: int) -> Text:

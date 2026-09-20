@@ -63,6 +63,7 @@ __all__ = [
     "AttachmentSummary",
     "Cancellation",
     "Channel",
+    "ContextUsage",
     "Conversation",
     "ConversationError",
     "ConversationNotification",
@@ -80,6 +81,7 @@ __all__ = [
     "ToolApprovalRequested",
     "ToolCall",
     "TurnPort",
+    "UsageReported",
 ]
 
 
@@ -103,6 +105,19 @@ class PermissionRequest:
     touched_paths: tuple[str, ...] = ()
     env_vars: tuple[str, ...] = ()
     reason: str = ""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ContextUsage:
+    """What the provider reported the latest model call cost in tokens.
+
+    Absolute counts only: the runtime knows no context-window size, so a fraction
+    or a remainder cannot be derived from these.
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -183,6 +198,15 @@ class MessageAppended(ConversationNotification):
     kind: ClassVar[str] = "MessageAppended"
 
     message: Message = dataclasses.field(default_factory=Message)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class UsageReported(ConversationNotification):
+    """The provider reported what the latest model call cost in tokens."""
+
+    kind: ClassVar[str] = "UsageReported"
+
+    usage: ContextUsage = dataclasses.field(default_factory=ContextUsage)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -320,6 +344,7 @@ NOTIFICATION_KINDS: Final[tuple[str, ...]] = (
     "ToolApprovalCleared",
     "StreamChunkReceived",
     "MessageAppended",
+    "UsageReported",
     "ConversationError",
 )
-"""The six notification kinds, so a test can pin the sealed set."""
+"""The seven notification kinds, so a test can pin the sealed set."""

@@ -34,6 +34,7 @@ from super_agent.runtime.protocol.types import (
     Model as Model,
     ToolRunner as ToolRunner,
     ToolSpec as ToolSpec,
+    Usage as Usage,
 )
 
 __all__ = [
@@ -60,4 +61,5 @@ __all__ = [
     "ToolCallBatch",
     "ToolRunner",
     "ToolSpec",
+    "Usage",
 ]

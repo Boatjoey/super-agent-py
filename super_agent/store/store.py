@@ -31,10 +31,10 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final, cast
 
-from super_agent import jsonutil
+from super_agent import jsonutil, timeutil
 from super_agent.runtime.protocol.types import ROLE_SYSTEM, ROLE_TOOL, Message, ToolCall
 
-#: The record kinds the log can hold. ``messagesFromRecords`` turns five of them
+#: The record kinds the log can hold. ``messages_from_records`` turns five of them
 #: into model context; the rest exist for audit and never reach a model.
 EVENT_SESSION_STARTED: Final[str] = "session_started"
 EVENT_MESSAGE_APPENDED: Final[str] = "message_appended"
@@ -224,14 +224,14 @@ def open_default() -> Store:
     return Store(default_root())
 
 
-def new_id(now: datetime) -> SessionID:
+def new_id(moment: timeutil.Timestamp) -> SessionID:
     """A session identifier: nine fractional digits, without the dot."""
-    return SessionID(_idText(now, keep_dot=False))
+    return SessionID(timeutil.format_id(moment, keep_dot=False))
 
 
-def new_turn_id(now: datetime) -> TurnID:
+def new_turn_id(moment: timeutil.Timestamp) -> TurnID:
     """A turn identifier: the same instant, but the fraction keeps its dot."""
-    return TurnID(_idText(now, keep_dot=True))
+    return TurnID(timeutil.format_id(moment, keep_dot=True))
 
 
 def validateID(session_id: SessionID) -> None:
@@ -263,7 +263,7 @@ def fingerprint(messages: Sequence[Message]) -> str:
     return digest.hexdigest()
 
 
-def messagesFromRecords(records: Sequence[Record]) -> list[Message]:
+def messages_from_records(records: Sequence[Record]) -> list[Message]:
     """Rebuild the model context from a log.
 
     Only five record types produce messages: appended messages, tool results,
@@ -318,13 +318,13 @@ class Store:
         the directory instead of leaving an orphan session behind.
         """
         with self._lock:
+            moment = timeutil.now()
             if meta.id == "":
-                meta = dataclasses.replace(meta, id=new_id(datetime.now(UTC)))
+                meta = dataclasses.replace(meta, id=new_id(moment))
             validateID(meta.id)
-            now = datetime.now(UTC)
             if _isZeroTime(meta.created_at):
-                meta = dataclasses.replace(meta, created_at=now)
-            meta = dataclasses.replace(meta, updated_at=now)
+                meta = dataclasses.replace(meta, created_at=moment)
+            meta = dataclasses.replace(meta, updated_at=moment)
             if meta.title == "":
                 meta = dataclasses.replace(meta, title="Untitled")
             if meta.instruction_fingerprint == "":
@@ -363,11 +363,11 @@ class Store:
             # append the record over a failed refresh would lose the transcript
             # entry the record exists for.
             with contextlib.suppress(Exception):
-                self._write_meta(dataclasses.replace(meta, updated_at=datetime.now(UTC)))
+                self._write_meta(dataclasses.replace(meta, updated_at=timeutil.now()))
         if record.session_id == "":
             record = dataclasses.replace(record, session_id=session_id)
         if _isZeroTime(record.time):
-            record = dataclasses.replace(record, time=datetime.now(UTC))
+            record = dataclasses.replace(record, time=timeutil.now())
         self._ensure_dir(self._session_dir(session_id))
         encoded = (jsonutil.dumps(record) + "\n").encode("utf-8")
         descriptor = os.open(self._events_path(session_id), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
@@ -396,7 +396,7 @@ class Store:
         with self._lock:
             validateID(session_id)
             meta = self._metadata_unlocked(session_id)
-            meta = dataclasses.replace(meta, current_turn_id=turn, updated_at=datetime.now(UTC))
+            meta = dataclasses.replace(meta, current_turn_id=turn, updated_at=timeutil.now())
             self._write_meta(meta)
 
     def save_workspace_description(self, session_id: SessionID, spec: WorkspaceSpec) -> None:
@@ -408,7 +408,7 @@ class Store:
         with self._lock:
             meta = self._metadata_unlocked(session_id)
             cloned = WorkspaceSpec(primary_root=spec.primary_root, cwd=spec.cwd, roots=tuple(spec.roots))
-            meta = dataclasses.replace(meta, workspace=cloned, cwd=spec.cwd, updated_at=datetime.now(UTC))
+            meta = dataclasses.replace(meta, workspace=cloned, cwd=spec.cwd, updated_at=timeutil.now())
             self._write_meta(meta)
 
     def rename_session(self, session_id: SessionID, title: str) -> None:
@@ -419,7 +419,7 @@ class Store:
             if title == "":
                 raise ValueError("title is required")
             meta = self._metadata_unlocked(session_id)
-            meta = dataclasses.replace(meta, title=title, updated_at=datetime.now(UTC))
+            meta = dataclasses.replace(meta, title=title, updated_at=timeutil.now())
             self._write_meta(meta)
 
     def delete(self, session_id: SessionID) -> None:
@@ -499,7 +499,7 @@ class Store:
     def messages(self, session_id: SessionID) -> list[Message]:
         """The model context rebuilt from the log."""
         with self._lock:
-            return messagesFromRecords(self._records_unlocked(session_id))
+            return messages_from_records(self._records_unlocked(session_id))
 
     def last_checkpoint(self, session_id: SessionID) -> Checkpoint | None:
         """The most recent checkpoint with files, or ``None``."""
@@ -525,7 +525,7 @@ class Store:
                     and record.checkpoint is not None
                     and len(record.checkpoint.files) > 0
                 ):
-                    return record.checkpoint, messagesFromRecords(records[:index]), index
+                    return record.checkpoint, messages_from_records(records[:index]), index
             raise FileNotFoundError("no checkpoint to undo")
 
     def truncate_after(self, session_id: SessionID, keep: int) -> None:
@@ -646,19 +646,6 @@ def writeRecords(path: str, records: Sequence[Record]) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-
-
-def _idText(moment: datetime, *, keep_dot: bool) -> str:
-    """The ``20060102T150405.000000000`` layout, from seconds and microseconds.
-
-    ``strftime("%f")`` only reaches microseconds, so the nine-digit fraction is
-    assembled by hand: there is no sub-microsecond clock here, and the last three
-    digits are zeros.
-    """
-    utc = moment.astimezone(UTC)
-    stamp = f"{utc.year:04d}{utc.month:02d}{utc.day:02d}T{utc.hour:02d}{utc.minute:02d}{utc.second:02d}"
-    fraction = f"{utc.microsecond:06d}000"
-    return f"{stamp}.{fraction}" if keep_dot else f"{stamp}{fraction}"
 
 
 def _isZeroTime(moment: datetime) -> bool:

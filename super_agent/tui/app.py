@@ -5,9 +5,9 @@ dimensions, and layout composition. Every user capability lives in the feature
 that owns it, so nothing here knows how a command, an approval, or an attachment
 behaves.
 
-The package surface — ``new``, ``infoBar``, ``welcomeString``, ``footerView``,
-and ``applyOutcome`` — lives in ``super_agent/tui/__init__.py``, because those
-functions read the whole model and wire several features together.
+The package surface — ``new``, ``welcomeString``, and ``applyOutcome`` — lives
+in ``super_agent/tui/__init__.py``, because those functions read the whole model
+and wire several features together.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from super_agent.tui.conversation import (
     ApprovalDecision,
     Cancellation,
     Channel,
+    ContextUsage,
     ConversationNotification,
     SnapshotPort,
     TurnPort,
@@ -41,11 +42,9 @@ __all__ = [
     "OutputPrinter",
     "StartupInfo",
     "SubmitDone",
-    "compactStatus",
     "composerCommands",
     "displayCWD",
     "printCommand",
-    "scrollbackPrinter",
     "with_clipboard_writer",
     "with_output_printer",
 ]
@@ -53,13 +52,24 @@ __all__ = [
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class StartupInfo:
-    """What the process knew at start-up and the TUI only displays."""
+    """What the process knew at start-up and the TUI only displays.
+
+    ``status_line`` carries the ``tui.status_line`` setting, and its three values
+    are the three documented meanings: ``None`` draws the default order, ``()``
+    removes the row, and a tuple draws exactly the items it names. The setting was
+    validated when the configuration was loaded, so every name here is one the
+    status line knows.
+    """
 
     model_name: str = ""
+    version: str = ""
     permission_mode: str = ""
     no_tools: bool = False
     cwd: str = ""
     instruction_paths: tuple[str, ...] = ()
+    status_line: tuple[str, ...] | None = None
+    session_id: str = ""
+    sandbox: str = ""
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -79,13 +89,6 @@ class ConversationNotificationMsg:
 
     notification: ConversationNotification
     turn: int = 0
-
-
-def scrollbackPrinter(content: str) -> runtime.Command[Msg] | None:
-    """The default command output: committed above the live view."""
-    if not content.strip():
-        return None
-    return runtime.Scrollback(content=content.rstrip("\n"))
 
 
 @dataclasses.dataclass(slots=True)
@@ -113,9 +116,12 @@ class App:
     )
     approvals: Channel[ApprovalDecision] = dataclasses.field(default_factory=lambda: Channel[ApprovalDecision]())
     agentStatus: AgentStatus = dataclasses.field(default_factory=AgentStatus)
+    contextUsage: ContextUsage | None = None
     turn: int = 0
     writeClipboard: ClipboardWriter = dataclasses.field(default_factory=lambda: actions.defaultClipboardWrite)
-    printOutput: OutputPrinter = dataclasses.field(default_factory=lambda: scrollbackPrinter)
+    #: Where command output goes. The application shell installs its own viewer
+    #: at construction, so a bare model has nowhere to print and drops it.
+    printOutput: OutputPrinter | None = None
 
     def init(self) -> tuple[runtime.Command[Msg], ...]:
         """The commands a freshly built app starts with.
@@ -148,7 +154,7 @@ type Msg = (
 
 #: An asynchronous clipboard write: native tools and OSC 52 are both children.
 type ClipboardWriter = Callable[[str], None]
-#: A printer that commits command output to scrollback.
+#: A printer that shows command output in the shell's own viewer.
 type OutputPrinter = Callable[[str], runtime.Command[Msg] | None]
 #: A construction-time adjustment to the app.
 type Option = Callable[[App], None]
@@ -182,10 +188,10 @@ def composerCommands(palette: Sequence[commands.Command]) -> tuple[ComposerComma
 
 
 def printCommand(app: App, content: str) -> runtime.Command[Msg] | None:
-    """Commit command output to scrollback, or do nothing when there is none."""
-    if not content.strip():
-        return None
+    """Commit command output to the shell's viewer, or do nothing when there is none."""
     printer = app.printOutput
+    if printer is None or not content.strip():
+        return None
     return printer(content.rstrip("\n"))
 
 
@@ -195,11 +201,3 @@ def displayCWD(cwd: str) -> str:
     if home and home != "~" and cwd.startswith(home):
         return "~" + cwd[len(home) :]
     return cwd
-
-
-def compactStatus(value: str, maxLines: int) -> str:
-    """The first ``maxLines`` lines of a multi-line status, and what is left over."""
-    lines = value.split("\n")
-    if len(lines) <= maxLines:
-        return value
-    return "\n".join(lines[:maxLines]) + f"\n… {len(lines) - maxLines} more lines"

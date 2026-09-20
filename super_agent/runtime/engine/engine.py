@@ -45,10 +45,15 @@ from super_agent.runtime.machine import (
     RuntimeData,
     RuntimeDataChangeApplier,
 )
-from super_agent.runtime.protocol.types import Model, ToolRunner
+from super_agent.runtime.protocol.types import Model, ToolRunner, Usage
 
 #: A per-turn observer. It runs outside the engine lock so it can read snapshots.
 StateObserver = Callable[[], Awaitable[None]]
+
+#: A per-turn observer of what a model call cost. It receives the provider's own
+#: counts, or ``None`` when the adapter could not measure the response. It never
+#: awaits, so the engine cannot yield to another task while reporting.
+ModelUsageObserver = Callable[[Usage | None], None]
 
 
 class Engine(CommandsMixin, ActionLoopMixin, QueryMixin):
@@ -74,10 +79,25 @@ class Engine(CommandsMixin, ActionLoopMixin, QueryMixin):
         self._runtime_data = RuntimeData(state=STATE_INITIALIZING, messages=list(initial or []))
         self._action_queue = ActionQueue()
         self._state_observer: StateObserver | None = None
+        self._model_usage_observer: ModelUsageObserver | None = None
 
     def set_state_observer(self, observer: StateObserver | None) -> None:
         """Install the per-turn observer, or clear it with ``None``."""
         self._state_observer = observer
+
+    def set_model_usage_observer(self, observer: ModelUsageObserver | None) -> None:
+        """Install the per-turn usage observer, or clear it with ``None``."""
+        self._model_usage_observer = observer
+
+    def _notify_model_usage_observer(self, usage: Usage | None) -> None:
+        """Report one model call's cost.
+
+        The loop calls this for the current run only: a response that lost the
+        conversation to a cancellation or a reset reports nothing.
+        """
+        observer = self._model_usage_observer
+        if observer is not None:
+            observer(usage)
 
     async def _notify_state_observer(self) -> None:
         """Fire the observer, never while holding the lock.
@@ -147,6 +167,7 @@ def new_engine_with_components(
 
 __all__ = [
     "Engine",
+    "ModelUsageObserver",
     "PolicySetter",
     "PolicySnapshot",
     "PolicyStore",

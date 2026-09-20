@@ -42,6 +42,7 @@ from super_agent.runtime.execution import ZERO_PERMISSION_MODE
 from super_agent.tools.lsp import ServerConfig as LSPServerConfig
 from super_agent.tools.mcp import ServerConfig as MCPServerConfig
 from super_agent.tools.sandbox import SandboxConfig, SandboxMode, valid_sandbox_mode
+from super_agent.tui.statusline import DEFAULT_ORDER, ITEMS
 from super_agent.workspace import Context, new_default_context
 
 __all__ = [
@@ -54,6 +55,7 @@ __all__ = [
     "PermissionSettings",
     "SandboxSettings",
     "Settings",
+    "TUISettings",
     "TelemetrySettings",
     "apikeyPlaceholder",
     "decodeExtensions",
@@ -65,6 +67,7 @@ __all__ = [
     "load_settings_file",
     "normalizeSettings",
     "resolveProviderConfig",
+    "resolve_status_line",
     "save_settings_file",
     "settings_path",
 ]
@@ -163,6 +166,19 @@ class PermissionSettings:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class TUISettings:
+    """The ``tui`` block of ``settings.json``.
+
+    ``status_line`` defaults to the order ``docs/config.md`` documents rather
+    than to ``None``, and that is what keeps an absent key and an explicit
+    ``null`` two different values: absent draws the default row, ``null`` removes
+    it. A list draws exactly the items it names.
+    """
+
+    status_line: tuple[str, ...] | None = DEFAULT_ORDER
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class Settings:
     """``~/.superagent/settings.json``, field for field.
 
@@ -194,6 +210,7 @@ class Settings:
     telemetry: TelemetrySettings = dataclasses.field(
         default_factory=TelemetrySettings, metadata=json_field(name="telemetry")
     )
+    tui: TUISettings = dataclasses.field(default_factory=TUISettings, metadata=json_field(name="tui"))
 
 
 @dataclasses.dataclass(slots=True)
@@ -221,6 +238,10 @@ class Config:
     agent: str = ""
     extensions: Extensions = dataclasses.field(default_factory=Extensions)
     telemetry_path: str = ""
+    #: The validated ``tui.status_line``: the documented default order when the
+    #: setting is absent, and the empty tuple when it is ``null``, which removes
+    #: the row. Both are values, so the two cases stay different here too.
+    status_line: tuple[str, ...] = DEFAULT_ORDER
     project: project.Project = dataclasses.field(default_factory=project.Project)
     workspace: Context | None = None
     config_root: str = ""
@@ -287,6 +308,7 @@ def load_config(flags: Flags, lookup: Lookup | None = None) -> Config:
     sandboxMode = SandboxMode(settings.sandbox.mode)
     if not valid_sandbox_mode(sandboxMode):
         raise ValueError("invalid sandbox mode: " + settings.sandbox.mode)
+    status_line = resolve_status_line(settings.tui.status_line)
     rules = PermissionRules(
         allow_tools=settings.permissions.allow_tools,
         deny_tools=settings.permissions.deny_tools,
@@ -355,6 +377,7 @@ def load_config(flags: Flags, lookup: Lookup | None = None) -> Config:
         agent=firstNonEmpty(settings.agent, "build"),
         extensions=extensions,
         telemetry_path=telemetryPath,
+        status_line=status_line,
         project=selectedProject,
         workspace=workspaceContext,
         config_root=selectedProject.root,
@@ -402,6 +425,23 @@ def resolveProviderConfig(settings: Settings, provider: str, lookup: Lookup) -> 
             return dataclasses.replace(config, api_key=value)
         raise ValueError("provider " + provider + " has no api_key: set it in settings.json or export " + envKey)
     return config
+
+
+def resolve_status_line(items: tuple[str, ...] | None) -> tuple[str, ...]:
+    """The validated ``tui.status_line``, with ``null`` resolved to "no row".
+
+    An item outside the vocabulary fails the load here rather than being dropped
+    when the row is drawn, because a setting that silently does nothing is worse
+    than one the user is told about. ``null`` arrives as ``None`` and becomes the
+    empty tuple — a row with no items — which is a value and not the absence of
+    the key; an absent key draws the default order.
+    """
+    if items is None:
+        return ()
+    for item in items:
+        if item not in ITEMS:
+            raise ValueError("invalid status line item: " + item)
+    return tuple(items)
 
 
 def envTrue(lookup: Lookup, key: str) -> bool:
@@ -495,6 +535,7 @@ def normalizeSettings(settings: Settings) -> Settings:
         mcp_servers=settings.mcp_servers or {},
         extensions=settings.extensions or ExtensionSettings(),
         telemetry=settings.telemetry or TelemetrySettings(),
+        tui=settings.tui or TUISettings(),
         agent=settings.agent or "build",
         permissions=dataclasses.replace(
             permissions,

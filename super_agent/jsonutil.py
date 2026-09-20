@@ -77,8 +77,8 @@ def to_json_value(value: Any) -> Any:
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return _dataclass_to_json(value)
     if isinstance(value, datetime):
-        # Datetimes are stored as RFC3339Nano, the format the on-disk artefacts
-        # use.
+        # Datetimes are stored as RFC 3339: whole seconds, plus a fractional part
+        # when it is non-zero, with the trailing zeros trimmed.
         return format_rfc3339_nano(value)
     if isinstance(value, Enum):
         return value.value
@@ -127,10 +127,18 @@ def _decode(value: Any, annotation: Any) -> Any:
     """Build a value of ``annotation`` from decoded JSON data."""
     if annotation is Any or annotation is None:
         return value
-    if value is None:
-        return None
 
     origin = get_origin(annotation)
+    if value is None:
+        if (origin is Union or origin is types.UnionType) and type(None) in get_args(annotation):
+            return None
+        if origin is list:
+            return []
+        if origin is tuple:
+            return ()
+        if origin in (dict, Mapping):
+            return {}
+        raise TypeError(f"expected {annotation}, got null")
     if origin is Union or origin is types.UnionType:
         members = [arg for arg in get_args(annotation) if arg is not type(None)]
         return _decode(value, members[0]) if members else None

@@ -15,7 +15,7 @@ built-ins; `tools.sandboxed_registry` wires the same set to a sandboxed command 
 
 ## Built-in Tools
 
-Thirteen tools ship in `default_registry`:
+Eleven tools ship in `default_registry`:
 
 | Tool | Purpose |
 |---|---|
@@ -25,8 +25,6 @@ Thirteen tools ship in `default_registry`:
 | `apply_patch` | Replace expected text in a workspace file |
 | `write_file` | Write workspace files, creating parent directories |
 | `run_command` | Run workspace commands with cwd, timeout, and output limits |
-| `go_test` | Run `go test` for workspace packages |
-| `format` | Run `gofmt -w` on workspace files |
 | `git_status` | Show `git status --short` |
 | `git_diff` | Show `git diff` for optional paths |
 | `bash` | Run shell commands after approval |
