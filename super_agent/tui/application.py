@@ -17,7 +17,7 @@ from textual.message import Message as TextualMessage
 from textual.screen import ModalScreen
 from textual.widgets import Static, TextArea
 
-from super_agent.tui import runtime, statusline, theme
+from super_agent.tui import actions, runtime, statusline, theme
 from super_agent.tui.app import App as AppModel, Msg
 from super_agent.tui.approval import ApprovalDialog
 from super_agent.tui.composer import Composer
@@ -171,7 +171,6 @@ class Application(TextualApp[None]):
         self.model = model
         self._tasks: set[asyncio.Task[None]] = set()
         self._listener: asyncio.Task[None] | None = None
-        self._following = True
         self._unread = 0
         self._transcript_fingerprint: object = None
         self._approval_dialog: ApprovalDialog | None = None
@@ -196,8 +195,13 @@ class Application(TextualApp[None]):
         yield Static(id="status", markup=False)
 
     async def run_terminal(self) -> None:
-        """Run without mouse reporting so the terminal owns the mouse."""
-        await self.run_async(mouse=False)
+        """Run with mouse reporting, which is what lets the wheel reach the interface.
+
+        The terminal's own alternate-scroll turns the wheel into arrow keys while
+        reporting is off, and an arrow key is the composer's history; reporting is
+        what makes a wheel notch scroll the surface under the pointer instead.
+        """
+        await self.run_async(mouse=True)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Which application bindings may claim a key right now.
@@ -241,6 +245,11 @@ class Application(TextualApp[None]):
         await self._dispatch(message.value)
 
     async def action_cancel_or_quit(self) -> None:
+        selection = self.screen.get_selected_text()
+        if selection and (copy := actions.copyCommand(self.model, selection)) is not None:
+            self.screen.clear_selection()
+            self._start((copy,))
+            return
         self._sync_editor_to_model()
         if self.model.composer.draft() != "":
             self._quit_armed_until = 0.0
@@ -299,14 +308,27 @@ class Application(TextualApp[None]):
             composer.action_cursor_down()
 
     def action_page_up(self) -> None:
-        pane = self.query_one("#transcript", VerticalScroll)
-        pane.scroll_page_up(animate=False)
-        self._following = False
+        self.query_one("#transcript", TranscriptScreen).scroll_page_up(animate=False)
 
     def action_page_down(self) -> None:
-        pane = self.query_one("#transcript", VerticalScroll)
-        pane.scroll_page_down(animate=False)
-        self.call_after_refresh(self._update_following)
+        self.query_one("#transcript", TranscriptScreen).scroll_page_down(animate=False)
+
+    def on_mouse_scroll_up(self, _event: events.MouseScrollUp) -> None:
+        """The wheel's fallback: the surface under the pointer had nothing to scroll."""
+        self._scroll_transcript(rows=-self.scroll_sensitivity_y)
+
+    def on_mouse_scroll_down(self, _event: events.MouseScrollDown) -> None:
+        self._scroll_transcript(rows=self.scroll_sensitivity_y)
+
+    def _scroll_transcript(self, *, rows: float) -> None:
+        """Scroll the transcript, unless an overlay is the surface holding the pointer.
+
+        An overlay is drawn over the transcript, so a wheel notch that reached
+        here while one is open is meant for it, and nothing behind it may move.
+        """
+        if isinstance(self.screen, ModalScreen):
+            return
+        self.query_one("#transcript", TranscriptScreen).scroll_by(rows)
 
     async def action_model_key(self, key: str) -> None:
         await self._model_key(key)
@@ -317,7 +339,6 @@ class Application(TextualApp[None]):
 
     async def action_clear_status(self) -> None:
         """Drop the transient status line and go back to the latest content."""
-        self._following = True
         self._unread = 0
         await self._dispatch(runtime.ClearScreenMsg())
 
@@ -369,14 +390,14 @@ class Application(TextualApp[None]):
         if isinstance(message, runtime.ClearScreenMsg):
             self.model.err = ""
             self.model.status = ""
-            self.query_one("#transcript", VerticalScroll).scroll_end(animate=False)
+            self.query_one("#transcript", TranscriptScreen).follow()
         self.model, commands = await update(self.model, message)
         await self._render_model()
         self._start(commands)
 
     async def _render_model(self) -> None:
         pane = self.query_one("#transcript", TranscriptScreen)
-        was_following = self._following or pane.is_vertical_scroll_end
+        was_following = pane.following
         fingerprint = (
             tuple(self.model.transcript.messages),
             self.model.transcript.streaming,
@@ -396,9 +417,8 @@ class Application(TextualApp[None]):
         self._render_queue()
         self._render_suggestions()
         if was_following:
-            self._following = True
+            pane.follow()
             self._unread = 0
-            pane.scroll_end(animate=False)
         elif transcript_changed:
             self._unread += 1
         self._render_unread()
@@ -467,13 +487,6 @@ class Application(TextualApp[None]):
         widget = self.query_one("#unread", Static)
         widget.update(f"↓ {self._unread} new updates" if self._unread else "")
         widget.display = self._unread > 0
-
-    def _update_following(self) -> None:
-        pane = self.query_one("#transcript", TranscriptScreen)
-        self._following = pane.is_vertical_scroll_end
-        if self._following:
-            self._unread = 0
-            self._render_unread()
 
     def _sync_editor_to_model(self) -> None:
         editor = self.query_one("#composer", TextArea)

@@ -1,7 +1,7 @@
 [project]
 name = "super-agent-py"
 version = "0.1.0"
-description = "Agent runtime with a state-machine core, LLM providers, local tools, and a Textual TUI"
+description = "Agent runtime with a state-machine core, LLM providers, local tools, and a native terminal interface"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }

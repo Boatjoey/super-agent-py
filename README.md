@@ -1,8 +1,7 @@
 # Super Agent
 
-Python agent runtime with a state-machine core, LLM providers, local tools, and a Textual TUI.
-
-![TUI screenshot](./static/ui.png)
+Python agent runtime with a state-machine core, LLM providers, local tools, and a native terminal
+interface.
 
 ## Quick Start
 
@@ -10,7 +9,8 @@ Python agent runtime with a state-machine core, LLM providers, local tools, and 
 uv run super-agent
 ```
 
-The TUI is the only interaction surface. On first run the app writes a settings template to
+The terminal interface writes normal output into scrollback; it has no alternate screen or panes.
+On first run the app writes a settings template to
 `~/.superagent/settings.json`; add your provider API key there before the first prompt.
 
 Common flags:
@@ -39,12 +39,12 @@ uv run python scripts/smoke.py   # end-to-end acceptance over a pseudo-terminal
 
 The documents under [`docs/`](docs/README.md) are the specification for this codebase, and
 [`docs/README.md`](docs/README.md) indexes them: architecture, the state machine, the runtime loop,
-sessions and context, the TUI, tools and sandboxing, and configuration.
+sessions and context, the terminal interface, tools and sandboxing, and configuration.
 
 `tests/fixtures/session_store/` holds a checked-in golden session store, so the on-disk format is
 verified against a fixed layout rather than a description of it.
 
 ## Status
 
-The Textual TUI is the only interaction surface; headless, server, and alternate UI entry points
-are out of scope.
+The native terminal is the only interaction surface; headless, server, and alternate UI entry
+points are out of scope.

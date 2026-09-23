@@ -63,7 +63,7 @@ async def run(cfg: app.Config) -> int:
         profile = agentController.active_profile()
         workspace = cfg.workspace
         cwd = cfg.project.root if workspace is None else workspace.get_cwd()
-        program = tui.Application(
+        program = tui.TerminalApplication(
             tui.new(
                 app.new_tui_conversation(session, mcpController, agentController),
                 tui.StartupInfo(

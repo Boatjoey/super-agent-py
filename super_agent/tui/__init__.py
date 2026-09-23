@@ -100,6 +100,7 @@ from super_agent.tui.styles import (
     Styles as Styles,
     default_styles as default_styles,
 )
+from super_agent.tui.terminal import TerminalApplication as TerminalApplication
 from super_agent.tui.transcript import MarkdownRenderer as TranscriptMarkdownRenderer, Styles as TranscriptStyles
 from super_agent.tui.update import (
     finishSubmit as finishSubmit,
@@ -161,6 +162,7 @@ __all__ = [
     "StreamChunkReceived",
     "Styles",
     "SubmitDone",
+    "TerminalApplication",
     "ToolApprovalCleared",
     "ToolApprovalRequested",
     "ToolCall",

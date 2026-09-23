@@ -1,5 +1,9 @@
 # TUI
 
+This document specifies the framework-neutral UI model and the retained legacy Textual adapter.
+The `super-agent` command does not start that adapter. Its native, line-oriented interaction is
+specified in [terminal.md](terminal.md).
+
 `tui` is the inbound adapter and the only interaction surface. It depends on its `Conversation` port
 and its own display DTOs, never on `runtime` — see `architecture.md`. Runtime values become TUI values
 at the composition boundary in `app/tui_adapter.py`.
@@ -112,7 +116,7 @@ Extensions:
 | `Esc` | Clear input, or cancel a run |
 | `Ctrl+U` | Clear input |
 | `Ctrl+L` | Clear transient status and return the transcript to its latest content |
-| `Ctrl+C` | Clear a non-empty draft; otherwise cancel a run, or press twice to quit while idle |
+| `Ctrl+C` | Copy the selected text; otherwise clear a non-empty draft, cancel a run, or press twice to quit while idle |
 | Arrows | Navigate multiline input, or recall a single-line prompt without losing the draft |
 | `PgUp`, `PgDn` | Move the transcript viewport by one page |
 | `Home`, `End` | Move the transcript viewport to its start or end when it owns focus |
@@ -147,10 +151,19 @@ only the genuinely global keys.
 
 ## Mouse
 
-The application does not request mouse reporting. The terminal owns the mouse wheel, full-screen
-selection, and its copy shortcut; the TUI does not reinterpret them. Application-level transcript
-navigation uses `PgUp` and `PgDn`. Explicit TUI clipboard commands still work in the alternate
-screen.
+The application requests mouse reporting, so the wheel and the pointer reach the interface.
+
+- The wheel scrolls the surface under the pointer. A surface with nothing to scroll — the composer,
+  the status line — leaves the wheel to the transcript, so the conversation scrolls wherever the
+  pointer happens to be. An open overlay keeps the wheel to itself.
+- The transcript draws no scrollbar of its own: the wheel, `PgUp`, and `PgDn` are how it moves, and
+  the unread indicator at its foot reports when it is pinned above the latest content. An overlay
+  that shows long output — help, a command's output, the pager — keeps a scrollbar, because nothing
+  else there says where it is.
+- Dragging inside the transcript selects text and leaves focus in the composer, so the next keypress
+  still edits the draft.
+- The terminal keeps its own selection behind its bypass modifier: hold `Shift` while dragging in
+  xterm, kitty, and GNOME Terminal to select and copy text exactly as it is drawn.
 
 Composer rules worth knowing:
 

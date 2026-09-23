@@ -5,7 +5,7 @@ Super Agent follows a hexagonal architecture with a state-machine domain core.
 ```mermaid
 flowchart TD
     app["app (composition root)"]
-    tui["tui — TUI adapter"]
+    tui["tui — terminal adapter and UI model"]
     adapters["llm / tools / store / project / workspace"]
     port["Conversation port"]
     session["runtime/session"]
@@ -36,8 +36,9 @@ the build on a violation.
 - `runtime/execution` implements outbound model, tool, and permission ports.
 - `runtime/session` exposes application use cases. It must not contain terminal behaviour, and it must
   not import `os` or `pathlib` — filesystem access goes through ports.
-- `tui` is a Textual inbound adapter. Textual and Rich remain inside this adapter; it depends on the
-  application only through its `Conversation` ports and display DTOs.
+- `tui` owns the native terminal adapter, framework-neutral UI model, and a compatibility Textual
+  shell. Rich and Textual remain inside this adapter; it depends on the application only through its
+  `Conversation` ports and display DTOs.
 - `app` is the composition root. It creates dependencies and converts runtime values to TUI values.
 - `llm`, `tools`, `store`, `project`, and `workspace` are top-level adapters. `llm` and `tools` may
   import `runtime/protocol` but not the root `runtime` facade; `store` and `workspace` may also import
@@ -60,8 +61,8 @@ that owns a type, not on this facade.
 tool-batch intake, approval requests, and result mapping; the runtime re-exports no second name for any
 of them.
 
-The TUI is the only interaction surface. Headless CLI, HTTP server, WebSocket, and alternate UI
-adapters are out of scope.
+The native terminal is the only interaction surface. Headless execution, HTTP, WebSocket, and
+alternate UI adapters are out of scope.
 
 ## Package Boundaries
 
@@ -110,8 +111,8 @@ alias facade.
 - `repository.py`: the persistence and workspace ports, including checkpoint creation,
   `load_undo_point`, `truncate_after`, and the one-time `save_workspace_description` upgrade.
 
-The TUI's feature ownership, message routing, focus, effects, views, and port rules are specified in
-[`tui.md`](tui.md#feature-architecture).
+Native interaction is specified in [`terminal.md`](terminal.md). The shared UI model and legacy
+Textual adapter are specified in [`tui.md`](tui.md#feature-architecture).
 
 `project` resolves the selected project independently from filesystem access policy. `workspace.Context`
 is the process-independent source of truth for workspace roots and cwd, while `workspace.Workspace`

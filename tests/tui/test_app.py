@@ -23,8 +23,10 @@ from typing import cast
 import pytest
 from rich.style import Style
 from rich.text import Text
+from textual import events
 from textual.containers import VerticalScroll
 from textual.pilot import Pilot
+from textual.widget import Widget
 from textual.widgets import Static, TextArea
 
 from super_agent.tui import (
@@ -60,10 +62,12 @@ from super_agent.tui import (
     new,
     printCommand,
     update,
+    with_clipboard_writer,
     with_output_printer,
 )
 from super_agent.tui.application import OutputScreen
 from super_agent.tui.approval import ApprovalDialog
+from super_agent.tui.transcript.screen import TranscriptScreen
 
 #: What an update hands back: the commands the shell starts.
 type Commands = tuple[Command[Msg], ...]
@@ -365,6 +369,23 @@ async def settle(pilot: Pilot[None]) -> None:
     """Let a chain of workers — each posting the message that starts the next — finish."""
     for _ in range(3):
         await pilot.pause()
+
+
+async def wheel(program: Application, pilot: Pilot[None], over: Widget, *, up: bool = True) -> None:
+    """One wheel notch with the pointer over ``over``, delivered as the driver delivers it."""
+    region = over.region
+    x, y = region.x + 1, region.y + 1
+    kind = events.MouseScrollUp if up else events.MouseScrollDown
+    program.post_message(kind(None, x, y, 0, -1 if up else 1, 0, False, False, False, screen_x=x, screen_y=y))
+    await pilot.pause()
+
+
+def long_transcript(fake: FakeConversation, count: int = 40) -> App:
+    """A model whose transcript is taller than the viewport it is rendered into."""
+    model = new_app(fake)
+    for index in range(count):
+        model.transcript.append(Message(role=ROLE_ASSISTANT, content=f"message {index}\n" * 2))
+    return model
 
 
 # ---------------------------------------------------------------------------
@@ -920,6 +941,166 @@ async def test_page_keys_move_the_transcript_viewport() -> None:
 
 
 @pytest.mark.asyncio
+async def test_page_up_keeps_following_a_transcript_that_fits() -> None:
+    """``docs/tui.md#layout``: a key that could not move the viewport did not pin it."""
+    program = Application(new_app(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        await pilot.pause()
+        assert pane.max_scroll_y == 0, "the transcript fits the viewport"
+
+        await pilot.press("pageup")
+        await pilot.pause()
+
+        assert pane.following, "nothing to read back to leaves the viewport following"
+
+
+@pytest.mark.asyncio
+async def test_wheel_scrolls_the_transcript_and_stops_following() -> None:
+    """``docs/tui.md#mouse``: the wheel scrolls the surface under the pointer."""
+    program = Application(long_transcript(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        await pilot.pause()
+        bottom = pane.scroll_y
+        assert bottom > 0, "the transcript is taller than the viewport"
+
+        await wheel(program, pilot, pane)
+
+        assert pane.scroll_y < bottom, "a wheel notch reads back into the transcript"
+        assert not pane.following, "reading above the end is not following the latest content"
+
+
+@pytest.mark.asyncio
+async def test_wheel_over_the_composer_scrolls_the_transcript() -> None:
+    """``docs/tui.md#mouse``: a surface with nothing to scroll leaves the wheel to the transcript."""
+    program = Application(long_transcript(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        composer = program.query_one("#composer", TextArea)
+        await pilot.pause()
+        bottom = pane.scroll_y
+
+        await wheel(program, pilot, composer)
+
+        assert pane.scroll_y < bottom
+
+
+@pytest.mark.asyncio
+async def test_wheel_back_down_to_the_end_follows_again() -> None:
+    """Arriving at the end settles the viewport back into following."""
+    program = Application(long_transcript(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        await pilot.pause()
+        await wheel(program, pilot, pane)
+        assert not pane.following
+
+        for _ in range(20):
+            await wheel(program, pilot, pane, up=False)
+
+        assert pane.is_vertical_scroll_end, "the wheel came back to the end"
+        assert pane.following
+
+
+@pytest.mark.asyncio
+async def test_output_while_scrolled_up_is_unread_instead_of_a_jump() -> None:
+    """``docs/tui.md#layout``: later output increments the unread indicator and keeps the offset."""
+    fake = FakeConversation(script=[MessageAppended(message=Message(role=ROLE_ASSISTANT, content="fresh output"))])
+    program = Application(long_transcript(fake))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        await pilot.pause()
+        await wheel(program, pilot, pane)
+        pinned = pane.scroll_y
+
+        await pilot.press(*"more", "enter")
+        await settle(pilot)
+
+        assert pane.scroll_y == pinned, "the viewport stays where the reader left it"
+        assert "new updates" in str(program.query_one("#unread", Static).content)
+
+
+@pytest.mark.asyncio
+async def test_transcript_draws_no_scrollbar() -> None:
+    """``docs/tui.md#mouse``: the transcript has no scrollbar of its own."""
+    program = Application(long_transcript(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        await pilot.pause()
+
+        assert pane.max_scroll_y > 0, "the transcript is taller than the viewport"
+        assert pane.scrollbar_size_vertical == 0, "the transcript asks for no scrollbar"
+        assert pane.vertical_scrollbar.region.width == 0, "so none is drawn into it"
+
+
+@pytest.mark.asyncio
+async def test_click_on_the_transcript_leaves_the_keyboard_in_the_composer() -> None:
+    """``docs/tui.md#mouse``: a drag selects text; the next key still edits the draft."""
+    program = Application(long_transcript(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        composer = program.query_one("#composer", TextArea)
+        await pilot.pause()
+
+        await pilot.click("#transcript", offset=(4, 4))
+        await pilot.pause()
+        assert composer.has_focus
+
+        await pilot.press("x")
+        await pilot.pause()
+        assert composer.text == "x"
+
+
+@pytest.mark.asyncio
+async def test_an_overlay_keeps_the_wheel_to_itself() -> None:
+    """``docs/tui.md#mouse``: nothing behind an open overlay moves."""
+    program = Application(long_transcript(FakeConversation()))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        pane = program.query_one("#transcript", TranscriptScreen)
+        await pilot.pause()
+        await pilot.press("f1")
+        await pilot.pause()
+        assert isinstance(program.screen, OutputScreen)
+        pinned = pane.scroll_y
+
+        await wheel(program, pilot, program.screen)
+
+        assert pane.scroll_y == pinned, "the transcript behind help does not move"
+
+
+@pytest.mark.asyncio
+async def test_ctrl_c_copies_the_selected_text_and_keeps_the_draft() -> None:
+    """``docs/tui.md#keys``: Ctrl+C copies a selection, and means the rest only without one."""
+    written: list[str] = []
+    program = Application(new_app(FakeConversation(), None, with_clipboard_writer(written.append)))
+
+    async with program.run_test(size=(60, 16)) as pilot:
+        composer = program.query_one("#composer", TextArea)
+        await pilot.press(*"draft")
+        await pilot.pause()
+        await pilot.hover("#transcript", offset=(2, 2))
+        await pilot.mouse_down("#transcript", offset=(2, 2))
+        await pilot.hover("#transcript", offset=(20, 6))
+        await pilot.mouse_up("#transcript", offset=(20, 6))
+        await pilot.pause()
+        assert program.screen.get_selected_text(), "the drag selected transcript text"
+
+        await pilot.press("ctrl+c")
+        await settle(pilot)
+
+        assert composer.text == "draft", "copying a selection leaves the draft alone"
+        assert written and "Copied" in status_row(program)
+
+
+@pytest.mark.asyncio
 async def test_stream_chunk_replaces_the_streaming_message() -> None:
     fake = FakeConversation(hold=True)
     program = Application(new_app(fake))
@@ -1061,7 +1242,8 @@ async def test_mcp_commands_list_and_add_server() -> None:
 
 
 @pytest.mark.asyncio
-async def test_terminal_run_leaves_mouse_handling_to_the_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_terminal_run_requests_mouse_reporting(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``docs/tui.md#mouse``: the wheel only reaches the interface with reporting on."""
     program = Application(new_app(FakeConversation()))
     options: dict[str, bool] = {}
 
@@ -1072,7 +1254,7 @@ async def test_terminal_run_leaves_mouse_handling_to_the_terminal(monkeypatch: p
 
     await program.run_terminal()
 
-    assert options == {"mouse": False}
+    assert options == {"mouse": True}
 
 
 @pytest.mark.asyncio
