@@ -42,9 +42,12 @@ def test_model_registry_creates_registered_provider() -> None:
 async def test_builtin_provider_is_loaded_on_first_request(monkeypatch: pytest.MonkeyPatch) -> None:
     imported: list[str] = []
 
+    def new_open_ai(_config: llm.ProviderConfig) -> FakeModel:
+        return FakeModel()
+
     def import_module(name: str) -> SimpleNamespace:
         imported.append(name)
-        return SimpleNamespace(new_open_ai=lambda _config: FakeModel())
+        return SimpleNamespace(new_open_ai=new_open_ai)
 
     monkeypatch.setattr(model_factory.importlib, "import_module", import_module)
     model = llm.new_model("openai", llm.ProviderConfig(api_key="test", model="test"))
