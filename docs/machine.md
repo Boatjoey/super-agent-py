@@ -228,7 +228,7 @@ Take a `UserMessageSubmitted` arriving in `Idle`.
    applier clones and mutates, `validate_runtime_data` checks the candidate, the engine commits data and
    plan together.
 4. **Dispatch** — only now does `CallModel` run, via `ScheduledActionRunner` →
-   `ScheduledActionExecutor` → `Model.next`. The engine is already in `WaitingLLM`, so the TUI can show
+   `ScheduledActionExecutor` → `Model.next`. The engine is already in `WaitingLLM`, so the interactive CLI can show
    the model working.
 5. **Continue** — `ActionResultResolver` turns the model result into the next event: a plain reply
    becomes `AssistantMessageReceived` (→ `Idle`), a tool request becomes `ToolBatchReceived`

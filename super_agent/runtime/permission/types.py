@@ -2,7 +2,7 @@
 
 Command classification routes approvals; it is not a security boundary. The
 policy in ``runtime/execution`` is what decides, and these are only the values it
-reasons about and hands to the TUI.
+reasons about and hands to the interactive CLI.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ COMMAND_CLASS_UNKNOWN: Final[CommandClass] = CommandClass("unknown")
 
 #: The zero value for the type. A request nobody classified is not the same as
 #: one classified ``unknown``: ``unknown`` means the command was examined and
-#: found opaque, while the zero value means nothing looked at it. The TUI keeps
+#: found opaque, while the zero value means nothing looked at it. The CLI keeps
 #: the distinction — ``tui/approval`` only prints the class line when it is set.
 ZERO_COMMAND_CLASS: Final[CommandClass] = CommandClass("")
 

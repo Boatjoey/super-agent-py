@@ -52,14 +52,7 @@ __all__ = [
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class StartupInfo:
-    """What the process knew at start-up and the TUI only displays.
-
-    ``status_line`` carries the ``tui.status_line`` setting, and its three values
-    are the three documented meanings: ``None`` draws the default order, ``()``
-    removes the row, and a tuple draws exactly the items it names. The setting was
-    validated when the configuration was loaded, so every name here is one the
-    status line knows.
-    """
+    """What the process knew at start-up and the interactive CLI displays."""
 
     model_name: str = ""
     version: str = ""
@@ -67,7 +60,6 @@ class StartupInfo:
     no_tools: bool = False
     cwd: str = ""
     instruction_paths: tuple[str, ...] = ()
-    status_line: tuple[str, ...] | None = None
     session_id: str = ""
     sandbox: str = ""
 

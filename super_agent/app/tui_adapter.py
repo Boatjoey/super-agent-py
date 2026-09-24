@@ -1,7 +1,7 @@
-"""The terminal adapter: the runtime application API behind the TUI's port.
+"""The runtime application API behind the interactive CLI port.
 
 Conversion lives at the composition edge, so neither side knows the other: the
-TUI sees only its own display DTOs, and the runtime only knows its own
+The interactive CLI sees only its own display DTOs, and the runtime only knows its own
 notifications and views.
 
 Two things this file is the single home of:
@@ -10,7 +10,7 @@ Two things this file is the single home of:
   notification kind the mapping does not know becomes a visible
   :class:`tui.ConversationError` naming the type, rather than being dropped, so a
   new runtime notification cannot degrade the interface without a trace.
-* the two bridges of a turn. The runtime channels are attached to the TUI's
+* the two bridges of a turn. The runtime channels are attached to the CLI's
   channels by coroutines over queues, and the run context is built from the turn's
   :class:`tui.Cancellation` so the runtime still sees one cancellation signal.
 """
@@ -29,8 +29,8 @@ from super_agent.runtime.protocol.run_context import RunContext, live_context
 from super_agent.runtime.session import ApprovalsClosed, NotificationsClosed
 
 __all__ = [
-    "TUIConversation",
-    "new_tui_conversation",
+    "TerminalConversation",
+    "new_terminal_conversation",
     "to_conversation_notification",
     "to_conversation_view",
     "to_tui_context_usage",
@@ -42,7 +42,7 @@ __all__ = [
 ]
 
 
-class TUIConversation:
+class TerminalConversation:
     """The conversation port the terminal talks to."""
 
     __slots__ = ("agents", "mcp", "session")
@@ -249,7 +249,7 @@ class TUIConversation:
     ) -> BaseException | None:
         """Run one turn, bridging the runtime's queues to the interface's channels.
 
-        Returns the failure instead of raising it: the TUI's command reports it
+        Returns the failure instead of raising it: the CLI command reports it
         through ``SubmitDone``, and an interface that has already gone away must
         not be hit with an exception on its way out.
         """
@@ -294,9 +294,9 @@ class TUIConversation:
         return error
 
 
-def new_tui_conversation(session: runtime.Session, *controllers: object) -> TUIConversation:
+def new_terminal_conversation(session: runtime.Session, *controllers: object) -> TerminalConversation:
     """The session, plus whichever controllers apply."""
-    return TUIConversation(session, *controllers)
+    return TerminalConversation(session, *controllers)
 
 
 async def _watchCancellation(cancellation: tui.Cancellation, ctx: RunContext) -> None:
@@ -445,7 +445,7 @@ def to_tui_status(state: runtime.State) -> tui.AgentStatus:
 
     The table is exhaustive over the runtime states; a state it does not name is
     reported as ``Unknown`` rather than borrowing a neighbouring label.
-    Presentation words, not runtime words, are the whole point: the TUI owns no
+    Presentation words, not runtime words, are the whole point: the CLI owns no
     runtime state enum.
     """
     match state:

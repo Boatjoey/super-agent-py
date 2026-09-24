@@ -238,20 +238,14 @@ class Terminal:
             time.sleep(0.05)
         raise AssertionError(f"timed out waiting for {needle!r}\n--- output ---\n{self.text()}")
 
-    def wait_until_idle(self, timeout: float = STEP_TIMEOUT_SECONDS) -> None:
-        """Wait until no turn is running.
-
-        The interface stops advertising a cancel key once the turn has finished,
-        which is the externally visible signal that Enter will submit rather than
-        steer. A timeout is not fatal here: the caller's assertion describes what
-        actually happened.
-        """
+    def wait_until_idle(self, mark: int, timeout: float = STEP_TIMEOUT_SECONDS) -> None:
+        """Wait until the empty interactive prompt returns."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if "esc/ctrl+u" in self.text()[-4000:]:
+            if self.output[mark:] and self.text().endswith("❯ "):
                 return
-            time.sleep(0.1)
-        time.sleep(0.5)
+            time.sleep(0.05)
+        raise AssertionError("timed out waiting for the interactive prompt\n" + self.text()[-2000:])
 
     def close(self) -> None:
         if self.process.poll() is None:
@@ -336,8 +330,18 @@ def run_interactive_checks(home: Path, workspace: Path) -> None:
     try:
         terminal.wait_for("Super Agent")
 
-        terminal.send("hello there\r")
+        terminal.send("/")
+        terminal.wait_for("/compact")
+        terminal.send("\x15")
+
+        mark = len(terminal.output)
+        terminal.send("请介绍这个项目\r")
         terminal.wait_for(REPLY)
+        terminal.wait_until_idle(mark)
+        assert any(
+            any(message.get("content") == "请介绍这个项目" for message in json.loads(prompt))
+            for prompt in FakeProvider.seen
+        ), FakeProvider.seen
 
         # A resize mid-session must not produce a line wider than the terminal.
         #
@@ -349,11 +353,15 @@ def run_interactive_checks(home: Path, workspace: Path) -> None:
         # all, and that what it draws next fits.
         mark = len(terminal.output)
         terminal.resize(60, 20)
-        time.sleep(1.5)
+        terminal.send("resize check\r")
+        deadline = time.monotonic() + STEP_TIMEOUT_SECONDS
+        while time.monotonic() < deadline and terminal.text().count(REPLY) < 2:
+            time.sleep(0.05)
         redrawn = bytes(terminal.output[mark:]).decode("utf-8", errors="replace")
         over = [line for line in visible_lines(redrawn) if cell_length(line) > 60]
         assert not over, "resize produced an over-wide line:\n" + "\n".join(over)
-        assert "smoke-model" in redrawn, "resize produced no redraw; the width check proved nothing"
+        assert REPLY in redrawn, "the resized terminal produced no reply"
+        terminal.wait_until_idle(mark)
 
         # Ctrl+C while a turn is running cancels the turn; it only quits when
         # nothing is in flight, which is why the slow prompt comes first.
@@ -375,7 +383,7 @@ def run_interactive_checks(home: Path, workspace: Path) -> None:
         # Let the turn finish before submitting a command: while a turn is still
         # running, Enter steers it instead of submitting, so a command would be
         # sent to the model as a follow-up prompt rather than run as one.
-        terminal.wait_until_idle()
+        terminal.wait_until_idle(0)
 
         # The conversation-management commands must run against a live session and
         # leave it usable. Their transcript surgery is asserted precisely by the
@@ -384,7 +392,7 @@ def run_interactive_checks(home: Path, workspace: Path) -> None:
         for command in ("/clear", "/compact", "/undo"):
             mark = len(terminal.output)
             terminal.send(command + "\r")
-            terminal.wait_until_idle()
+            terminal.wait_until_idle(mark)
             assert terminal.process.poll() is None, f"{command} terminated the process"
             assert terminal.output[mark:], f"{command} produced no output at all"
 

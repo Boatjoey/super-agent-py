@@ -12,7 +12,7 @@ equality is not required:
 
 Concurrency: a :class:`threading.Lock` guards every method. Every method is
 synchronous, but the store is reached from the session's asynchronous code and
-from the TUI's own threads, and ``append`` performs a ``meta.json``
+from the interactive CLI's own threads, and ``append`` performs a ``meta.json``
 read-modify-write next to an append plus ``fsync``. The lock keeps those cycles
 whole; a "no lock at all" argument could not show that.
 """

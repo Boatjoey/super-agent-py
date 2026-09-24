@@ -73,7 +73,7 @@ def test_snapshot_includes_pending_tool_batch_progress() -> None:
 
 
 def test_batch_id_is_derived_from_the_first_call() -> None:
-    """The batch identity is what the TUI shows as progress, so it must be stable."""
+    """The batch identity is what the interactive CLI shows as progress, so it must be stable."""
     event = machine.ToolBatchReceived(calls=CALLS)
     result = machine.transition(transition_snapshot(machine.STATE_WAITING_LLM, event), event)
     batch_change = result.runtime_data_changes[1]

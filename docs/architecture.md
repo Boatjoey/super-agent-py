@@ -5,7 +5,7 @@ Super Agent follows a hexagonal architecture with a state-machine domain core.
 ```mermaid
 flowchart TD
     app["app (composition root)"]
-    tui["tui — TUI adapter"]
+    tui["tui — interactive CLI adapter and model"]
     adapters["llm / tools / store / project / workspace"]
     port["Conversation port"]
     session["runtime/session"]
@@ -36,9 +36,10 @@ the build on a violation.
 - `runtime/execution` implements outbound model, tool, and permission ports.
 - `runtime/session` exposes application use cases. It must not contain terminal behaviour, and it must
   not import `os` or `pathlib` — filesystem access goes through ports.
-- `tui` is a Textual inbound adapter. Textual and Rich remain inside this adapter; it depends on the
-  application only through its `Conversation` ports and display DTOs.
-- `app` is the composition root. It creates dependencies and converts runtime values to TUI values.
+- `tui` owns `TerminalApplication` and its framework-neutral interaction model. Rich is confined to
+  this adapter; it depends on the application only through `Conversation` ports and display DTOs.
+- `app` is the composition root. It creates dependencies and converts runtime values to interactive
+  CLI values.
 - `llm`, `tools`, `store`, `project`, and `workspace` are top-level adapters. `llm` and `tools` may
   import `runtime/protocol` but not the root `runtime` facade; `store` and `workspace` may also import
   `runtime/session`, which is where their ports are declared.
@@ -48,8 +49,8 @@ provider adapter and its SDK are loaded on the first model request, so unrelated
 delay terminal startup.
 
 `tui` must never import `runtime`, and the runtime must never import `tui`. Runtime states become
-presentation-only `tui.AgentStatus` values at the app boundary, in `app/tui_adapter.py`; the TUI owns
-no runtime state enum.
+presentation-only `tui.AgentStatus` values at the app boundary, in `app/tui_adapter.py`; the
+interactive CLI owns no runtime state enum.
 
 The root `runtime` package is a compatibility facade organized by `api_model.py`, `api_machine.py`,
 `api_execution.py`, `api_engine.py`, and `api_session.py`. It exposes session persistence ports and
@@ -60,8 +61,8 @@ that owns a type, not on this facade.
 tool-batch intake, approval requests, and result mapping; the runtime re-exports no second name for any
 of them.
 
-The TUI is the only interaction surface. Headless CLI, HTTP server, WebSocket, and alternate UI
-adapters are out of scope.
+`TerminalApplication` is the only interaction surface. Headless execution, HTTP, WebSocket,
+full-screen TUI, and alternate UI adapters are out of scope.
 
 ## Package Boundaries
 
@@ -110,8 +111,7 @@ alias facade.
 - `repository.py`: the persistence and workspace ports, including checkpoint creation,
   `load_undo_point`, `truncate_after`, and the one-time `save_workspace_description` upgrade.
 
-The TUI's feature ownership, message routing, focus, effects, views, and port rules are specified in
-[`tui.md`](tui.md#feature-architecture).
+Interactive CLI behaviour is specified in [`terminal.md`](terminal.md).
 
 `project` resolves the selected project independently from filesystem access policy. `workspace.Context`
 is the process-independent source of truth for workspace roots and cwd, while `workspace.Workspace`

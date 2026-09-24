@@ -1,7 +1,7 @@
 [project]
 name = "super-agent-py"
 version = "0.1.0"
-description = "Agent runtime with a state-machine core, LLM providers, local tools, and a Textual TUI"
+description = "Agent runtime with a state-machine core, LLM providers, local tools, and an interactive CLI"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
@@ -13,7 +13,6 @@ dependencies = [
     "pyperclip>=1.9",
     "python-dotenv>=1.1",
     "rich>=13.9",
-    "textual>=8.2,<9",
 ]
 
 [project.scripts]

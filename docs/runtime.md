@@ -101,7 +101,7 @@ provides exactly four things to the engine:
 - a usage observer, registered per turn, which reports what each completed model call of the current
   run cost as a `UsageReported` notification. A response the adapter could not measure reports nothing.
 
-The state observer is how the TUI follows states that pass *between* snapshot points, such as
+The state observer is how the interactive CLI follows states that pass *between* snapshot points, such as
 `RunningTool` while a tool executes. It runs outside the engine lock so it can read snapshots safely.
 
 The usage observer carries the provider's own token counts, so the interface can show context usage

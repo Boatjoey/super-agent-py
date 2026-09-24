@@ -63,9 +63,9 @@ async def run(cfg: app.Config) -> int:
         profile = agentController.active_profile()
         workspace = cfg.workspace
         cwd = cfg.project.root if workspace is None else workspace.get_cwd()
-        program = tui.Application(
+        program = tui.TerminalApplication(
             tui.new(
-                app.new_tui_conversation(session, mcpController, agentController),
+                app.new_terminal_conversation(session, mcpController, agentController),
                 tui.StartupInfo(
                     model_name=llm.model_display_name(profile.provider, llm.ProviderConfig(model=profile.model)),
                     version=importlib.metadata.version("super-agent-py"),
@@ -73,7 +73,6 @@ async def run(cfg: app.Config) -> int:
                     no_tools=cfg.no_tools,
                     cwd=cwd,
                     instruction_paths=tuple(cfg.instruction_sources),
-                    status_line=cfg.status_line,
                     session_id=str(session.metaID()),
                     sandbox=str(cfg.sandbox.mode),
                 ),

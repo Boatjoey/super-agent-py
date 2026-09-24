@@ -5,8 +5,8 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 
 ## Essentials
 
-- Python project (3.12): agent runtime, LLM adapters, local tools, Textual TUI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
-- Design pattern: hexagonal architecture with a functional core and imperative shell. `runtime/machine` is the pure domain core; engine, session, TUI, LLM, tools, and store are ports or adapters around it.
+- Python project (3.12): agent runtime, LLM adapters, local tools, interactive CLI. Distribution `super-agent-py`, import root `super_agent`, console script `super-agent`.
+- Design pattern: hexagonal architecture with a functional core and imperative shell. `runtime/machine` is the pure domain core; engine, session, interactive CLI, LLM, tools, and store are ports or adapters around it.
 - State-machine flow is `Event -> validated MachineSnapshot -> transition -> RuntimeDataChange + ActionPlan -> transactional RuntimeDataChangeApplier/Executor -> ActionResultResolver -> Event`; dependencies point toward the machine.
 - Keep `RunID` stale filtering in the engine. Keep state, call-id, queue guards, and invariants in `runtime/machine`.
 - RuntimeDataChangeAppliers must clone, apply, and validate runtime data; the engine commits runtime data and the transition's action plan under one lock only after validation.
@@ -22,19 +22,19 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 - Use `SessionNotification` for runtime-session output and convert it to `tui.ConversationNotification` at the app boundary; reserve `machine.Event` for state-machine input.
 - Keep turn I/O wiring in `runtime/session/turn.py` and history use cases in `runtime/session/history.py`.
 - Keep storage and filesystem access behind `runtime/session.Repository` and `runtime/session.Workspace`.
-- Follow the feature-oriented TUI boundaries in `docs/tui.md`; keep views pure and ports feature-local.
-- Keep the TUI on the terminal's ANSI palette and default foreground. Never construct a colour from an RGB triple, a hexadecimal literal, or an indexed palette entry, and never use ANSI blue or yellow as a foreground; syntax highlighting is the one exception. `tests/architecture/test_theme.py` enforces this.
-- Map runtime states to presentation-only `tui.AgentStatus` values in `app/tui_adapter.py`; TUI must not define runtime state enums.
+- Follow the interactive CLI boundary in `docs/terminal.md`; keep views pure and ports feature-local.
+- Keep the interactive CLI on the terminal's ANSI palette and default foreground. Never construct a colour from an RGB triple, a hexadecimal literal, or an indexed palette entry, and never use ANSI blue or yellow as a foreground; syntax highlighting is the one exception. `tests/architecture/test_theme.py` enforces this.
+- Map runtime states to presentation-only `tui.AgentStatus` values in `app/tui_adapter.py`; the interactive CLI must not define runtime state enums.
 - Keep durable session storage in `store/` and filesystem checkpoint access in `workspace/`.
 - Load layered instructions with `app/instructions`: user-level spec, root-to-leaf `AGENTS.md`, fallback `CLAUDE.md`.
 - Preserve `system` messages such as project instructions across reset.
 - Do not scatter transition rules into `tui/`, `llm/`, or `tools/`.
 - Use existing vocabulary: `State`, `RuntimeData`, `Event`, `RuntimeDataChange`, `ActionPlan`, `ScheduledAction`, `transition`.
 - Follow the hexagonal architecture in `docs/architecture.md`; `tui` must not import `runtime`.
-- Keep the TUI as the only interaction surface; do not add headless, server, or alternate UI entry points.
+- Keep `TerminalApplication` as the only interaction surface; do not add headless, server, full-screen TUI, or alternate UI entry points.
 - LLM and tool adapters may import `runtime/protocol`, not the root `runtime` facade.
 - MCP stdio adapters live in `tools/mcp`; discovered tools join `tools.Registry` atomically and remain risky under the common permission policy.
-- `app.MCPController` coordinates MCP lifecycle, dynamic registry changes, and atomic settings persistence; TUI only calls its application-facing adapter.
+- `app.MCPController` coordinates MCP lifecycle, dynamic registry changes, and atomic settings persistence; the interactive CLI only calls its application-facing adapter.
 - Python naming: modules, functions, and methods are `snake_case`; classes are `PascalCase`; module constants and enum members are `UPPER_SNAKE`; dataclass fields are `snake_case`.
 - Concurrency is asyncio: a run carries a per-run `RunContext` plus an `asyncio.Task`, channels are `asyncio.Queue`, and subprocesses use `create_subprocess_exec`. Adapters convert `asyncio.CancelledError` into the project's `Cancelled` at their boundary; `CancelledError` is a `BaseException`, so it passes through `except Exception`.
 - Adapters translate third-party SDK values into `runtime/protocol` types at the boundary; SDK objects never reach the machine.
@@ -51,7 +51,7 @@ specifications live in `docs/` — see the index at `docs/README.md`.
 
 ## Commands
 
-- `uv run super-agent`: run the TUI. Flags are listed in `README.md`.
+- `uv run super-agent`: run the interactive CLI. Flags are listed in `README.md`.
 - `uv run pytest`: run all tests.
 - `uv run ruff format <files>`: format changed Python files.
 - `./scripts/coverage.sh`: run tests with whole-project coverage.

@@ -176,7 +176,7 @@ class SessionBase:
     def auto_approve_tools(self) -> bool:
         """Whether the active policy approves tools without prompting.
 
-        A runtime decision, not something the TUI derives from the mode string.
+        A runtime decision, not something the interactive CLI derives from the mode string.
         """
         return self.permissionMode == PERMISSION_MODE_BYPASS
 

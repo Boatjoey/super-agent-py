@@ -1,7 +1,7 @@
-"""The TUI's visual vocabulary.
+"""The interactive CLI's visual vocabulary.
 
 Every colour the interface draws is named here, once, from the terminal's own
-ANSI palette: ``docs/tui.md#appearance`` fixes six roles and this module is their
+ANSI palette: ``docs/terminal.md#appearance`` fixes six roles and this module is their
 only home. A feature never constructs a colour — it declares the shape of the
 styles it renders with and the root hands it the values, because a feature may
 not import this module (R6). ``tests/architecture/test_theme.py`` fails when a
@@ -31,8 +31,7 @@ from rich.theme import Theme
 __all__ = ["DEFAULT_SYNTAX_THEME", "DefaultMarkdownRenderer", "MarkdownRenderer", "Styles", "default_styles"]
 
 #: The ANSI colour names the palette uses, in Rich's spelling. Which colour each
-#: one draws is the terminal's decision, not this module's (see
-#: :mod:`super_agent.tui.theme` for the same roles stated for Textual).
+#: one draws is the terminal's decision, not this module's.
 _DEFAULT = "default"
 _ACCENT = "cyan"
 _SUCCESS = "green"
@@ -148,7 +147,7 @@ class Styles:
 
 
 def default_styles(syntax_theme: str = DEFAULT_SYNTAX_THEME) -> Styles:
-    """The palette: the six roles of ``docs/tui.md#appearance`` and the emphasis they carry.
+    """The palette: the roles of ``docs/terminal.md#appearance`` and their emphasis.
 
     ``syntax_theme`` names the theme fenced code is highlighted with; it is the
     one place a colour outside the six roles is allowed, because a syntax theme

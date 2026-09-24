@@ -2,7 +2,7 @@
 
 A language server is a long-lived subprocess speaking JSON-RPC over Content-Length
 frames on its stdin and stdout; its stderr is discarded rather than forwarded,
-because the TUI owns the terminal and a chatty server (gopls, rust-analyzer) would
+because the interactive CLI owns the terminal and a chatty server (gopls, rust-analyzer) would
 garble it.
 
 The pending map, the diagnostics map, and the stored error need no lock: the event
@@ -304,7 +304,7 @@ async def _start(ctx: RunContext, config: ServerConfig) -> _Client:
         cwd=config.root or None,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
-        # Server stderr is dropped, not forwarded: the TUI owns the terminal.
+        # Server stderr is dropped, not forwarded: the interactive CLI owns the terminal.
         stderr=asyncio.subprocess.DEVNULL,
         start_new_session=True,
     )

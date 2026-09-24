@@ -1,4 +1,4 @@
-"""The Textual inbound adapter: the only interaction surface.
+"""The interactive CLI adapter and framework-neutral interaction model.
 
 This package keeps its surface in root modules, one per concern, and this module
 stands in for the package namespace so callers keep writing ``tui.new`` and
@@ -46,7 +46,6 @@ from super_agent.tui.app import (
     with_clipboard_writer as with_clipboard_writer,
     with_output_printer as with_output_printer,
 )
-from super_agent.tui.application import Application as Application
 from super_agent.tui.approval import (
     APPROVE_ALWAYS as APPROVE_ALWAYS,
     APPROVE_ONCE as APPROVE_ONCE,
@@ -100,6 +99,7 @@ from super_agent.tui.styles import (
     Styles as Styles,
     default_styles as default_styles,
 )
+from super_agent.tui.terminal import TerminalApplication as TerminalApplication
 from super_agent.tui.transcript import MarkdownRenderer as TranscriptMarkdownRenderer, Styles as TranscriptStyles
 from super_agent.tui.update import (
     finishSubmit as finishSubmit,
@@ -127,7 +127,6 @@ __all__ = [
     "AgentStatusChanged",
     "AgentSummary",
     "App",
-    "Application",
     "ApprovalDecision",
     "AttachmentSummary",
     "Cancellation",
@@ -161,6 +160,7 @@ __all__ = [
     "StreamChunkReceived",
     "Styles",
     "SubmitDone",
+    "TerminalApplication",
     "ToolApprovalCleared",
     "ToolApprovalRequested",
     "ToolCall",

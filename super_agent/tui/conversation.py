@@ -1,6 +1,6 @@
-"""The boundary between the TUI and whatever runs the conversation.
+"""The boundary between the interactive CLI and the conversation runtime.
 
-The names here are the display DTOs the composition boundary hands the TUI and
+The names here are the display DTOs the composition boundary hands the CLI and
 the notifications it sends back; the owning feature holds each definition and
 this module re-exports it, so callers keep addressing one package.
 
