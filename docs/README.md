@@ -26,8 +26,7 @@ When you are tempted to restate something, link to it instead.
 | [machine.md](machine.md) | States, the canonical transition graph and table, runtime data, invariants, errors |
 | [runtime.md](runtime.md) | The runtime cycle, the engine loop, scheduled actions, run lifecycle, telemetry |
 | [session.md](session.md) | Context assembly, instructions, persistence, resume, compact, reset, undo |
-| [terminal.md](terminal.md) | Native terminal interaction and approval input |
-| [tui.md](tui.md) | Framework-neutral UI model and legacy Textual adapter |
+| [terminal.md](terminal.md) | Interactive CLI, commands, approval input, and appearance |
 | [tools.md](tools.md) | Registry, built-in tools, MCP, LSP, network guards, the sandbox |
 | [config.md](config.md) | `settings.json`, providers, permissions, sandbox parameters, flags |
 | [workspace.md](workspace.md) | The workspace model — a survey of coding-agent workspace concepts plus super-agent's project resolution, access policy, persistence, and resume |

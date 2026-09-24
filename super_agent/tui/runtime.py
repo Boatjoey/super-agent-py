@@ -1,4 +1,4 @@
-"""The message and command vocabulary the TUI loop runs on.
+"""The message and command vocabulary the interactive CLI loop runs on.
 
 The loop itself belongs to the application shell: it owns the queue, the task
 that drains a command, and the listener a new turn replaces. What lives here is
@@ -49,7 +49,7 @@ class WindowSizeMsg:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class KeyMsg:
-    """One key press, named with the TUI's canonical key vocabulary.
+    """One key press, named with the CLI's canonical key vocabulary.
 
     ``key`` is the canonical name: a single character for a printable key,
     otherwise ``enter``, ``tab``, ``esc``, ``up``, ``down``, ``ctrl+c``,

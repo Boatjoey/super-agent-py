@@ -1,7 +1,6 @@
 # Super Agent
 
-Python agent runtime with a state-machine core, LLM providers, local tools, and a native terminal
-interface.
+Python agent runtime with a state-machine core, LLM providers, local tools, and an interactive CLI.
 
 ## Quick Start
 
@@ -9,7 +8,7 @@ interface.
 uv run super-agent
 ```
 
-The terminal interface writes normal output into scrollback; it has no alternate screen or panes.
+The interactive CLI writes normal output into scrollback; it has no alternate screen or panes.
 On first run the app writes a settings template to
 `~/.superagent/settings.json`; add your provider API key there before the first prompt.
 
@@ -46,5 +45,5 @@ verified against a fixed layout rather than a description of it.
 
 ## Status
 
-The native terminal is the only interaction surface; headless, server, and alternate UI entry
-points are out of scope.
+The interactive CLI is the only interaction surface; headless, server, and alternate UI entry points
+are out of scope.

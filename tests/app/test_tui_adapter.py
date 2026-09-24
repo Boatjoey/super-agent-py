@@ -1,4 +1,4 @@
-"""The TUI adapter's mapping of runtime values to presentation values.
+"""The interactive CLI adapter's mapping of runtime values to presentation values.
 
 The adapter is the one place runtime values become presentation values, so the
 test drives it through the engine: an unready engine is ``Initializing``, and a
@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from super_agent import runtime, tui
-from super_agent.app import new_tui_conversation
+from super_agent.app import new_terminal_conversation
 from super_agent.app.tui_adapter import to_conversation_notification
 from tests.fakes.model import ScriptedModel
 
@@ -21,7 +21,7 @@ async def test_tui_adapter_maps_runtime_state() -> None:
     # and a nil tool runner, which is the same engine for a test that only reads
     # its state.
     engine = runtime.new_engine(None, None, None)
-    conversation = new_tui_conversation(runtime.new_session(engine))
+    conversation = new_terminal_conversation(runtime.new_session(engine))
 
     status = conversation.snapshot().agent_status
     assert status.label == "Initializing"
@@ -36,7 +36,7 @@ async def test_tui_adapter_maps_runtime_state() -> None:
 
 
 def test_tui_adapter_maps_reported_usage() -> None:
-    """The provider's counts cross the boundary unchanged, as the TUI's own DTO."""
+    """The provider's counts cross the boundary unchanged, as the CLI's own DTO."""
     notification = to_conversation_notification(
         runtime.UsageReported(usage=runtime.Usage(input_tokens=11, output_tokens=7, total_tokens=18))
     )
@@ -61,7 +61,7 @@ async def test_tui_adapter_delivers_provider_usage_through_a_turn() -> None:
     )
     engine = runtime.new_engine(model, None, None)
     await engine.ready()
-    conversation = new_tui_conversation(runtime.new_session(engine))
+    conversation = new_terminal_conversation(runtime.new_session(engine))
     notifications: tui.Channel[tui.ConversationNotification] = tui.Channel()
     approvals: tui.Channel[tui.ApprovalDecision] = tui.Channel()
 

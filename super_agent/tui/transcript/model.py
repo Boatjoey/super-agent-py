@@ -56,7 +56,7 @@ class Styles:
 
     The shape is the feature's; the values are the root's palette, handed over
     at construction, because a feature may not reach for the root's styles (R6).
-    The names are the roles of ``docs/tui.md#appearance``, so a reader can tell
+    The names are the roles of ``docs/terminal.md#appearance``, so a reader can tell
     which colour a fragment draws without following the injection.
     """
 
@@ -106,7 +106,7 @@ class _PlainMarkdownRenderer:
 
 
 #: The markers the transcript draws. The roles, not these glyphs, are what
-#: ``docs/tui.md#appearance`` fixes; the glyphs are escaped so an assertion about
+#: ``docs/terminal.md#appearance`` fixes; the glyphs are escaped so an assertion about
 #: them does not read as ambiguous text.
 #:
 #: The user prompt, U+276F; the agent's reply and a tool call, U+25CF; a tool

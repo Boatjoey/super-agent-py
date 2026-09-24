@@ -1,9 +1,8 @@
 """Dependency-rule enforcement.
 
 This module parses each package's imports and fails when the dependency rule in
-``docs/architecture.md`` is broken. It also scans the TUI package's identifiers
-for the renderer that was deleted with the Textual migration, so the removed
-surface cannot come back unannounced.
+``docs/architecture.md`` is broken. It also scans the interactive CLI package's
+identifiers so a removed full-screen renderer cannot return unannounced.
 
 Rules. ``super_agent`` is the import root, so ``super-agent/tui`` becomes
 ``super_agent.tui``.
@@ -227,9 +226,9 @@ def _rule_violations(
     found: list[tuple[str, str]] = []
     top_level_file = not nested
 
-    # R1: the TUI is an inbound adapter; it talks to its Conversation port.
+    # R1: the interactive CLI is an inbound adapter; it talks to its port.
     if in_tui and _within(name, "super_agent.runtime"):
-        found.append(("R1", "TUI must depend on its Conversation port, not runtime"))
+        found.append(("R1", "interactive CLI must depend on its Conversation port, not runtime"))
 
     # R2 and R3: top-level adapters see runtime ports, never the machine or engine.
     if (
@@ -261,7 +260,7 @@ def _rule_violations(
 
     # R6: features collaborate through typed messages.
     if feature is not None and _within(name, "super_agent.tui") and not _within(name, f"super_agent.tui.{feature}"):
-        found.append(("R6", "TUI features must collaborate through typed messages, not feature imports"))
+        found.append(("R6", "CLI features must collaborate through typed messages, not feature imports"))
 
     # R7: the machine is the pure core.
     if top == "runtime" and nested[:1] == ("machine",):
@@ -275,12 +274,12 @@ def _rule_violations(
     # R8: features never reach back for the root tui package. R6 covers this too;
     # R8 exists so the invariant has its own name and its own failure message.
     if feature is not None and name == "super_agent.tui":
-        found.append(("R8", "TUI features must not import the root tui package"))
+        found.append(("R8", "CLI features must not import the root tui package"))
 
     # R9: the composition root wires the TUI, so a feature never reaches back for
     # it. ``app`` imports ``tui``, never the other way round.
     if feature is not None and _within(name, "super_agent.app"):
-        found.append(("R9", "TUI features must not import the composition root"))
+        found.append(("R9", "CLI features must not import the composition root"))
 
     return found
 
@@ -421,10 +420,8 @@ def test_rules_accept_the_corrective_alternative(tmp_path: Path) -> None:
 # The deleted legacy renderer
 # ---------------------------------------------------------------------------
 
-#: The vocabulary the deleted Rich/MVU renderer owned. It was replaced by the
-#: Textual application: the shell owns the loop, Textual owns key decoding and
-#: the screen, and command output opens in the shell's own viewer. Finding any of
-#: these back in the TUI package is a re-introduction, not a coincidence.
+#: The vocabulary of deleted full-screen renderers. Finding any of these in the
+#: interactive CLI package is a re-introduction, not a coincidence.
 LEGACY_TUI_SYMBOLS: Final[frozenset[str]] = frozenset(
     {
         "KeyDecoder",

@@ -102,7 +102,7 @@ Context exists at two levels:
 - `~/.superagent/sessions/<session-id>/events.jsonl` is the durable event log used to rebuild history.
 
 `runtime/session/snapshot_emitter.py` watches engine snapshots, forwards newly appended messages to the
-TUI, and persists them through `Repository`. It tracks how far it has emitted so nothing is written
+interactive CLI, and persists them through `Repository`. It tracks how far it has emitted so nothing is written
 twice.
 
 ```text

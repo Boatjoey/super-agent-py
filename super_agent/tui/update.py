@@ -88,9 +88,7 @@ def resize(app: App, message: runtime.WindowSizeMsg) -> tuple[App, tuple[runtime
     app.ready = True
     app.composer.set_width(app.width)
     app.composer.set_compact_palette(app.height < 18)
-    # The transcript is not told the terminal width here: it measures itself
-    # against the width its pane actually has, which is what its content is
-    # wrapped for. See ``TranscriptScreen._take_width``.
+    app.transcript.set_width(app.width)
     return app, ()
 
 

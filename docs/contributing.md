@@ -55,23 +55,22 @@ network: only the model provider is faked. It checks, in order:
 3. an invalid approval mode, and `--yolo` together with `--approval-mode`, both exit `1`;
 4. a missing provider credential exits `1` and names the variable to set;
 5. a prompt produces a streamed reply in the transcript;
-6. a window resize mid-session redraws within the new width;
+6. a window resize mid-session keeps subsequent output within the new width;
 7. Ctrl+C during a turn cancels it and leaves the loop usable, while Ctrl+C with nothing in flight
    quits;
 8. `/clear`, `/compact`, and `/undo` each run to completion and leave the session usable.
+9. typing `/` displays the live command list, and a Chinese prompt reaches the model intact.
 
 Two properties the smoke test deliberately does not assert, and where the assertion lives instead:
 **transcript surgery** (`/compact` keeping the newest turns and widening a leading tool result,
 `/undo` restoring files before truncating history, a reset keeping `system` messages) is pinned by
 the session tests, which can inspect the result precisely; and **interaction and rendering** are
-pinned by Textual pilot tests at fixed terminal sizes. They cover focus, submission, viewport
-scrolling, modal approval, and terminal-width layout. The smoke test only proves those paths are
-reachable and non-destructive through the real interface.
+pinned by `TerminalApplication` tests over injected input and captured normal output. The smoke test
+only proves those paths are reachable and non-destructive through the real interface.
 
-What remains genuinely manual, and why: colour and layout legibility; Linux terminal, tmux, and SSH
-behaviour; bracketed paste; Unicode and wide glyphs; terminal-native full-screen selection and copy;
-terminal-dependent key sequences (`Shift+Enter`, `Alt+Enter`, `Ctrl+J`); and clipboard fallback. A
-visible TUI change must record the tested terminals in its pull request.
+What remains genuinely manual, and why: colour legibility; Linux terminal, tmux, and SSH behaviour;
+Unicode and wide glyphs; terminal-native selection and copy; and clipboard fallback. A visible
+interactive CLI change must record the tested terminals in its pull request.
 
 ## Concurrency
 
@@ -141,7 +140,7 @@ Three spellings of the configuration directory exist and none of them may be uni
 - Name branches by scope: `feat/session-notifications`, `fix/tool-approval`.
 - A pull request should state its purpose, the main files changed, test output, and any local config
   notes.
-- Add screenshots only for visible TUI changes.
+- Add screenshots only for visible interactive CLI changes.
 
 ## Repository Notes
 
@@ -168,7 +167,7 @@ runtime/session/             application use cases and ports
 runtime/protocol/            adapter contracts
 runtime/permission/          permission vocabulary
 runtime/telemetry/           JSONL telemetry
-tui/                         Textual inbound adapter and feature-owned widgets
+tui/                         interactive CLI adapter and feature-owned models
 llm/                         provider adapters
 tools/                       file, command, git, web, MCP, and LSP tools
 store/                       durable session storage

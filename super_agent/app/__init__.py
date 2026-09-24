@@ -31,7 +31,7 @@ from super_agent.app.config import (
     SandboxSettings as SandboxSettings,
     Settings as Settings,
     TelemetrySettings as TelemetrySettings,
-    TUISettings as TUISettings,
+    TerminalSettings as TerminalSettings,
     default_settings as default_settings,
     load_config as load_config,
     load_settings as load_settings,
@@ -63,8 +63,8 @@ from super_agent.app.session import (
 )
 from super_agent.app.system_prompt import SYSTEM_PROMPT as SYSTEM_PROMPT
 from super_agent.app.tui_adapter import (
-    TUIConversation as TUIConversation,
-    new_tui_conversation as new_tui_conversation,
+    TerminalConversation as TerminalConversation,
+    new_terminal_conversation as new_terminal_conversation,
 )
 from super_agent.app.workflows import WorkflowController as WorkflowController
 
@@ -85,9 +85,9 @@ __all__ = [
     "PluginManifest",
     "SandboxSettings",
     "Settings",
-    "TUIConversation",
-    "TUISettings",
     "TelemetrySettings",
+    "TerminalConversation",
+    "TerminalSettings",
     "WorkflowController",
     "default_settings",
     "load_config",
@@ -98,7 +98,7 @@ __all__ = [
     "new_session",
     "new_session_with_extensions",
     "new_session_with_mcp",
-    "new_tui_conversation",
+    "new_terminal_conversation",
     "save_settings_file",
     "settings_path",
     "waitPendingClosers",

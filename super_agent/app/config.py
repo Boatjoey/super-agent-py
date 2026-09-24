@@ -42,7 +42,6 @@ from super_agent.runtime.execution import ZERO_PERMISSION_MODE
 from super_agent.tools.lsp import ServerConfig as LSPServerConfig
 from super_agent.tools.mcp import ServerConfig as MCPServerConfig
 from super_agent.tools.sandbox import SandboxConfig, SandboxMode, valid_sandbox_mode
-from super_agent.tui.statusline import DEFAULT_ORDER, ITEMS
 from super_agent.workspace import Context, new_default_context
 
 __all__ = [
@@ -55,8 +54,8 @@ __all__ = [
     "PermissionSettings",
     "SandboxSettings",
     "Settings",
-    "TUISettings",
     "TelemetrySettings",
+    "TerminalSettings",
     "apikeyPlaceholder",
     "decodeExtensions",
     "default_settings",
@@ -82,6 +81,19 @@ USER_CONFIG_DIRECTORY: Final[str] = ".superagent"
 #: It is not a credential, so it is treated as unset.
 CLAUDE_PLACEHOLDER: Final[str] = "sk-ant-..."
 DEFAULT_PLACEHOLDER: Final[str] = "sk-..."
+
+#: Legacy ``tui.status_line`` values remain valid on disk even though the
+#: interactive CLI has no fixed footer.
+ITEMS: Final[tuple[str, ...]] = (
+    "model",
+    "approval",
+    "context_usage",
+    "session_id",
+    "sandbox",
+    "cwd",
+    "spinner",
+)
+DEFAULT_ORDER: Final[tuple[str, ...]] = ("model", "approval", "context_usage")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -166,14 +178,8 @@ class PermissionSettings:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class TUISettings:
-    """The ``tui`` block of ``settings.json``.
-
-    ``status_line`` defaults to the order ``docs/config.md`` documents rather
-    than to ``None``, and that is what keeps an absent key and an explicit
-    ``null`` two different values: absent draws the default row, ``null`` removes
-    it. A list draws exactly the items it names.
-    """
+class TerminalSettings:
+    """The legacy ``tui`` block of ``settings.json``."""
 
     status_line: tuple[str, ...] | None = DEFAULT_ORDER
 
@@ -210,7 +216,7 @@ class Settings:
     telemetry: TelemetrySettings = dataclasses.field(
         default_factory=TelemetrySettings, metadata=json_field(name="telemetry")
     )
-    tui: TUISettings = dataclasses.field(default_factory=TUISettings, metadata=json_field(name="tui"))
+    tui: TerminalSettings = dataclasses.field(default_factory=TerminalSettings, metadata=json_field(name="tui"))
 
 
 @dataclasses.dataclass(slots=True)
@@ -238,9 +244,7 @@ class Config:
     agent: str = ""
     extensions: Extensions = dataclasses.field(default_factory=Extensions)
     telemetry_path: str = ""
-    #: The validated ``tui.status_line``: the documented default order when the
-    #: setting is absent, and the empty tuple when it is ``null``, which removes
-    #: the row. Both are values, so the two cases stay different here too.
+    #: The validated legacy ``tui.status_line`` value.
     status_line: tuple[str, ...] = DEFAULT_ORDER
     project: project.Project = dataclasses.field(default_factory=project.Project)
     workspace: Context | None = None
@@ -428,13 +432,11 @@ def resolveProviderConfig(settings: Settings, provider: str, lookup: Lookup) -> 
 
 
 def resolve_status_line(items: tuple[str, ...] | None) -> tuple[str, ...]:
-    """The validated ``tui.status_line``, with ``null`` resolved to "no row".
+    """Validate the retained ``tui.status_line`` setting.
 
     An item outside the vocabulary fails the load here rather than being dropped
-    when the row is drawn, because a setting that silently does nothing is worse
-    than one the user is told about. ``null`` arrives as ``None`` and becomes the
-    empty tuple — a row with no items — which is a value and not the absence of
-    the key; an absent key draws the default order.
+    during configuration loading. ``null`` arrives as ``None`` and becomes an
+    empty tuple; an absent key retains the historical default.
     """
     if items is None:
         return ()
@@ -535,7 +537,7 @@ def normalizeSettings(settings: Settings) -> Settings:
         mcp_servers=settings.mcp_servers or {},
         extensions=settings.extensions or ExtensionSettings(),
         telemetry=settings.telemetry or TelemetrySettings(),
-        tui=settings.tui or TUISettings(),
+        tui=settings.tui or TerminalSettings(),
         agent=settings.agent or "build",
         permissions=dataclasses.replace(
             permissions,
